@@ -1,0 +1,9 @@
+build/
+out/
+cmake-build-*/
+.DS_Store
+*.user
+*.VC.db
+*.VC.VC.opendb
+compile_commands.json
+game_save.txt
