@@ -8,14 +8,19 @@ namespace game {
 
 int CombatEngine::base_damage_for(Action action) const {
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
+        return 7;
+    case Action::Cross:
         return 10;
-    case Action::HeavyAttack:
-        return 18;
-    case Action::Parry:
-        return 4;
-    case Action::Heal:
-        return -12;
+    case Action::LeftBody:
+    case Action::RightBody:
+        return 11;
+    case Action::LeftHook:
+    case Action::RightHook:
+        return 12;
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        return 15;
     default:
         return 0;
     }
@@ -29,25 +34,27 @@ int clamp_value(int value, int minimum, int maximum) {
 
 int stamina_cost(Action action) {
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
+        return 7;
+    case Action::Cross:
         return 10;
-    case Action::HeavyAttack:
-        return 18;
-    case Action::Defend:
+    case Action::LeftBody:
+    case Action::RightBody:
+        return 10;
+    case Action::LeftHook:
+    case Action::RightHook:
+        return 11;
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        return 13;
+    case Action::Guard:
         return 6;
-    case Action::Dodge:
-        return 12;
-    case Action::Parry:
-        return 8;
-    case Action::Retreat:
-    case Action::Approach:
+    case Action::DuckLeft:
+    case Action::DuckRight:
         return 5;
-    case Action::Dash:
-        return 10;
-    case Action::Jump:
-        return 6;
-    case Action::Heal:
-        return 0;
+    case Action::StepBack:
+    case Action::StepForward:
+        return 5;
     case Action::Wait:
     case Action::Count:
         return 0;
@@ -78,7 +85,7 @@ void sync_distance(BattleState& state) {
 void apply_movement(BattleState& state, Character& character, int dx, int dy) {
     character.x = clamp_value(character.x + dx, 0, state.board_width - 1);
     character.y = clamp_value(character.y + dy, 0, state.board_height - 1);
-    character.set_motion(MotionState::Move, 1);
+    character.set_motion(MotionState::Move, 2);
 }
 
 std::pair<int, int> enemy_step_toward(const BattleState& state) {
@@ -119,7 +126,7 @@ CombatResult CombatEngine::resolve_turn(BattleState& state, AIAgent& ai, Action 
     result.player_dx = player_dx;
     result.player_dy = player_dy;
 
-    if (player_action == Action::Dodge) {
+    if (player_action == Action::DuckLeft || player_action == Action::DuckRight) {
         player_dx += (state.player.x < state.enemy.x) ? -1 : 1;
         player_dy += (state.player.y < state.enemy.y) ? -1 : 1;
     }
@@ -127,18 +134,16 @@ CombatResult CombatEngine::resolve_turn(BattleState& state, AIAgent& ai, Action 
     apply_movement(state, state.player, player_dx, player_dy);
     state.player.last_action = player_action;
 
-    if (player_action == Action::Attack) {
+    if (player_action == Action::Jab) {
         state.player.set_motion(MotionState::Attack, 1);
-    } else if (player_action == Action::HeavyAttack) {
+    } else if (player_action == Action::Cross || player_action == Action::LeftUppercut || player_action == Action::RightUppercut) {
         state.player.set_motion(MotionState::HeavyAttack, 2);
-    } else if (player_action == Action::Defend) {
+    } else if (player_action == Action::Guard) {
         state.player.set_motion(MotionState::Defend, 1);
-    } else if (player_action == Action::Dodge) {
+    } else if (player_action == Action::DuckLeft || player_action == Action::DuckRight) {
         state.player.set_motion(MotionState::Dodge, 1);
-    } else if (player_action == Action::Parry) {
-        state.player.set_motion(MotionState::Parry, 1);
-    } else if (player_action == Action::Heal) {
-        state.player.set_motion(MotionState::Heal, 1);
+    } else if (player_action == Action::StepBack || player_action == Action::StepForward) {
+        state.player.set_motion(MotionState::Move, 1);
     }
 
     sync_distance(state);
@@ -147,11 +152,11 @@ CombatResult CombatEngine::resolve_turn(BattleState& state, AIAgent& ai, Action 
     result.enemy_action = enemy_action;
 
     auto enemy_move = std::pair<int, int>{0, 0};
-    if (enemy_action == Action::Approach) {
+    if (enemy_action == Action::StepForward) {
         enemy_move = enemy_step_toward(state);
-    } else if (enemy_action == Action::Retreat) {
+    } else if (enemy_action == Action::StepBack) {
         enemy_move = enemy_step_away(state);
-    } else if (enemy_action == Action::Dodge) {
+    } else if (enemy_action == Action::DuckLeft || enemy_action == Action::DuckRight) {
         enemy_move = enemy_step_strafe(state);
     }
 
@@ -161,18 +166,16 @@ CombatResult CombatEngine::resolve_turn(BattleState& state, AIAgent& ai, Action 
     apply_movement(state, state.enemy, result.enemy_dx, result.enemy_dy);
     state.enemy.last_action = enemy_action;
 
-    if (enemy_action == Action::Attack) {
+    if (enemy_action == Action::Jab) {
         state.enemy.set_motion(MotionState::Attack, 1);
-    } else if (enemy_action == Action::HeavyAttack) {
+    } else if (enemy_action == Action::Cross || enemy_action == Action::LeftUppercut || enemy_action == Action::RightUppercut) {
         state.enemy.set_motion(MotionState::HeavyAttack, 2);
-    } else if (enemy_action == Action::Defend) {
+    } else if (enemy_action == Action::Guard) {
         state.enemy.set_motion(MotionState::Defend, 1);
-    } else if (enemy_action == Action::Dodge) {
+    } else if (enemy_action == Action::DuckLeft || enemy_action == Action::DuckRight) {
         state.enemy.set_motion(MotionState::Dodge, 1);
-    } else if (enemy_action == Action::Parry) {
-        state.enemy.set_motion(MotionState::Parry, 1);
-    } else if (enemy_action == Action::Heal) {
-        state.enemy.set_motion(MotionState::Heal, 1);
+    } else if (enemy_action == Action::StepBack || enemy_action == Action::StepForward) {
+        state.enemy.set_motion(MotionState::Move, 1);
     }
 
     sync_distance(state);
@@ -187,54 +190,47 @@ CombatResult CombatEngine::resolve_turn(BattleState& state, AIAgent& ai, Action 
         state.enemy.stamina = std::min(state.max_stamina, state.enemy.stamina + 6);
     }
 
-    if (player_action == Action::Heal) {
-        state.player.hp = std::min(state.max_hp, state.player.hp + 12);
-    }
-    if (enemy_action == Action::Heal) {
-        state.enemy.hp = std::min(state.max_hp, state.enemy.hp + 12);
-    }
-
     const auto player_base = base_damage_for(player_action);
     const auto enemy_base = base_damage_for(enemy_action);
 
-    if (player_action == Action::Attack || player_action == Action::HeavyAttack) {
-        if (is_close_range(state) && enemy_action != Action::Defend && enemy_action != Action::Dodge && enemy_action != Action::Parry) {
+    if (player_action == Action::Jab || player_action == Action::Cross || player_action == Action::LeftBody || player_action == Action::RightBody || player_action == Action::LeftHook || player_action == Action::RightHook || player_action == Action::LeftUppercut || player_action == Action::RightUppercut) {
+        if (is_close_range(state) && enemy_action != Action::Guard && enemy_action != Action::DuckLeft && enemy_action != Action::DuckRight) {
             result.enemy_damage = player_base;
-        } else if (enemy_action == Action::Parry && is_close_range(state)) {
+        } else if (enemy_action == Action::Guard && is_close_range(state)) {
             result.player_damage += 4;
-        } else if (player_action == Action::HeavyAttack && is_far_range(state)) {
+        } else if ((player_action == Action::Cross || player_action == Action::LeftUppercut || player_action == Action::RightUppercut) && is_far_range(state)) {
             result.enemy_damage = 0;
         }
     }
 
-    if (enemy_action == Action::Attack || enemy_action == Action::HeavyAttack) {
-        if (is_close_range(state) && player_action != Action::Defend && player_action != Action::Dodge && player_action != Action::Parry) {
+    if (enemy_action == Action::Jab || enemy_action == Action::Cross || enemy_action == Action::LeftBody || enemy_action == Action::RightBody || enemy_action == Action::LeftHook || enemy_action == Action::RightHook || enemy_action == Action::LeftUppercut || enemy_action == Action::RightUppercut) {
+        if (is_close_range(state) && player_action != Action::Guard && player_action != Action::DuckLeft && player_action != Action::DuckRight) {
             result.player_damage = enemy_base;
-        } else if (player_action == Action::Parry && is_close_range(state)) {
+        } else if (player_action == Action::Guard && is_close_range(state)) {
             result.enemy_damage += 4;
-        } else if (enemy_action == Action::HeavyAttack && is_far_range(state)) {
+        } else if ((enemy_action == Action::Cross || enemy_action == Action::LeftUppercut || enemy_action == Action::RightUppercut) && is_far_range(state)) {
             result.player_damage = 0;
         }
     }
 
-    if (player_action == Action::HeavyAttack && enemy_action == Action::Dodge && is_mid_range(state)) {
+    if ((player_action == Action::Cross || player_action == Action::LeftUppercut || player_action == Action::RightUppercut) && (enemy_action == Action::DuckLeft || enemy_action == Action::DuckRight) && is_mid_range(state)) {
         result.enemy_damage = 0;
     }
-    if (enemy_action == Action::HeavyAttack && player_action == Action::Dodge && is_mid_range(state)) {
+    if ((enemy_action == Action::Cross || enemy_action == Action::LeftUppercut || enemy_action == Action::RightUppercut) && (player_action == Action::DuckLeft || player_action == Action::DuckRight) && is_mid_range(state)) {
         result.player_damage = 0;
     }
 
-    if (player_action == Action::Defend) {
+    if (player_action == Action::Guard) {
         result.player_damage = std::max(0, result.player_damage - 4);
     }
-    if (enemy_action == Action::Defend) {
+    if (enemy_action == Action::Guard) {
         result.enemy_damage = std::max(0, result.enemy_damage - 4);
     }
 
-    if (player_action == Action::Dodge && result.player_damage == 0) {
+    if ((player_action == Action::DuckLeft || player_action == Action::DuckRight) && result.player_damage == 0) {
         state.distance = std::min(4, state.distance + 1);
     }
-    if (enemy_action == Action::Dodge && result.enemy_damage == 0) {
+    if ((enemy_action == Action::DuckLeft || enemy_action == Action::DuckRight) && result.enemy_damage == 0) {
         state.distance = std::max(0, state.distance - 1);
     }
 

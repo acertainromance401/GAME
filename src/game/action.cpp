@@ -4,16 +4,19 @@ namespace game {
 
 std::string_view to_string(Action action) {
     static constexpr std::array<std::string_view, action_count()> names = {
-        "Attack",
-        "HeavyAttack",
-        "Defend",
-        "Dodge",
-        "Parry",
-        "Retreat",
-        "Approach",
-        "Heal",
-        "Dash",
-        "Jump",
+        "Jab",
+        "Cross",
+        "LeftBody",
+        "RightHook",
+        "LeftHook",
+        "RightBody",
+        "LeftUppercut",
+        "RightUppercut",
+        "Guard",
+        "DuckLeft",
+        "DuckRight",
+        "StepBack",
+        "StepForward",
         "Wait"
     };
 

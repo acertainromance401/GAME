@@ -15,28 +15,36 @@ namespace game {
 
 namespace {
 
+Action parse_combo_action(const std::string& prefix, const std::string& suffix);
+
 std::string boxing_action_label(Action action) {
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
         return "잽";
-    case Action::HeavyAttack:
+    case Action::Cross:
         return "스트레이트";
-    case Action::Defend:
+    case Action::LeftBody:
+        return "레프트 바디";
+    case Action::RightHook:
+        return "라이트 훅";
+    case Action::LeftHook:
+        return "레프트 훅";
+    case Action::RightBody:
+        return "라이트 바디";
+    case Action::LeftUppercut:
+        return "레프트 어퍼컷";
+    case Action::RightUppercut:
+        return "라이트 어퍼컷";
+    case Action::Guard:
         return "가드";
-    case Action::Dodge:
-        return "슬립";
-    case Action::Parry:
-        return "블록";
-    case Action::Retreat:
+    case Action::DuckLeft:
+        return "왼쪽 덕킹";
+    case Action::DuckRight:
+        return "오른쪽 덕킹";
+    case Action::StepBack:
         return "스텝 아웃";
-    case Action::Approach:
+    case Action::StepForward:
         return "스텝 인";
-    case Action::Heal:
-        return "호흡 고르기";
-    case Action::Dash:
-        return "돌진";
-    case Action::Jump:
-        return "더킹";
     case Action::Wait:
     case Action::Count:
         return "대기";
@@ -46,37 +54,47 @@ std::string boxing_action_label(Action action) {
 }
 
 Action parse_action(const std::string& command) {
-    if (command == "a" || command == "jab" || command == "attack") {
-        return Action::Attack;
-    }
-    if (command == "s" || command == "cross" || command == "heavy" || command == "heavyattack") {
-        return Action::HeavyAttack;
-    }
-    if (command == "d" || command == "defend" || command == "guard") {
-        return Action::Defend;
-    }
-    if (command == "space" || command == "slip" || command == "dod" || command == "dodge") {
-        return Action::Dodge;
-    }
-    if (command == "f" || command == "block" || command == "parry") {
-        return Action::Parry;
-    }
-    if (command == "u" || command == "back" || command == "retreat") {
-        return Action::Retreat;
-    }
-    if (command == "o" || command == "in" || command == "approach") {
-        return Action::Approach;
-    }
-    if (command == "h" || command == "recover" || command == "heal") {
-        return Action::Heal;
-    }
-    if (command == "z" || command == "rush" || command == "dash") {
-        return Action::Dash;
-    }
-    if (command == "x" || command == "duck" || command == "jump") {
-        return Action::Jump;
+    const auto plus = command.find('+');
+    if (plus != std::string::npos) {
+        const auto combo = parse_combo_action(command.substr(0, plus), command.substr(plus + 1));
+        if (combo != Action::Wait) {
+            return combo;
+        }
     }
 
+    if (command == "a") return Action::Jab;
+    if (command == "d") return Action::Cross;
+    if (command == "q+a") return Action::LeftBody;
+    if (command == "q+d") return Action::RightHook;
+    if (command == "e+a") return Action::LeftHook;
+    if (command == "e+d") return Action::RightBody;
+    if (command == "w+a") return Action::LeftUppercut;
+    if (command == "w+d") return Action::RightUppercut;
+    if (command == "w") return Action::Guard;
+    if (command == "q") return Action::DuckLeft;
+    if (command == "e") return Action::DuckRight;
+    if (command == "u") return Action::StepBack;
+    if (command == "o") return Action::StepForward;
+    if (command == "space" || command == "wait") return Action::Wait;
+
+    return Action::Wait;
+}
+
+bool is_combo_prefix(const std::string& key) {
+    return key == "q" || key == "e" || key == "w";
+}
+
+bool is_combo_suffix(const std::string& key) {
+    return key == "a" || key == "d";
+}
+
+Action parse_combo_action(const std::string& prefix, const std::string& suffix) {
+    if (prefix == "q" && suffix == "a") return Action::LeftBody;
+    if (prefix == "q" && suffix == "d") return Action::RightHook;
+    if (prefix == "e" && suffix == "a") return Action::LeftHook;
+    if (prefix == "e" && suffix == "d") return Action::RightBody;
+    if (prefix == "w" && suffix == "a") return Action::LeftUppercut;
+    if (prefix == "w" && suffix == "d") return Action::RightUppercut;
     return Action::Wait;
 }
 
@@ -89,25 +107,27 @@ bool can_take_damage(const Character& character);
 
 int stamina_cost(Action action) {
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
+        return 7;
+    case Action::Cross:
         return 10;
-    case Action::HeavyAttack:
-        return 18;
-    case Action::Defend:
+    case Action::LeftBody:
+    case Action::RightBody:
+        return 10;
+    case Action::LeftHook:
+    case Action::RightHook:
+        return 11;
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        return 13;
+    case Action::Guard:
         return 6;
-    case Action::Dodge:
-        return 12;
-    case Action::Parry:
-        return 8;
-    case Action::Retreat:
-    case Action::Approach:
+    case Action::DuckLeft:
+    case Action::DuckRight:
         return 5;
-    case Action::Heal:
-        return 0;
-    case Action::Dash:
-        return 10;
-    case Action::Jump:
-        return 6;
+    case Action::StepBack:
+    case Action::StepForward:
+        return 5;
     case Action::Wait:
     case Action::Count:
         return 0;
@@ -118,10 +138,19 @@ int stamina_cost(Action action) {
 
 int attack_reach(Action action) {
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
+        return 4;
+    case Action::Cross:
         return 3;
-    case Action::HeavyAttack:
+    case Action::LeftBody:
+    case Action::RightBody:
         return 2;
+    case Action::LeftHook:
+    case Action::RightHook:
+        return 2;
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        return 1;
     default:
         return 0;
     }
@@ -129,10 +158,19 @@ int attack_reach(Action action) {
 
 int attack_damage(Action action) {
     switch (action) {
-    case Action::Attack:
-        return 9;
-    case Action::HeavyAttack:
-        return 16;
+    case Action::Jab:
+        return 7;
+    case Action::Cross:
+        return 10;
+    case Action::LeftBody:
+    case Action::RightBody:
+        return 11;
+    case Action::LeftHook:
+    case Action::RightHook:
+        return 12;
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        return 15;
     default:
         return 0;
     }
@@ -140,10 +178,17 @@ int attack_damage(Action action) {
 
 int attack_knockback(Action action) {
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
         return 1;
-    case Action::HeavyAttack:
+    case Action::Cross:
+    case Action::LeftBody:
+    case Action::RightBody:
         return 2;
+    case Action::LeftHook:
+    case Action::RightHook:
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        return 3;
     default:
         return 0;
     }
@@ -155,15 +200,14 @@ bool is_pressure_range(const BattleState& state) {
 
 double defense_multiplier(const Character& target, Action attack_action, int distance) {
     switch (target.last_action) {
-    case Action::Parry:
-        return attack_action == Action::Attack ? 0.15 : 0.4;
-    case Action::Defend:
-        return 0.45;
-    case Action::Dodge:
+    case Action::Guard:
+        return attack_action == Action::LeftUppercut || attack_action == Action::RightUppercut ? 0.55 : 0.35;
+    case Action::DuckLeft:
+    case Action::DuckRight:
         if (distance <= 2) {
-            return attack_action == Action::HeavyAttack ? 0.35 : 0.0;
+            return attack_action == Action::LeftBody || attack_action == Action::RightBody ? 0.15 : 0.0;
         }
-        return 0.2;
+        return 0.25;
     default:
         return 1.0;
     }
@@ -222,29 +266,30 @@ std::string round_banner(const BattleState& state) {
 
 void apply_motion(Character& character, Action action) {
     switch (action) {
-    case Action::Attack:
-        character.set_motion(MotionState::Attack, 2);
+    case Action::Jab:
+        character.set_motion(MotionState::Attack, 1);
         break;
-    case Action::HeavyAttack:
-        character.set_motion(MotionState::HeavyAttack, 3);
+    case Action::Cross:
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
+        character.set_motion(MotionState::HeavyAttack, 2);
         break;
-    case Action::Dash:
-        character.set_motion(MotionState::Dash, 2);
+    case Action::LeftBody:
+    case Action::RightBody:
+    case Action::LeftHook:
+    case Action::RightHook:
+        character.set_motion(MotionState::Attack, 1);
         break;
-    case Action::Jump:
-        character.set_motion(MotionState::Jump, 3);
+    case Action::Guard:
+        character.set_motion(MotionState::Defend, 1);
         break;
-    case Action::Defend:
-        character.set_motion(MotionState::Defend, 2);
+    case Action::DuckLeft:
+    case Action::DuckRight:
+        character.set_motion(MotionState::Dodge, 1);
         break;
-    case Action::Dodge:
-        character.set_motion(MotionState::Dodge, 2);
-        break;
-    case Action::Parry:
-        character.set_motion(MotionState::Parry, 1);
-        break;
-    case Action::Heal:
-        character.set_motion(MotionState::Heal, 2);
+    case Action::StepBack:
+    case Action::StepForward:
+        character.set_motion(MotionState::Move, 2);
         break;
     default:
         character.set_motion(MotionState::Idle, 1);
@@ -254,21 +299,6 @@ void apply_motion(Character& character, Action action) {
 
 void begin_attack(Character& character, MotionState motion, int windup_ticks, int recovery_ticks) {
     character.start_attack(motion, windup_ticks, recovery_ticks);
-}
-
-void begin_dash(Character& character, BattleState& state, int dx, int dy) {
-    character.prev_x = character.x;
-    character.prev_y = character.y;
-    character.start_dash(1);
-    character.x = clamp_position(character.x + dx * 4, state.board_width);
-    character.y = clamp_position(character.y + dy * 2, state.board_height);
-    sync_distance(state);
-}
-
-void begin_jump(Character& character) {
-    character.prev_x = character.x;
-    character.prev_y = character.y;
-    character.start_jump(2);
 }
 
 bool can_take_damage(const Character& character) {
@@ -306,48 +336,70 @@ void apply_knockback(BattleState& state, Character& target, const Character& sou
     sync_distance(state);
 }
 
-void move_character(BattleState& state, Character& character, int dx, int dy) {
+std::pair<int, int> normalize_offset(int dx, int dy) {
+    if (dx == 0 && dy == 0) {
+        return {1, 0};
+    }
+
+    return {dx == 0 ? 0 : (dx > 0 ? 1 : -1), dy == 0 ? 0 : (dy > 0 ? 1 : -1)};
+}
+
+void move_orbit_left(BattleState& state, Character& character, const Character& pivot) {
     character.prev_x = character.x;
     character.prev_y = character.y;
-    character.x = clamp_position(character.x + dx, state.board_width);
-    character.y = clamp_position(character.y + dy, state.board_height);
-    character.set_motion(MotionState::Move, 1);
+
+    const auto dx = character.x - pivot.x;
+    const auto dy = character.y - pivot.y;
+    const auto next_dx = -dy == 0 && dx == 0 ? 1 : -dy;
+    const auto next_dy = dx;
+
+    character.x = clamp_position(pivot.x + next_dx, state.board_width);
+    character.y = clamp_position(pivot.y + next_dy, state.board_height);
+    character.set_motion(MotionState::Move, 2);
     sync_distance(state);
 }
 
-std::pair<int, int> direction_delta(const std::string& key) {
-    if (key == "up") {
-        return {0, -1};
-    }
-    if (key == "down") {
-        return {0, 1};
-    }
-    if (key == "left") {
-        return {-1, 0};
-    }
-    if (key == "right") {
-        return {1, 0};
-    }
-    if (key == "i") {
-        return {0, -1};
-    }
-    if (key == "k") {
-        return {0, 1};
-    }
-    if (key == "j") {
-        return {-1, 0};
-    }
-    if (key == "l") {
-        return {1, 0};
-    }
-    if (key == "u") {
-        return {-1, 0};
-    }
-    if (key == "o") {
-        return {1, 0};
-    }
+void move_orbit_right(BattleState& state, Character& character, const Character& pivot) {
+    character.prev_x = character.x;
+    character.prev_y = character.y;
 
-    return {0, 0};
+    const auto dx = character.x - pivot.x;
+    const auto dy = character.y - pivot.y;
+    const auto next_dx = dy == 0 && dx == 0 ? 1 : dy;
+    const auto next_dy = -dx;
+
+    character.x = clamp_position(pivot.x + next_dx, state.board_width);
+    character.y = clamp_position(pivot.y + next_dy, state.board_height);
+    character.set_motion(MotionState::Move, 2);
+    sync_distance(state);
+}
+
+void move_away_from(BattleState& state, Character& character, const Character& pivot, int step = 1) {
+    character.prev_x = character.x;
+    character.prev_y = character.y;
+
+    const auto dx = character.x - pivot.x;
+    const auto dy = character.y - pivot.y;
+    const auto [step_x, step_y] = normalize_offset(dx, dy);
+
+    character.x = clamp_position(character.x + step_x * step, state.board_width);
+    character.y = clamp_position(character.y + step_y * step, state.board_height);
+    character.set_motion(MotionState::Move, 2);
+    sync_distance(state);
+}
+
+void move_toward(BattleState& state, Character& character, const Character& pivot, int step = 1) {
+    character.prev_x = character.x;
+    character.prev_y = character.y;
+
+    const auto dx = character.x - pivot.x;
+    const auto dy = character.y - pivot.y;
+    const auto [step_x, step_y] = normalize_offset(dx, dy);
+
+    character.x = clamp_position(character.x - step_x * step, state.board_width);
+    character.y = clamp_position(character.y - step_y * step, state.board_height);
+    character.set_motion(MotionState::Move, 2);
+    sync_distance(state);
 }
 
 void sync_distance(BattleState& state) {
@@ -357,26 +409,16 @@ void sync_distance(BattleState& state) {
 }
 
 void step_toward_player(BattleState& state) {
-    const auto dx = state.player.x - state.enemy.x;
-    const auto dy = state.player.y - state.enemy.y;
-
-    if (std::abs(dx) >= std::abs(dy)) {
-        state.enemy.x += dx == 0 ? 0 : (dx > 0 ? 1 : -1);
-    } else {
-        state.enemy.y += dy == 0 ? 0 : (dy > 0 ? 1 : -1);
-    }
-
-    state.enemy.clamp_to_bounds(state.board_width, state.board_height);
-    state.enemy.set_motion(MotionState::Move, 1);
-    sync_distance(state);
+    move_toward(state, state.enemy, state.player, 1);
 }
 
-std::pair<int, int> enemy_step_circle(const BattleState& state) {
-    if ((state.enemy.x + state.enemy.y + state.elapsed_turns) % 2 == 0) {
-        return {0, state.enemy.y < state.board_height - 1 ? 1 : -1};
+void enemy_step_circle(BattleState& state) {
+    if ((state.elapsed_turns / 2) % 2 == 0) {
+        move_orbit_left(state, state.enemy, state.player);
+        return;
     }
 
-    return {state.enemy.x < state.player.x ? 1 : -1, 0};
+    move_orbit_right(state, state.enemy, state.player);
 }
 
 } // namespace
@@ -433,7 +475,7 @@ void GameSession::advance_round() {
 
 void GameSession::push_log(std::string message) {
     log_entries_.push_back(std::move(message));
-    if (log_entries_.size() > 6) {
+    if (log_entries_.size() > 4) {
         log_entries_.erase(log_entries_.begin());
     }
 }
@@ -472,7 +514,7 @@ void GameSession::move_player(int dx, int dy) {
     state_.player.prev_y = state_.player.y;
     state_.player.x = clamp_position(state_.player.x + dx, state_.board_width);
     state_.player.y = clamp_position(state_.player.y + dy, state_.board_height);
-    state_.player.set_motion(MotionState::Move, 1);
+    state_.player.set_motion(MotionState::Move, 2);
     sync_distance(state_);
 }
 
@@ -490,44 +532,62 @@ void GameSession::apply_player_action(Action action) {
     player_profile_.record_action(action);
 
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
         apply_motion(state_.player, action);
-        begin_attack(state_.player, MotionState::Attack, 1, 1);
+        begin_attack(state_.player, MotionState::Attack, 1, 0);
         push_log("플레이어가 잽을 보냅니다.");
         break;
-    case Action::HeavyAttack:
+    case Action::Cross:
         apply_motion(state_.player, action);
-        begin_attack(state_.player, MotionState::HeavyAttack, 2, 3);
+        begin_attack(state_.player, MotionState::HeavyAttack, 2, 1);
         push_log("플레이어가 스트레이트를 준비합니다.");
         break;
-    case Action::Dash:
+    case Action::LeftBody:
         apply_motion(state_.player, action);
-        begin_dash(state_.player, state_, state_.player.x < state_.enemy.x ? 1 : -1, 0);
+        begin_attack(state_.player, MotionState::Attack, 1, 1);
+        push_log("플레이어가 레프트 바디를 파고듭니다.");
+        break;
+    case Action::RightHook:
+        apply_motion(state_.player, action);
+        begin_attack(state_.player, MotionState::Attack, 1, 1);
+        push_log("플레이어가 라이트 훅을 휘두릅니다.");
+        break;
+    case Action::LeftHook:
+        apply_motion(state_.player, action);
+        begin_attack(state_.player, MotionState::Attack, 1, 1);
+        push_log("플레이어가 레프트 훅을 휘두릅니다.");
+        break;
+    case Action::RightBody:
+        apply_motion(state_.player, action);
+        begin_attack(state_.player, MotionState::Attack, 1, 1);
+        push_log("플레이어가 라이트 바디를 찌릅니다.");
+        break;
+    case Action::LeftUppercut:
+        apply_motion(state_.player, action);
+        begin_attack(state_.player, MotionState::HeavyAttack, 2, 2);
+        push_log("플레이어가 레프트 어퍼컷으로 턱을 노립니다.");
+        break;
+    case Action::RightUppercut:
+        apply_motion(state_.player, action);
+        begin_attack(state_.player, MotionState::HeavyAttack, 2, 2);
+        push_log("플레이어가 라이트 어퍼컷으로 턱을 노립니다.");
+        break;
+    case Action::StepBack:
+        apply_motion(state_.player, action);
+        move_away_from(state_, state_.player, state_.enemy, 2);
+        push_log("플레이어가 스텝 아웃합니다.");
+        break;
+    case Action::StepForward:
+        apply_motion(state_.player, action);
+        move_toward(state_, state_.player, state_.enemy, 2);
         push_log("플레이어가 스텝 인합니다.");
         break;
-    case Action::Jump:
+    case Action::Guard:
+    case Action::DuckLeft:
+    case Action::DuckRight:
         apply_motion(state_.player, action);
-        begin_jump(state_.player);
-        push_log("플레이어가 더킹합니다.");
-        break;
-    case Action::Defend:
-    case Action::Dodge:
-    case Action::Parry:
-    case Action::Heal:
-    case Action::Retreat:
-    case Action::Approach:
-        apply_motion(state_.player, action);
-        state_.player.action_lock_ticks = action == Action::Parry ? 1 : 2;
+        state_.player.action_lock_ticks = 1;
         state_.player.stamina = std::max(0, state_.player.stamina - stamina_cost(action));
-        if (action == Action::Heal) {
-            state_.player.hp = std::min(state_.max_hp, state_.player.hp + 12);
-            state_.player.mark_hit(1);
-        }
-        if (action == Action::Retreat) {
-            move_character(state_, state_.player, state_.player.x < state_.enemy.x ? -1 : 1, 0);
-        } else if (action == Action::Approach) {
-            move_character(state_, state_.player, state_.player.x < state_.enemy.x ? 1 : -1, 0);
-        }
         push_log(std::string("플레이어가 ") + boxing_action_label(action) + " 상태입니다.");
         break;
     case Action::Wait:
@@ -547,39 +607,46 @@ void GameSession::apply_enemy_action(Action action) {
     state_.enemy.last_action = action;
     pending_enemy_learning_state_ = state_;
     pending_enemy_learning_action_ = action;
-    pending_enemy_learning_requires_resolution_ = action == Action::Attack || action == Action::HeavyAttack;
+    pending_enemy_learning_requires_resolution_ = attack_reach(action) > 0;
 
     switch (action) {
-    case Action::Attack:
+    case Action::Jab:
+        apply_motion(state_.enemy, action);
+        begin_attack(state_.enemy, MotionState::Attack, 1, 0);
+        break;
+    case Action::Cross:
+        apply_motion(state_.enemy, action);
+        begin_attack(state_.enemy, MotionState::HeavyAttack, 2, 1);
+        break;
+    case Action::LeftBody:
+    case Action::RightBody:
         apply_motion(state_.enemy, action);
         begin_attack(state_.enemy, MotionState::Attack, 1, 1);
         break;
-    case Action::HeavyAttack:
+    case Action::LeftHook:
+    case Action::RightHook:
         apply_motion(state_.enemy, action);
-        begin_attack(state_.enemy, MotionState::HeavyAttack, 2, 3);
+        begin_attack(state_.enemy, MotionState::Attack, 1, 1);
         break;
-    case Action::Dash:
+    case Action::LeftUppercut:
+    case Action::RightUppercut:
         apply_motion(state_.enemy, action);
-        begin_dash(state_.enemy, state_, state_.enemy.x < state_.player.x ? 1 : -1, 0);
+        begin_attack(state_.enemy, MotionState::HeavyAttack, 2, 2);
         break;
-    case Action::Jump:
+    case Action::StepBack:
         apply_motion(state_.enemy, action);
-        begin_jump(state_.enemy);
+        move_away_from(state_, state_.enemy, state_.player, 2);
         break;
-    case Action::Defend:
-    case Action::Dodge:
-    case Action::Parry:
-    case Action::Heal:
-    case Action::Retreat:
-    case Action::Approach:
+    case Action::StepForward:
         apply_motion(state_.enemy, action);
-        state_.enemy.action_lock_ticks = action == Action::Parry ? 1 : 2;
+        move_toward(state_, state_.enemy, state_.player, 2);
+        break;
+    case Action::Guard:
+    case Action::DuckLeft:
+    case Action::DuckRight:
+        apply_motion(state_.enemy, action);
+        state_.enemy.action_lock_ticks = 1;
         state_.enemy.stamina = std::max(0, state_.enemy.stamina - stamina_cost(action));
-        if (action == Action::Retreat) {
-            move_character(state_, state_.enemy, state_.enemy.x < state_.player.x ? -1 : 1, 0);
-        } else if (action == Action::Approach) {
-            move_character(state_, state_.enemy, state_.enemy.x < state_.player.x ? 1 : -1, 0);
-        }
         break;
     case Action::Wait:
     case Action::Count:
@@ -672,6 +739,12 @@ void GameSession::tick_world() {
         return;
     }
 
+    if (state_.cooldown_turns > 0) {
+        --state_.cooldown_turns;
+        commit_enemy_learning_if_ready();
+        return;
+    }
+
     if (state_.player.attack_delay_ticks == 0) {
         const auto action = state_.player.last_action;
         const auto base_damage = attack_damage(action);
@@ -680,8 +753,9 @@ void GameSession::tick_world() {
             const auto damage = static_cast<int>(std::round(static_cast<double>(base_damage) * multiplier));
             if (damage > 0) {
                 apply_damage_with_flash(state_.enemy, damage);
+                state_.cooldown_turns = 2;
             }
-            if (multiplier > 0.0 && action == Action::HeavyAttack) {
+            if (multiplier > 0.0 && action != Action::Jab) {
                 apply_knockback(state_, state_.enemy, state_.player, attack_knockback(action));
             }
             if (multiplier == 0.0) {
@@ -703,8 +777,9 @@ void GameSession::tick_world() {
             const auto damage = static_cast<int>(std::round(static_cast<double>(base_damage) * multiplier));
             if (damage > 0) {
                 apply_damage_with_flash(state_.player, damage);
+                state_.cooldown_turns = 2;
             }
-            if (multiplier > 0.0 && action == Action::HeavyAttack) {
+            if (multiplier > 0.0 && action != Action::Jab) {
                 apply_knockback(state_, state_.player, state_.enemy, attack_knockback(action));
             }
             if (multiplier == 0.0) {
@@ -722,14 +797,13 @@ void GameSession::tick_world() {
         auto enemy_action = ai_agent_.choose_action(state_);
 
         if (state_.distance > 4 && enemy_action == Action::Wait) {
-            enemy_action = Action::Approach;
+            enemy_action = Action::StepForward;
         } else if (is_pressure_range(state_) && enemy_action == Action::Wait) {
-            enemy_action = Action::Attack;
+            enemy_action = Action::Jab;
         }
 
         if (enemy_action == Action::Wait) {
-            const auto [dx, dy] = enemy_step_circle(state_);
-            move_character(state_, state_.enemy, dx, dy);
+            enemy_step_circle(state_);
             state_.enemy.last_action = Action::Wait;
         } else {
             apply_enemy_action(enemy_action);
@@ -743,7 +817,7 @@ void GameSession::tick_world() {
     }
 
     if (state_.distance <= 3 && state_.enemy.action_lock_ticks == 0 && world_ticks_ % 6 == 0) {
-        apply_enemy_action(state_.distance <= 2 ? Action::HeavyAttack : Action::Attack);
+        apply_enemy_action(state_.distance <= 2 ? Action::Cross : Action::Jab);
     }
 
     if (state_.enemy.hp <= 0) {
@@ -791,14 +865,31 @@ void GameSession::load() {
 
 
 void GameSession::handle_realtime_command(const std::string& key) {
-    const auto [dx, dy] = direction_delta(key);
-    if (dx != 0 || dy != 0) {
-        move_player(dx, dy);
+    if (key == "up" || key == "i") {
+        move_away_from(state_, state_.player, state_.enemy, 1);
         last_player_action_ = Action::Wait;
         return;
     }
 
-    if (key == "q" || key == "quit" || key == "exit") {
+    if (key == "down" || key == "k") {
+        move_toward(state_, state_.player, state_.enemy, 1);
+        last_player_action_ = Action::Wait;
+        return;
+    }
+
+    if (key == "left" || key == "j") {
+        move_orbit_left(state_, state_.player, state_.enemy);
+        last_player_action_ = Action::Wait;
+        return;
+    }
+
+    if (key == "right" || key == "l") {
+        move_orbit_right(state_, state_.player, state_.enemy);
+        last_player_action_ = Action::Wait;
+        return;
+    }
+
+    if (key == "escape" || key == "quit" || key == "exit") {
         running_ = false;
         return;
     }
@@ -829,7 +920,23 @@ void GameSession::handle_realtime_command(const std::string& key) {
 void GameSession::run() {
     renderer_.render(build_view());
     while (running_) {
-        const auto key = input_reader_.read_key_for(std::chrono::milliseconds(16));
+        std::string key;
+        if (pending_input_.has_value()) {
+            key = std::move(*pending_input_);
+            pending_input_.reset();
+        } else {
+            key = input_reader_.read_key_for(std::chrono::milliseconds(16));
+        }
+
+        if (is_combo_prefix(key)) {
+            const auto suffix = input_reader_.read_key_for(std::chrono::milliseconds(24));
+            if (is_combo_suffix(suffix)) {
+                key = key + "+" + suffix;
+            } else if (!suffix.empty()) {
+                pending_input_ = suffix;
+            }
+        }
+
         if (phase_ == GamePhase::Title) {
             if (!key.empty()) {
                 last_prompt_ = key;
@@ -843,7 +950,7 @@ void GameSession::run() {
         if (phase_ == GamePhase::Victory) {
             if (!key.empty()) {
                 last_prompt_ = key;
-                if (key == "q" || key == "quit" || key == "exit") {
+                if (key == "escape" || key == "quit" || key == "exit") {
                     running_ = false;
                 } else if (key == "n" || key == "new") {
                     new_game();

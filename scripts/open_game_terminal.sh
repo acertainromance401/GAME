@@ -16,6 +16,7 @@ fi
 osascript <<EOF
  tell application "Terminal"
      activate
-     do script "cd '$ROOT_DIR' && '$GAME_BIN'"
+   do script "cd '$ROOT_DIR' && '$GAME_BIN'"
+   set bounds of front window to {40, 40, 1620, 1120}
  end tell
 EOF

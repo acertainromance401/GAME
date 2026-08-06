@@ -111,12 +111,12 @@ std::string InputReader::read_key_for(std::chrono::milliseconds timeout) const {
 
     if (key.value() == '\x1b') {
         if (!wait_for_input()) {
-            return {};
+            return "escape";
         }
 
         const auto next = read_char();
         if (!next.has_value() || next.value() != '[') {
-            return {};
+            return "escape";
         }
 
         if (!wait_for_input()) {

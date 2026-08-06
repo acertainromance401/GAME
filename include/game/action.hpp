@@ -7,16 +7,19 @@
 namespace game {
 
 enum class Action : std::size_t {
-    Attack = 0,
-    HeavyAttack,
-    Defend,
-    Dodge,
-    Parry,
-    Retreat,
-    Approach,
-    Heal,
-    Dash,
-    Jump,
+    Jab = 0,
+    Cross,
+    LeftBody,
+    RightHook,
+    LeftHook,
+    RightBody,
+    LeftUppercut,
+    RightUppercut,
+    Guard,
+    DuckLeft,
+    DuckRight,
+    StepBack,
+    StepForward,
     Wait,
     Count
 };

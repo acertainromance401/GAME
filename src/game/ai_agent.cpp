@@ -130,7 +130,7 @@ Action AIAgent::choose_exploratory_action(const BattleState& state, const std::a
 
     if (probability(generator) < kExplorationRate) {
         if (state.distance > 2) {
-            return Action::Approach;
+            return Action::StepForward;
         }
         return best_action_from_values(values);
     }
@@ -141,34 +141,40 @@ Action AIAgent::choose_exploratory_action(const BattleState& state, const std::a
 
     if (predicted.has_value()) {
         switch (*predicted) {
-        case Action::Attack:
-            return round >= 5 ? Action::Dodge : Action::Defend;
-        case Action::HeavyAttack:
-            return round >= 6 ? Action::Parry : Action::Defend;
-        case Action::Dash:
-            return round >= 5 ? Action::Attack : Action::Jump;
-        case Action::Jump:
-            return round >= 6 ? Action::Attack : Action::Dash;
-        case Action::Defend:
-            return Action::Retreat;
-        case Action::Dodge:
-            return round >= 8 ? Action::HeavyAttack : Action::Attack;
-        case Action::Heal:
-            return Action::Attack;
-        case Action::Parry:
-            return round >= 5 ? Action::Dash : Action::Wait;
-        case Action::Retreat:
-            return Action::Approach;
-        case Action::Approach:
-            return round >= 6 ? Action::HeavyAttack : Action::Attack;
+        case Action::Jab:
+            return round >= 5 ? Action::DuckLeft : Action::Guard;
+        case Action::Cross:
+            return round >= 6 ? Action::DuckRight : Action::Guard;
+        case Action::LeftBody:
+            return round >= 5 ? Action::StepBack : Action::DuckLeft;
+        case Action::RightHook:
+            return round >= 6 ? Action::StepBack : Action::Guard;
+        case Action::LeftHook:
+            return round >= 5 ? Action::StepBack : Action::DuckRight;
+        case Action::RightBody:
+            return round >= 6 ? Action::StepBack : Action::Guard;
+        case Action::LeftUppercut:
+            return round >= 7 ? Action::DuckRight : Action::Guard;
+        case Action::RightUppercut:
+            return round >= 7 ? Action::DuckLeft : Action::Guard;
+        case Action::Guard:
+            return Action::StepBack;
+        case Action::DuckLeft:
+            return round >= 8 ? Action::Cross : Action::Jab;
+        case Action::DuckRight:
+            return round >= 8 ? Action::Cross : Action::Jab;
+        case Action::StepBack:
+            return Action::StepForward;
+        case Action::StepForward:
+            return round >= 6 ? Action::Cross : Action::Jab;
         case Action::Wait:
-            return round >= 3 ? Action::Dash : Action::Approach;
+            return round >= 3 ? Action::StepForward : Action::Jab;
         case Action::Count:
             break;
         }
     }
 
-    return state.distance > 2 ? Action::Approach : best_action_from_values(values);
+    return state.distance > 2 ? Action::StepForward : best_action_from_values(values);
 }
 
 Action AIAgent::choose_action(const BattleState& state) {

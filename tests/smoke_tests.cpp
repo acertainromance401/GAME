@@ -20,7 +20,7 @@ int main() {
         state.enemy.y = 4;
         state.distance = 1;
 
-        const auto result = engine.resolve_turn(state, ai, Action::Attack);
+        const auto result = engine.resolve_turn(state, ai, Action::Jab);
         if (result.enemy_damage <= 0) {
             std::cerr << "combat resolution failed\n";
             return 1;
@@ -36,9 +36,9 @@ int main() {
         data.state.player.y = 2;
         data.state.enemy.x = 14;
         data.state.enemy.y = 2;
-        data.player_profile.record_action(Action::Attack);
-        data.player_profile.record_action(Action::Defend);
-        data.ai_agent.observe_player_action(Action::Attack);
+        data.player_profile.record_action(Action::Jab);
+        data.player_profile.record_action(Action::Guard);
+        data.ai_agent.observe_player_action(Action::Jab);
 
         const auto path = std::filesystem::temp_directory_path() / "game_smoke_test_save.txt";
         if (!save_game.save(path, data)) {

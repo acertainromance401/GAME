@@ -47,6 +47,7 @@ private:
     SaveGame save_game_{};
     std::vector<std::string> log_entries_{};
     std::string last_prompt_{};
+    std::optional<std::string> pending_input_{};
     Action last_player_action_{Action::Wait};
     Action last_enemy_action_{Action::Wait};
     std::size_t world_ticks_{0};
