@@ -216,6 +216,48 @@
 
     .btn:active { transform: translateY(1px); }
 
+    .control-dock {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: stretch;
+    }
+
+    .control-dock .btn {
+      width: 100%;
+      font-size: 13px;
+      padding: 10px 8px;
+      background: linear-gradient(180deg, #d9f5ff, #72dfff);
+    }
+
+    .control-dock .btn.secondary {
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: none;
+    }
+
+    .control-dock .btn.action {
+      color: #06111e;
+      background: linear-gradient(180deg, #ffe98c, #ffc44f);
+    }
+
+    .control-dock .btn.danger {
+      color: #1d0810;
+      background: linear-gradient(180deg, #ffb0bf, #ff6f8d);
+    }
+
+    .control-dock .btn.guard {
+      color: #06111e;
+      background: linear-gradient(180deg, #a9f4ff, #6bc8ff);
+    }
+
+    .control-dock .btn:focus-visible,
+    .btn:focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
     .tiny {
       color: var(--muted);
       font-size: 12px;
@@ -266,13 +308,28 @@
     </div>
 
     <div class="canvas-wrap">
-      <canvas id="game" width="320" height="180" aria-label="Pixel Boxing Game"></canvas>
+      <canvas id="game" width="320" height="180" tabindex="0" aria-label="Pixel Boxing Game"></canvas>
       <div class="overlay show" id="overlay">
         <div class="box">
           <h2 id="overlayTitle">Press Start</h2>
           <p id="overlayText">Click the screen and press any movement key. Land jabs, cross, hooks, and guard when you need it.</p>
         </div>
       </div>
+    </div>
+
+    <div class="control-dock" aria-label="Touch and mouse controls">
+      <button class="btn secondary" id="startBtn" type="button">Start</button>
+      <button class="btn secondary" id="leftBtn" type="button">Left Orbit</button>
+      <button class="btn secondary" id="rightBtn" type="button">Right Orbit</button>
+      <button class="btn secondary" id="upBtn" type="button">Up</button>
+      <button class="btn secondary" id="downBtn" type="button">Down</button>
+      <button class="btn secondary" id="stopBtn" type="button">Stop</button>
+      <button class="btn action" id="jabBtn" type="button">Jab</button>
+      <button class="btn action" id="crossBtn" type="button">Cross</button>
+      <button class="btn action" id="hookBtn" type="button">Hook</button>
+      <button class="btn guard" id="guardBtn" type="button">Guard</button>
+      <button class="btn secondary" id="dodgeBtn" type="button">Dodge</button>
+      <button class="btn danger" id="restartBtn" type="button">Restart</button>
     </div>
 
     <div class="bottombar log-panel">
@@ -298,12 +355,25 @@
       log: document.getElementById('log'),
       overlay: document.getElementById('overlay'),
       overlayTitle: document.getElementById('overlayTitle'),
-      overlayText: document.getElementById('overlayText')
+      overlayText: document.getElementById('overlayText'),
+      startBtn: document.getElementById('startBtn'),
+      leftBtn: document.getElementById('leftBtn'),
+      rightBtn: document.getElementById('rightBtn'),
+      upBtn: document.getElementById('upBtn'),
+      downBtn: document.getElementById('downBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      jabBtn: document.getElementById('jabBtn'),
+      crossBtn: document.getElementById('crossBtn'),
+      hookBtn: document.getElementById('hookBtn'),
+      guardBtn: document.getElementById('guardBtn'),
+      dodgeBtn: document.getElementById('dodgeBtn'),
+      restartBtn: document.getElementById('restartBtn')
     };
 
     const W = 320, H = 180;
     const ring = { x: 28, y: 18, w: 264, h: 118 };
     const keys = new Set();
+    const heldControls = new Set();
     const palette = {
       sky1: '#0a1730', sky2: '#13274b', ring: '#2a3551',
       rope: '#ad6a34', rope2: '#f1c56b', mat: '#24324e', mat2: '#34466a',
@@ -369,6 +439,32 @@
       game.shake = 0;
       pushLog('New fight.');
       showOverlay(true, 'Press Start', 'Click the screen and press any movement key. Land clean shots, use guard and dodge when the enemy closes in.');
+    }
+
+    function ensureStarted() {
+      if (game.state === 'intro') {
+        game.state = 'ready';
+        showOverlay(false, '', '');
+        pushLog('Bell.');
+      }
+    }
+
+    function tapAction(action) {
+      ensureStarted();
+      if (startAction(game.player, action)) {
+        pushLog(`You used ${action}.`);
+      }
+      canvas.focus();
+    }
+
+    function setHeldControl(name, active) {
+      if (active) {
+        heldControls.add(name);
+      } else {
+        heldControls.delete(name);
+      }
+      ensureStarted();
+      canvas.focus();
     }
 
     function resetRound() {
@@ -625,7 +721,7 @@
 
     function update(dt) {
       game.clock += dt;
-      game.player.guard = keys.has('v');
+      game.player.guard = keys.has('v') || heldControls.has('guard');
       if (game.player.guard && game.player.actionTime <= 0 && game.player.hitstun <= 0) {
         game.player.action = 'guard';
       } else if (!game.player.guard && game.player.action === 'guard' && game.player.actionTime <= 0) {
@@ -634,7 +730,7 @@
 
       if (game.state === 'intro') {
         // Waiting for first action.
-        if ([...keys].some(k => ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d','z','x','c','v',' '].includes(k))) {
+        if ([...keys].some(k => ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d','z','x','c','v',' '].includes(k)) || heldControls.size > 0) {
           game.state = 'ready';
           showOverlay(false, '', '');
           pushLog('Bell.');
@@ -649,6 +745,10 @@
         else if (keys.has('x')) { startAction(game.player, 'cross'); keys.delete('x'); }
         else if (keys.has('c')) { startAction(game.player, 'hook'); keys.delete('c'); }
         else if (keys.has(' ')) { startAction(game.player, 'dodge'); keys.delete(' '); }
+        else if (heldControls.has('left')) { game.player.vx -= 28; }
+        else if (heldControls.has('right')) { game.player.vx += 28; }
+        else if (heldControls.has('up')) { game.player.vy -= 28; }
+        else if (heldControls.has('down')) { game.player.vy += 28; }
       }
 
       game.player.guard = keys.has('v');
@@ -965,15 +1065,44 @@
 
     window.addEventListener('keydown', onKeyDown, { passive: false });
     window.addEventListener('keyup', onKeyUp);
-    canvas.addEventListener('pointerdown', () => canvas.focus?.());
-    document.body.addEventListener('click', () => canvas.focus?.());
+    canvas.addEventListener('pointerdown', () => {
+      canvas.focus();
+      ensureStarted();
+    });
+    document.body.addEventListener('click', () => canvas.focus());
+
+    ui.startBtn.addEventListener('click', () => {
+      ensureStarted();
+      canvas.focus();
+    });
+    ui.leftBtn.addEventListener('mousedown', () => setHeldControl('left', true));
+    ui.leftBtn.addEventListener('mouseup', () => setHeldControl('left', false));
+    ui.leftBtn.addEventListener('mouseleave', () => setHeldControl('left', false));
+    ui.rightBtn.addEventListener('mousedown', () => setHeldControl('right', true));
+    ui.rightBtn.addEventListener('mouseup', () => setHeldControl('right', false));
+    ui.rightBtn.addEventListener('mouseleave', () => setHeldControl('right', false));
+    ui.upBtn.addEventListener('mousedown', () => setHeldControl('up', true));
+    ui.upBtn.addEventListener('mouseup', () => setHeldControl('up', false));
+    ui.upBtn.addEventListener('mouseleave', () => setHeldControl('up', false));
+    ui.downBtn.addEventListener('mousedown', () => setHeldControl('down', true));
+    ui.downBtn.addEventListener('mouseup', () => setHeldControl('down', false));
+    ui.downBtn.addEventListener('mouseleave', () => setHeldControl('down', false));
+    ui.stopBtn.addEventListener('click', () => heldControls.clear());
+    ui.jabBtn.addEventListener('click', () => tapAction('jab'));
+    ui.crossBtn.addEventListener('click', () => tapAction('cross'));
+    ui.hookBtn.addEventListener('click', () => tapAction('hook'));
+    ui.guardBtn.addEventListener('mousedown', () => setHeldControl('guard', true));
+    ui.guardBtn.addEventListener('mouseup', () => setHeldControl('guard', false));
+    ui.guardBtn.addEventListener('mouseleave', () => setHeldControl('guard', false));
+    ui.dodgeBtn.addEventListener('click', () => tapAction('dodge'));
+    ui.restartBtn.addEventListener('click', () => resetFight());
 
     // Initial state
     ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     resetFight();
-    showOverlay(true, 'Press Start', 'Click the screen and press any movement key. Z jab, X cross, C hook, V guard, Space dodge, R restart.');
+    showOverlay(true, 'Press Start', 'Click Start or the ring, or use the buttons below. Z jab, X cross, C hook, V guard, Space dodge, R restart.');
     requestAnimationFrame(tick);
   </script>
 </body>
