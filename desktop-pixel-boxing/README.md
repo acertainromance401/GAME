@@ -12,7 +12,7 @@ cd /path/to/GAME
 ## Test
 
 ```bash
-.venv/bin/python -m unittest tests.test_pixel_boxing_core -v
+.venv/bin/python -m unittest tests.test_pixel_boxing_core tests.test_pixel_boxing_phase2 -v
 ```
 
 ## Controls
@@ -32,6 +32,11 @@ cd /path/to/GAME
 - 라이트 어퍼컷: `W + D`
 - 라운드 시작/다음 라운드: `Space`
 - 경기 재시작: `R`
+- 일시정지/재개: `P` 또는 `Esc`
+- 조작 안내: `H`
+- 설정: `O`
+
+설정 화면에서는 숫자 키로 사운드, 해설 자막, 카메라 셰이크를 켜고 끌 수 있습니다. 설정은 사용자 홈의 `.pixel_boxing/settings.json`에 저장됩니다.
 
 ## Notes
 

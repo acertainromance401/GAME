@@ -4,6 +4,7 @@ import tkinter as tk
 import time
 from dataclasses import dataclass
 
+from audio_feedback import SoundManager
 from boxing_core import (
     ATTACK_ACTIONS,
     DUCK_EVADE_KEY,
@@ -17,6 +18,7 @@ from boxing_core import (
     frame_delta,
     try_start_attack,
 )
+from game_settings import GameSettings
 
 WIDTH = 960
 HEIGHT = 700
@@ -133,14 +135,14 @@ class Fighter:
 class TopDownPrototype:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Pixel Boxing Top-Down Prototype")
+        self.root.title("Pixel Boxing Top-Down")
         self.root.configure(bg="#05080d")
         self.canvas = tk.Canvas(self.root, width=WIDTH, height=HEIGHT, bg=BG, highlightthickness=0)
         self.canvas.pack(fill="both", expand=False)
 
         self.status = tk.Label(
             self.root,
-            text="Arrows move, hold S backstep, hold W guard. A jab / D cross / Q+A left body / Q+D right hook / E+A left hook / E+D right body / W+A left uppercut / W+D right uppercut. Space: start/next round. R: restart match.",
+            text="H Controls   O Settings   P/Esc Pause   R Restart",
             fg=WHITE,
             bg="#05080d",
             anchor="w",
@@ -149,6 +151,11 @@ class TopDownPrototype:
         self.status.pack(fill="x", padx=8, pady=(6, 8))
 
         self.log = ""
+        self.settings = GameSettings.load()
+        self.sound = SoundManager(enabled=self.settings.sound_enabled)
+        self.modal_view = None
+        self.modal_keys = set()
+        self.round_transition_timer = 0.0
 
         # Pseudo third-person camera parameters.
         self.cam_dist = 260.0
@@ -257,8 +264,11 @@ class TopDownPrototype:
         self.score_enemy = 0
         self.round_time = float(ROUND_SECONDS)
         self.enemy_ai_cd = 0.0
+        self.modal_view = None
+        self.modal_keys = set()
+        self.round_transition_timer = 0.0
         self.state = "intro"
-        self.set_overlay("TOP-DOWN BOXING", f"Best of {self.max_rounds} rounds. Press Space to start Round 1.")
+        self.set_overlay("PIXEL BOXING", f"Best of {self.max_rounds} rounds  |  Space Start  |  H Controls  |  O Settings")
         self.push_log("Press Space to start Round 1.")
 
     def reset_round_only(self):
@@ -288,6 +298,9 @@ class TopDownPrototype:
         self.particles = []
         self.prev_hand_pos = {}
         self.keys = set()
+        self.modal_view = None
+        self.modal_keys = set()
+        self.round_transition_timer = 0.0
         self.round_time = float(ROUND_SECONDS)
 
     def set_overlay(self, title, body):
@@ -296,11 +309,23 @@ class TopDownPrototype:
 
     def _start_round(self):
         self.reset_round_only()
-        self.state = "fight"
-        self.push_log(f"Round {self.round} bell.")
+        self.state = "round_intro"
+        self.round_transition_timer = 1.65
+        self.push_log(f"Round {self.round} ready.")
+
+    def update_round_transition(self, dt):
+        if self.state != "round_intro":
+            return
+        self.round_transition_timer = max(0.0, self.round_transition_timer - dt)
+        if self.round_transition_timer <= 0.0:
+            self.state = "fight"
+            self.play_sound("round_bell", min_interval=0.5)
+            self.push_log(f"Round {self.round} fight.")
 
     def end_round(self, winner, reason):
         self.state = "round_break"
+        if reason != "KO":
+            self.play_sound("round_end", min_interval=0.5)
         if winner == "player":
             self.score_player += 1
             self.push_log(f"Round {self.round}: Player {reason}")
@@ -341,10 +366,16 @@ class TopDownPrototype:
         self.feedback_timer = 0.35
         self.push_log(text)
 
+    def play_sound(self, name, min_interval=0.035):
+        sound = getattr(self, "sound", None)
+        return sound.play(name, min_interval=min_interval) if sound else False
+
     def show_commentary(self, key, attacker=None, defender=None):
         # Sports-commentary style caption (see COMMENTARY_LINES/draw_hud) -
         # purely cosmetic, picked at random from that event's variants and
         # formatted with the attacker/defender's display name if given.
+        if not self.settings.commentary_enabled:
+            return
         lines = COMMENTARY_LINES.get(key)
         if not lines:
             return
@@ -404,8 +435,83 @@ class TopDownPrototype:
             py = sy - 16.0 * scale
             self.canvas.create_oval(sx - r, py - r, sx + r, py + r, fill=col, outline="")
 
+    def open_modal(self, name):
+        if name not in ("pause", "controls", "settings"):
+            raise ValueError(name)
+        self.modal_view = name
+        self.keys.clear()
+        self.player_duck_target = 0.0
+        self.player_back_target = 0.0
+
+    def close_modal(self):
+        self.modal_view = None
+        self.keys.clear()
+        self._last_tick_time = time.perf_counter()
+
+    def toggle_setting(self, key):
+        setting_names = {
+            "1": "sound_enabled",
+            "2": "commentary_enabled",
+            "3": "camera_shake_enabled",
+        }
+        name = setting_names.get(key)
+        if name is None:
+            return False
+        enabled = self.settings.toggle(name)
+        self.settings.save()
+        self.sound.enabled = self.settings.sound_enabled
+        if name == "commentary_enabled" and not enabled:
+            self.commentary_timer = 0.0
+            self.commentary_text = ""
+        if name == "camera_shake_enabled" and not enabled:
+            self.shake_timer = 0.0
+            self.shake_x = 0.0
+            self.shake_y = 0.0
+        if name == "sound_enabled" and enabled:
+            self.sound.play("evade", min_interval=0.0)
+        return True
+
     def on_key_down(self, event):
         key = (event.keysym or "").lower()
+
+        if self.modal_view is not None:
+            if key in self.modal_keys:
+                return
+            self.modal_keys.add(key)
+            if key == "r":
+                self.reset_match()
+                return
+            if self.modal_view == "settings" and self.toggle_setting(key):
+                return
+            if key in ("escape", "p"):
+                self.close_modal()
+            elif key == "h":
+                if self.modal_view == "controls":
+                    self.close_modal()
+                else:
+                    self.open_modal("controls")
+            elif key == "o":
+                if self.modal_view == "settings":
+                    self.close_modal()
+                else:
+                    self.open_modal("settings")
+            return
+
+        if key in ("p", "escape", "h", "o"):
+            if key in self.modal_keys:
+                return
+            self.modal_keys.add(key)
+        if key in ("p", "escape"):
+            if self.state in ("fight", "round_intro"):
+                self.open_modal("pause")
+            return
+        if key == "h":
+            self.open_modal("controls")
+            return
+        if key == "o":
+            self.open_modal("settings")
+            return
+
         self.keys.add(key)
 
         if key == "r":
@@ -438,6 +544,7 @@ class TopDownPrototype:
 
     def on_key_up(self, event):
         key = (event.keysym or "").lower()
+        self.modal_keys.discard(key)
         if key in self.keys:
             self.keys.remove(key)
         if key == "q" and self.player_duck_target < 0:
@@ -515,6 +622,7 @@ class TopDownPrototype:
             if defender.name == "Player":
                 self.show_feedback("DODGE SUCCESS")
             self.show_commentary("dodge", attacker, defender)
+            self.play_sound("evade")
             return False
 
         target_x, target_y = defender.x, defender.y
@@ -545,6 +653,7 @@ class TopDownPrototype:
             if duck_ratio >= DUCK_EVADE_THRESHOLD and duck_dir == needed_key:
                 self.show_feedback("DUCK EVADE")
                 self.show_commentary("duck_evade", attacker, defender)
+                self.play_sound("evade")
                 return False
 
         damage = attacker.damage
@@ -574,10 +683,13 @@ class TopDownPrototype:
         # scaled a little by damage so a jab barely nudges the view but a
         # clean power shot actually feels like it landed.
         self.hitstop_timer = max(self.hitstop_timer, 0.05 + min(damage, 20) * 0.0035)
-        self.shake_timer = max(self.shake_timer, 0.16)
-        self.shake_mag = max(self.shake_mag, 3.0 + min(damage, 20) * 0.55)
+        settings = getattr(self, "settings", None)
+        if settings is None or settings.camera_shake_enabled:
+            self.shake_timer = max(self.shake_timer, 0.16)
+            self.shake_mag = max(self.shake_mag, 3.0 + min(damage, 20) * 0.55)
         spark_color = "#9fd8ff" if guarding else "#fff2c9"
         self.spawn_hit_particles(defender.x, defender.y, spark_color, 7 + min(damage, 20) // 2)
+        self.play_sound("block" if guarding else "hit_heavy" if damage >= 11 else "hit_light")
 
         if attacker.name == "Player" and punished_whiff:
             self.show_feedback("COUNTER HIT!")
@@ -603,6 +715,7 @@ class TopDownPrototype:
             winner = "player" if attacker.name == "Player" else "enemy"
             self.show_feedback("KO!")
             self.show_commentary("ko", attacker, defender)
+            self.play_sound("ko", min_interval=0.5)
             self.end_round(winner, "KO")
         return True
 
@@ -1599,20 +1712,119 @@ class TopDownPrototype:
                 fill=mix_color(bar_color, WHITE, 0.55), width=1,
             )
 
+    def draw_meter(self, x, y, width, height, ratio, color, align="left"):
+        ratio = clamp(ratio, 0.0, 1.0)
+        self.canvas.create_rectangle(
+            x, y, x + width, y + height,
+            fill="#0a1020", outline="#31476d", width=1,
+        )
+        fill_width = max(0.0, (width - 4) * ratio)
+        if align == "right":
+            x0, x1 = x + width - 2 - fill_width, x + width - 2
+        else:
+            x0, x1 = x + 2, x + 2 + fill_width
+        if fill_width > 0:
+            self.canvas.create_rectangle(
+                x0, y + 2, x1, y + height - 2,
+                fill=color, outline="",
+            )
+            self.canvas.create_line(
+                x0, y + 3, x1, y + 3,
+                fill=mix_color(color, WHITE, 0.48), width=1,
+            )
+
+    def draw_center_panel(self, title, lines, width=600):
+        lines = list(lines)
+        line_height = 24
+        panel_height = 82 + line_height * len(lines)
+        x0 = (WIDTH - width) / 2
+        y0 = (HEIGHT - panel_height) / 2
+        self.canvas.create_rectangle(
+            x0, y0, x0 + width, y0 + panel_height,
+            fill="#080f1f", outline="#5578ab", width=2,
+        )
+        self.canvas.create_rectangle(
+            x0 + 2, y0 + 2, x0 + width - 2, y0 + 48,
+            fill="#13233d", outline="",
+        )
+        self.canvas.create_text(
+            WIDTH / 2, y0 + 25,
+            fill=GOLD, font=("Helvetica", 21, "bold"), text=title,
+        )
+        for index, line in enumerate(lines):
+            self.canvas.create_text(
+                WIDTH / 2, y0 + 67 + index * line_height,
+                fill=WHITE if index == 0 else GRAY,
+                font=("Helvetica", 12, "bold" if index == 0 else "normal"),
+                text=line,
+            )
+
+    def draw_modal(self):
+        if self.modal_view == "pause":
+            self.draw_center_panel(
+                "PAUSED",
+                (
+                    "P / ESC   Resume",
+                    "H   Controls",
+                    "O   Settings",
+                    "R   Restart Match",
+                ),
+                width=500,
+            )
+        elif self.modal_view == "controls":
+            self.draw_center_panel(
+                "CONTROLS",
+                (
+                    "ARROWS   Move / circle",
+                    "A   Jab        D   Cross",
+                    "Q / E   Duck left / right",
+                    "S   Backstep        W   Guard",
+                    "Q+A Left body     Q+D Right hook",
+                    "E+A Left hook     E+D Right body",
+                    "W+A Left upper    W+D Right upper",
+                    "H / ESC   Back",
+                ),
+                width=660,
+            )
+        elif self.modal_view == "settings":
+            on_off = lambda enabled: "ON" if enabled else "OFF"
+            self.draw_center_panel(
+                "SETTINGS",
+                (
+                    f"1   Sound             {on_off(self.settings.sound_enabled)}",
+                    f"2   Commentary        {on_off(self.settings.commentary_enabled)}",
+                    f"3   Camera shake      {on_off(self.settings.camera_shake_enabled)}",
+                    "O / ESC   Back",
+                ),
+                width=540,
+            )
+
     def draw_hud(self):
-        self.canvas.create_text(16, 18, anchor="w", fill=WHITE, font=("Helvetica", 12, "bold"), text=f"PLAYER HP {self.player.hp:3d}   ST {int(self.player.stamina):3d}")
-        self.canvas.create_text(16, 38, anchor="w", fill=GRAY, font=("Helvetica", 10), text=f"ENEMY  HP {self.enemy.hp:3d}   ST {int(self.enemy.stamina):3d}")
-        self.canvas.create_text(WIDTH - 16, 18, anchor="e", fill=GOLD, font=("Helvetica", 12, "bold"), text=f"ROUND {self.round}/{self.max_rounds}   {int(math.ceil(self.round_time)):02d}s")
-        self.canvas.create_text(WIDTH - 16, 38, anchor="e", fill=GRAY, font=("Helvetica", 10), text=f"SCORE  P {self.score_player} - {self.score_enemy} E")
+        # Broadcast-style top strip: both corners mirror each other while the
+        # round clock stays centered and readable during movement.
+        self.canvas.create_rectangle(0, 0, WIDTH, 82, fill="#060c18", outline="")
+        self.canvas.create_line(0, 82, WIDTH, 82, fill="#263a5d", width=2)
+
+        self.canvas.create_text(20, 15, anchor="w", fill=PLAYER_COLOR, font=("Helvetica", 11, "bold"), text="BLUE CORNER  PLAYER")
+        self.canvas.create_text(WIDTH - 20, 15, anchor="e", fill=ENEMY_COLOR, font=("Helvetica", 11, "bold"), text="ENEMY  RED CORNER")
+        self.draw_meter(20, 27, 330, 17, self.player.hp / self.player.max_hp, GREEN)
+        self.draw_meter(WIDTH - 350, 27, 330, 17, self.enemy.hp / self.enemy.max_hp, RED, align="right")
+        self.draw_meter(20, 50, 250, 9, self.player.stamina / self.player.max_stamina, GOLD)
+        self.draw_meter(WIDTH - 270, 50, 250, 9, self.enemy.stamina / self.enemy.max_stamina, GOLD, align="right")
+        self.canvas.create_text(356, 35, anchor="w", fill=WHITE, font=("Helvetica", 10, "bold"), text=f"{self.player.hp:03d}")
+        self.canvas.create_text(WIDTH - 356, 35, anchor="e", fill=WHITE, font=("Helvetica", 10, "bold"), text=f"{self.enemy.hp:03d}")
+        self.canvas.create_text(276, 55, anchor="w", fill=GRAY, font=("Helvetica", 9), text=f"ST {int(self.player.stamina):03d}")
+        self.canvas.create_text(WIDTH - 276, 55, anchor="e", fill=GRAY, font=("Helvetica", 9), text=f"ST {int(self.enemy.stamina):03d}")
+
+        self.canvas.create_oval(WIDTH / 2 - 45, 7, WIDTH / 2 + 45, 73, fill="#101d33", outline="#5578ab", width=2)
+        self.canvas.create_text(WIDTH / 2, 29, fill=GOLD, font=("Helvetica", 20, "bold"), text=f"{int(math.ceil(self.round_time)):02d}")
+        self.canvas.create_text(WIDTH / 2, 51, fill=WHITE, font=("Helvetica", 9, "bold"), text=f"ROUND {self.round}/{self.max_rounds}")
+        self.canvas.create_text(WIDTH / 2, 65, fill=GRAY, font=("Helvetica", 8), text=f"P {self.score_player}  -  {self.score_enemy} E")
 
         if self.feedback_timer > 0:
-            self.canvas.create_text(WIDTH / 2, 34, fill=GOLD, font=("Helvetica", 14, "bold"), text=self.feedback_text)
+            self.canvas.create_text(WIDTH / 2, 100, fill=GOLD, font=("Helvetica", 14, "bold"), text=self.feedback_text)
 
         if self.commentary_timer > 0:
-            # A sports-commentary style caption bar along the bottom of the
-            # screen, distinct from the short feedback popup near the top -
-            # meant to read like a broadcast play-by-play line rather than a
-            # terse status flag.
             bar_top = HEIGHT - 46
             self.canvas.create_rectangle(0, bar_top, WIDTH, HEIGHT, fill="#050a16", outline="")
             self.canvas.create_line(0, bar_top, WIDTH, bar_top, fill="#2b3e63", width=1)
@@ -1621,25 +1833,39 @@ class TopDownPrototype:
                 fill=GOLD, font=("Helvetica", 14, "italic bold"),
                 text=self.commentary_text,
             )
+        elif self.modal_view is None:
+            self.canvas.create_text(
+                WIDTH - 12, HEIGHT - 10, anchor="e",
+                fill="#63799d", font=("Helvetica", 8),
+                text="P PAUSE   H CONTROLS   O SETTINGS",
+            )
 
-        if self.state != "fight":
-            self.canvas.create_rectangle(230, 236, 730, 352, fill="#0a1223", outline="#5578ab", width=2)
-            self.canvas.create_text(480, 276, fill=WHITE, font=("Helvetica", 20, "bold"), text=self.overlay_title)
-            self.canvas.create_text(480, 314, fill=GRAY, font=("Helvetica", 12), text=self.overlay_body)
+        if self.modal_view is None and self.state == "round_intro":
+            if self.round_transition_timer > 0.42:
+                title, body = f"ROUND {self.round}", "READY"
+            else:
+                title, body = "FIGHT!", ""
+            self.draw_center_panel(title, (body,), width=420)
+        elif self.modal_view is None and self.state != "fight":
+            self.draw_center_panel(self.overlay_title, (self.overlay_body,), width=620)
+
+        self.draw_modal()
 
     def tick(self):
         now = time.perf_counter()
         real_dt = frame_delta(self._last_tick_time, now)
         self._last_tick_time = now
         dt = real_dt
-        if self.hitstop_timer > 0:
-            # Real-time countdown for how long the freeze lasts, but the
-            # game itself runs at a crawl while it's active - a brief,
-            # near-total pause reads as "the punch actually landed" instead
-            # of the hp bar just silently ticking down mid-swing.
-            self.hitstop_timer = max(0.0, self.hitstop_timer - real_dt)
-            dt *= 0.12
-        self.update(dt)
+        if self.modal_view is None:
+            if self.hitstop_timer > 0:
+                # Real-time countdown for how long the freeze lasts, but the
+                # game itself runs at a crawl while it's active - a brief,
+                # near-total pause reads as "the punch actually landed" instead
+                # of the hp bar just silently ticking down mid-swing.
+                self.hitstop_timer = max(0.0, self.hitstop_timer - real_dt)
+                dt *= 0.12
+            self.update_round_transition(real_dt)
+            self.update(dt)
         self.draw_arena()
         actors = [self.player, self.enemy]
         actors.sort(key=lambda actor: self.project_world(actor.x, actor.y)[3], reverse=True)
