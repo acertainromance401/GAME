@@ -41,7 +41,8 @@ cd /path/to/GAME
 ## Notes
 
 - Python 표준 라이브러리의 `tkinter`를 사용합니다.
-- 전투 밸런스와 화면/캐릭터 고도화는 `pixel_boxing_topdown.py`를 기준으로 진행합니다.
+- 실제 메인 게임 구현은 `desktop-pixel-boxing/pixel_boxing/` 패키지 아래에 정리되어 있습니다.
+- 루트의 `pixel_boxing_topdown.py`, `boxing_core.py`, `audio_feedback.py`, `game_settings.py`는 기존 실행/테스트 경로 호환용 진입점입니다.
 - 상세 컨셉, 전투 규칙, 차별점과 단계별 계획은 [게임 설계 문서](../docs/PIXEL_BOXING_GAME_DESIGN.md)를 기준으로 합니다.
 - `pixel_boxing_app.py`와 `pixel_boxing_desktop.py`는 이전 프로토타입입니다.
 - `godot-pixel-boxing/`은 이식 검증용 실험이며 현재 개발은 보류합니다.

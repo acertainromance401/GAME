@@ -3,6 +3,7 @@ import pathlib
 import random
 import sys
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DESKTOP_GAME = ROOT / "desktop-pixel-boxing"
@@ -11,14 +12,23 @@ sys.path.insert(0, str(DESKTOP_GAME))
 from boxing_core import (  # noqa: E402
     ATTACK_ACTIONS,
     ATTACK_SPECS,
+    BACKSTEP_STAMINA_COST,
+    EXHAUSTION_DURATION,
     HeadlessCombatSimulator,
     HeadlessFighter,
     Hurtbox,
+    PlayerHabitMemory,
     RL_ACTIONS,
+    STAMINA_RECOVERY_PER_SEC,
     StrikeGeometry,
+    adaptive_enemy_weights,
+    adaptation_level,
     diagnose_fighter,
     frame_delta,
     first_strike_contact,
+    note_player_attack,
+    sample_player_tendency,
+    snapshot_player_habits,
     try_start_attack,
 )
 from pixel_boxing_topdown import (  # noqa: E402
@@ -31,14 +41,14 @@ from pixel_boxing_topdown import (  # noqa: E402
 class AttackSpecTests(unittest.TestCase):
     def test_all_eight_attacks_keep_canonical_values(self):
         expected = {
-            "jab": (0.24, 0.08, 0.15, 6, 78.0, 26.0, 6),
-            "cross": (0.34, 0.14, 0.24, 11, 60.0, 20.0, 11),
-            "left_body": (0.32, 0.12, 0.22, 9, 54.0, 40.0, 9),
-            "right_body": (0.35, 0.14, 0.24, 10, 56.0, 38.0, 10),
-            "left_hook": (0.36, 0.16, 0.26, 11, 50.0, 56.0, 11),
-            "right_hook": (0.38, 0.17, 0.28, 12, 52.0, 50.0, 12),
-            "left_uppercut": (0.40, 0.18, 0.30, 13, 44.0, 26.0, 13),
-            "right_uppercut": (0.42, 0.19, 0.31, 14, 46.0, 24.0, 14),
+            "jab": (0.24, 0.08, 0.15, 6, 78.0, 26.0, 13),
+            "cross": (0.34, 0.14, 0.24, 11, 60.0, 20.0, 18),
+            "left_body": (0.32, 0.12, 0.22, 9, 54.0, 40.0, 16),
+            "right_body": (0.35, 0.14, 0.24, 10, 56.0, 38.0, 17),
+            "left_hook": (0.36, 0.16, 0.26, 11, 50.0, 56.0, 18),
+            "right_hook": (0.38, 0.17, 0.28, 12, 52.0, 50.0, 19),
+            "left_uppercut": (0.40, 0.18, 0.30, 13, 44.0, 26.0, 20),
+            "right_uppercut": (0.42, 0.19, 0.31, 14, 46.0, 24.0, 21),
         }
         self.assertEqual(set(ATTACK_ACTIONS), set(expected))
         for name, values in expected.items():
@@ -62,7 +72,7 @@ class AttackSpecTests(unittest.TestCase):
         self.assertEqual(fighter.damage, 11)
         self.assertEqual(fighter.range, 60.0)
         self.assertEqual(fighter.half_angle_deg, 20.0)
-        self.assertEqual(fighter.stamina, 89.0)
+        self.assertEqual(fighter.stamina, 82.0)
 
     def test_repeating_same_move_stales_from_third_use(self):
         fighter = HeadlessFighter("player", 0.0, 0.0)
@@ -84,6 +94,15 @@ class AttackSpecTests(unittest.TestCase):
         self.assertEqual(result.reason, "low_stamina")
         self.assertEqual(fighter.action, "idle")
 
+    def test_spending_last_stamina_triggers_exhaustion(self):
+        fighter = HeadlessFighter("player", 0.0, 0.0, stamina=float(ATTACK_SPECS["cross"].stamina_cost))
+        result = try_start_attack(fighter, "cross")
+
+        self.assertTrue(result.started)
+        self.assertEqual(fighter.stamina, 0.0)
+        self.assertEqual(fighter.exhausted, EXHAUSTION_DURATION)
+        self.assertGreaterEqual(fighter.exposed, 0.28)
+
 
 class DiagnosticsTests(unittest.TestCase):
     def test_frame_delta_uses_real_elapsed_time_and_clamps_stalls(self):
@@ -102,6 +121,49 @@ class DiagnosticsTests(unittest.TestCase):
 
     def test_fighter_diagnostics_accept_normal_state(self):
         self.assertEqual(diagnose_fighter(HeadlessFighter("ok", 100.0, 100.0)), ())
+
+
+class AdaptiveHabitTests(unittest.TestCase):
+    def test_habit_snapshot_accumulates_repeated_attacks_and_defense_samples(self):
+        memory = PlayerHabitMemory()
+        for _ in range(4):
+            note_player_attack(memory, "jab")
+        for _ in range(6):
+            sample_player_tendency(
+                memory,
+                0.1,
+                guarding=True,
+                duck_dir="e",
+                backstep=False,
+                forward_axis=1.0,
+            )
+
+        snapshot = snapshot_player_habits(memory)
+        self.assertEqual(snapshot.favorite_attack, "jab")
+        self.assertEqual(snapshot.repeat_streak, 4)
+        self.assertGreater(snapshot.jab_ratio, 0.99)
+        self.assertGreater(snapshot.guard_ratio, 0.9)
+        self.assertGreater(snapshot.duck_right_ratio, 0.9)
+        self.assertGreater(snapshot.pressure_ratio, 0.9)
+        self.assertGreater(snapshot.sample_strength, 0.2)
+
+    def test_adaptive_weights_shift_to_body_punishes_against_guard_heavy_player(self):
+        memory = PlayerHabitMemory()
+        for _ in range(20):
+            sample_player_tendency(
+                memory,
+                0.12,
+                guarding=True,
+                duck_dir=None,
+                backstep=False,
+                forward_axis=0.0,
+            )
+
+        snapshot = snapshot_player_habits(memory)
+        weights = adaptive_enemy_weights(snapshot, distance=70.0, round_number=3, player_exposed=False)
+        self.assertGreater(adaptation_level(snapshot, 3), 0.5)
+        self.assertGreater(weights["right_body"], weights["jab"])
+        self.assertGreater(weights["left_body"], weights["cross"])
 
 
 class StrikeGeometryTests(unittest.TestCase):
@@ -140,8 +202,32 @@ class HeadlessSimulatorTests(unittest.TestCase):
         mask = self.sim.valid_actions(self.sim.player)
         self.assertTrue(mask["wait"])
         self.assertTrue(mask["approach"])
+        self.assertFalse(mask["backstep"])
         for attack in ATTACK_ACTIONS:
             self.assertFalse(mask[attack], attack)
+
+    def test_headless_backstep_requires_and_spends_heavier_stamina(self):
+        self.sim.player.stamina = BACKSTEP_STAMINA_COST - 1.0
+        self.assertFalse(self.sim.valid_actions(self.sim.player)["backstep"])
+
+        self.sim.player.stamina = self.sim.player.max_stamina
+        start_x = self.sim.player.x
+        self.sim.step("backstep", "wait")
+
+        self.assertLess(self.sim.player.x, start_x)
+        self.assertAlmostEqual(
+            self.sim.player.stamina,
+            self.sim.player.max_stamina - BACKSTEP_STAMINA_COST + self.sim.decision_dt * STAMINA_RECOVERY_PER_SEC,
+        )
+
+    def test_exhausted_actor_can_only_wait_until_lock_ends(self):
+        self.sim.player.exhausted = 0.3
+        mask = self.sim.valid_actions(self.sim.player)
+
+        self.assertTrue(mask["wait"])
+        self.assertFalse(mask["approach"])
+        self.assertFalse(mask["backstep"])
+        self.assertFalse(mask["jab"])
 
     def test_jab_lands_and_emits_damage_rewards(self):
         self._put_in_range()
@@ -193,6 +279,16 @@ class HeadlessSimulatorTests(unittest.TestCase):
         result = self.sim.step("wait", "wait")
         self.assertIn("counter", [event.kind for event in result.events])
         self.assertEqual(self.sim.enemy.hp, 85)
+
+    def test_hook_counter_gets_extra_bonus_damage(self):
+        self._put_in_range()
+        self.sim.enemy.exposed = 0.3
+        self.sim.step("left_hook", "wait")
+        self.sim.step("wait", "wait")
+        self.sim.step("wait", "wait")
+        result = self.sim.step("wait", "wait")
+        self.assertIn("counter", [event.kind for event in result.events])
+        self.assertEqual(self.sim.enemy.hp, 82)
 
     def test_episode_runs_without_renderer(self):
         def policy(observation, mask):
@@ -275,8 +371,18 @@ class LiveGameRegressionTests(unittest.TestCase):
     def test_live_counter_applies_bonus_damage(self):
         self._configure_attack(self.game.player, "cross")
         self.game.enemy.exposed = 0.3
+        played = []
+        self.game.play_sound = lambda name, min_interval=0.035: played.append(name)
         self.assertTrue(self.game.attempt_hit(self.game.player, self.game.enemy))
         self.assertEqual(self.game.enemy.hp, 85)
+        self.assertEqual(played, ["counter"])
+
+    def test_live_body_counter_gets_extra_bonus_damage(self):
+        self._configure_attack(self.game.player, "right_body")
+        self.game.enemy.exposed = 0.3
+        self.game.play_sound = lambda name, min_interval=0.035: None
+        self.assertTrue(self.game.attempt_hit(self.game.player, self.game.enemy))
+        self.assertEqual(self.game.enemy.hp, 83)
 
     def test_every_commentary_template_formats_without_key_error(self):
         for key, lines in COMMENTARY_LINES.items():
@@ -285,6 +391,47 @@ class LiveGameRegressionTests(unittest.TestCase):
                     text = line.format(atk="Player", def_="Enemy")
                     self.assertIsInstance(text, str)
                     self.assertTrue(text)
+
+    def test_live_ai_adapts_toward_body_shots_against_guard_heavy_player(self):
+        game = TopDownPrototype.__new__(TopDownPrototype)
+        game.player = Fighter("Player", 240.0, 295.0, "#65d1ff")
+        game.enemy = Fighter("Enemy", 292.0, 295.0, "#ff6b8f")
+        game.state = "fight"
+        game.round = 3
+        game.keys = set()
+        game.player_back_target = 0.0
+        game.player_back_offset = 0.0
+        game.player_duck_target = 0.0
+        game.player.exposed = 0.0
+        game.player.action = "idle"
+        game.player.action_t = 0.0
+        game.player.action_dur = 0.0
+        game.enemy.ai_timer = 0.0
+        game.enemy.action_t = 1.0
+        game.enemy.action_dur = 0.0
+        game.enemy.stagger = 0.0
+        game.player_habits = PlayerHabitMemory()
+        for _ in range(20):
+            sample_player_tendency(
+                game.player_habits,
+                0.12,
+                guarding=True,
+                duck_dir=None,
+                backstep=False,
+                forward_axis=0.0,
+            )
+
+        chosen = []
+        game.start_dodge = lambda actor, side: chosen.append(f"dodge:{side}")
+        game.start_attack = lambda actor, name: chosen.append(name) or True
+        game.ensure_adaptation_state = TopDownPrototype.ensure_adaptation_state.__get__(game, TopDownPrototype)
+        game.enemy_action_weights = TopDownPrototype.enemy_action_weights.__get__(game, TopDownPrototype)
+        game.choose_enemy_option = lambda weights: max(weights, key=weights.get)
+
+        with mock.patch("pixel_boxing_topdown.random.uniform", return_value=0.2):
+            game.update_ai(0.05)
+
+        self.assertEqual(chosen, ["right_body"])
 
 
 if __name__ == "__main__":

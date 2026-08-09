@@ -11,7 +11,7 @@ sys.path.insert(0, str(DESKTOP_GAME))
 
 from audio_feedback import SOUND_LIBRARY, SoundManager, write_tone_wav  # noqa: E402
 from game_settings import GameSettings  # noqa: E402
-from pixel_boxing_topdown import TopDownPrototype  # noqa: E402
+from pixel_boxing_topdown import Fighter, TopDownPrototype  # noqa: E402
 
 
 class SettingsTests(unittest.TestCase):
@@ -59,6 +59,11 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         game.player_duck_target = -1.0
         game.player_back_target = 1.0
         game._last_tick_time = 0.0
+        game.back_max = 42.0
+        game.back_smooth = 18.0
+        game.player_back_offset = 0.0
+        game.player_back_risk_applied = False
+        game.player = Fighter("Player", 220.0, 220.0, "#65d1ff")
         game.settings = GameSettings()
         game.settings.save = lambda path=None: True
         game.sound = SoundManager(enabled=False)
@@ -110,6 +115,27 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         self.assertEqual(sounds, ["round_bell"])
         self.assertIn("Round 2 fight.", self.game.log_messages)
 
+    def test_end_round_keeps_counting_rounds_without_match_cap(self):
+        sounds = []
+        self.game.state = "fight"
+        self.game.round = 10
+        self.game.score_player = 4
+        self.game.score_enemy = 5
+        self.game.enemy_adaptation = 0.64
+        self.game.ensure_adaptation_state = lambda: None
+        self.game.play_sound = lambda name, min_interval=0.035: sounds.append(name)
+        self.game.set_overlay = lambda title, body: setattr(self.game, "overlay", (title, body))
+
+        self.game.end_round("enemy", "Time")
+
+        self.assertEqual(self.game.state, "round_break")
+        self.assertEqual(self.game.round, 11)
+        self.assertEqual(self.game.score_enemy, 6)
+        self.assertEqual(sounds, ["round_end"])
+        self.assertEqual(self.game.overlay[0], "ROUND 10 - ENEMY (Time)")
+        self.assertIn("AI READ 064%", self.game.overlay[1])
+        self.assertIn("Space: next round", self.game.overlay[1])
+
     def test_commentary_setting_suppresses_new_caption(self):
         self.game.settings.commentary_enabled = False
         self.game.show_commentary("jab")
@@ -136,6 +162,73 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         self.game.on_key_down(SimpleNamespace(keysym="p"))
         self.assertEqual(self.game.modal_view, "pause")
         self.assertEqual(self.game.keys, set())
+
+    def test_backstep_key_repeat_does_not_refresh_invuln_or_double_spend_stamina(self):
+        self.game.state = "fight"
+        self.game.keys = set()
+        self.game.player.stamina = 100.0
+        self.game.player_back_target = 0.0
+        press = SimpleNamespace(keysym="s")
+
+        self.game.on_key_down(press)
+        self.assertEqual(self.game.player.stamina, 69.0)
+        self.game.player.invuln = 0.03
+
+        self.game.on_key_down(press)
+        self.assertEqual(self.game.player.stamina, 69.0)
+        self.assertEqual(self.game.player.invuln, 0.03)
+
+    def test_backstep_is_blocked_when_stamina_is_below_heavy_cost(self):
+        self.game.state = "fight"
+        self.game.keys = set()
+        self.game.player.stamina = 30.0
+        self.game.player_back_target = 0.0
+
+        self.game.on_key_down(SimpleNamespace(keysym="s"))
+
+        self.assertEqual(self.game.player.stamina, 30.0)
+        self.assertEqual(self.game.player_back_target, 0.0)
+
+    def test_backstep_release_creates_short_exposed_recovery_window(self):
+        self.game.state = "fight"
+        self.game.keys = set()
+        self.game.player.stamina = 100.0
+        self.game.player.invuln = 0.0
+        self.game.player.exposed = 0.0
+        self.game.player_back_target = 0.0
+        self.game.player_back_offset = self.game.back_max * 0.5
+        self.game.player_back_risk_applied = False
+
+        self.game.update_player_backstep(0.016)
+
+        self.assertGreaterEqual(self.game.player.exposed, 0.16)
+        self.assertTrue(self.game.player_back_risk_applied)
+
+    def test_spending_last_backstep_stamina_triggers_exhaustion_lock(self):
+        self.game.state = "fight"
+        self.game.keys = set()
+        self.game.player.stamina = 31.0
+        self.game.player_back_target = 0.0
+
+        self.game.on_key_down(SimpleNamespace(keysym="s"))
+
+        self.assertEqual(self.game.player.stamina, 0.0)
+        self.assertGreater(self.game.player.exhausted, 0.0)
+        self.assertGreaterEqual(self.game.player.exposed, 0.28)
+
+    def test_exhausted_player_cannot_move_or_attack(self):
+        self.game.state = "fight"
+        self.game.keys = {"up"}
+        self.game.player.exhausted = 0.4
+        self.game.player_stance_x = self.game.player.x
+        self.game.player_stance_y = self.game.player.y
+        start = (self.game.player.x, self.game.player.y)
+
+        self.game.update_player_movement(0.1)
+        self.game.on_key_down(SimpleNamespace(keysym="a"))
+
+        self.assertEqual((self.game.player.x, self.game.player.y), start)
+        self.assertEqual(self.game.player.action, "idle")
 
 
 if __name__ == "__main__":
