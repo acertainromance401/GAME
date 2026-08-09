@@ -1,13 +1,26 @@
 import math
 import random
 import tkinter as tk
+import time
 from dataclasses import dataclass
+
+from boxing_core import (
+    ATTACK_ACTIONS,
+    DUCK_EVADE_KEY,
+    DUCK_EVADE_THRESHOLD,
+    EXPOSED_DMG_MULT,
+    GUARD_DAMAGE_MULT,
+    ROUND_LIMIT,
+    ROUND_SECONDS,
+    STAGGER_LOCK,
+    WHIFF_RECOVERY,
+    frame_delta,
+    try_start_attack,
+)
 
 WIDTH = 960
 HEIGHT = 700
 ARENA = (70, 70, 520, 520)
-ROUND_LIMIT = 3
-ROUND_SECONDS = 45
 
 BG = "#091427"
 ARENA_BG = "#182946"
@@ -19,42 +32,6 @@ GRAY = "#9cb0cf"
 GREEN = "#77ff9f"
 RED = "#ff6b8f"
 GOLD = "#ffd86f"
-
-ATTACK_ACTIONS = (
-    "jab",
-    "cross",
-    "left_body",
-    "right_body",
-    "left_hook",
-    "right_hook",
-    "left_uppercut",
-    "right_uppercut",
-)
-
-# Anti-mash tuning: punishes throwing hands with no regard for spacing or
-# timing instead of just rewarding whoever presses the attack key fastest.
-WHIFF_RECOVERY = 0.22       # extra recovery lock added after a missed swing
-EXPOSED_DMG_MULT = 1.4      # bonus damage for punishing an off-balance opponent
-STAGGER_LOCK = 0.16         # brief flinch lockout applied to anyone who gets hit
-STALE_THRESHOLD = 2         # repeats of the same move allowed before it weakens
-STALE_DECAY = 0.85          # damage multiplier applied per repeat past the threshold
-STALE_FLOOR = 0.5           # minimum multiplier a stale move can be decayed to
-GUARD_DAMAGE_MULT = 0.4     # incoming damage multiplier while actively holding guard (W)
-
-# Directional duck evasion for head attacks: you duck TOWARD the side the
-# punch is arriving from (not away from it) - e.g. an enemy jab (lead hand)
-# arrives from the defender's right, so ducking right (E) is what slips it.
-# Only exact opposite-of-thrown-hand pairing evades; the wrong direction (or
-# no duck at all) leaves the punch free to land.
-DUCK_EVADE_KEY = {
-    "jab": "e",
-    "left_hook": "e",
-    "left_uppercut": "e",
-    "cross": "q",
-    "right_hook": "q",
-    "right_uppercut": "q",
-}
-DUCK_EVADE_THRESHOLD = 0.5   # fraction of duck_max the player must commit to for the duck to count
 
 # Sports-commentary style narration lines, keyed by event. Several variants
 # per key so it doesn't repeat itself every single exchange; {atk}/{def_} are
@@ -243,6 +220,7 @@ class TopDownPrototype:
         self.root.bind_all("<KeyPress>", self.on_key_down)
         self.root.bind_all("<KeyRelease>", self.on_key_up)
 
+        self._last_tick_time = time.perf_counter()
         self.tick()
 
     def reset_match(self):
@@ -257,6 +235,8 @@ class TopDownPrototype:
         self.cam_facing_x, self.cam_facing_y = normalize(self.enemy.x - self.player.x, self.enemy.y - self.player.y)
         self.player_duck_target = 0.0
         self.player_duck_offset = 0.0
+        self.player_duck_world_x = 0.0
+        self.player_duck_world_y = 0.0
         self.player_back_target = 0.0
         self.player_back_offset = 0.0
         self.player_guard_offset = 0.0
@@ -293,6 +273,8 @@ class TopDownPrototype:
         self.cam_facing_x, self.cam_facing_y = normalize(self.enemy.x - self.player.x, self.enemy.y - self.player.y)
         self.player_duck_target = 0.0
         self.player_duck_offset = 0.0
+        self.player_duck_world_x = 0.0
+        self.player_duck_world_y = 0.0
         self.player_back_target = 0.0
         self.player_back_offset = 0.0
         self.player_guard_offset = 0.0
@@ -482,55 +464,7 @@ class TopDownPrototype:
         self.start_attack(self.player, action)
 
     def start_attack(self, actor, name):
-        if actor.action_t < actor.action_dur or actor.stagger > 0:
-            return
-        # (action_dur, active_a, active_b, damage, range, half_angle_deg, cost)
-        # Range/half_angle are tuned per punch identity, not just copy-pasted
-        # from one "straight/hook/upper" template: jab is the probing/
-        # spacing tool so it reaches the FARTHEST of any punch (even farther
-        # than cross) with a moderate cone; cross trades that reach for a
-        # tighter, more precise cone and is thrown from closer range; hooks
-        # get the widest cones (a sweeping arc can land at an angle a
-        # straight punch can't) but the shortest reach (arms stay bent, not
-        # extended); uppercuts are similarly short-range/close-quarters with
-        # a narrow-ish cone since they're aimed straight up under the chin.
-        specs = {
-            "jab": (0.24, 0.08, 0.15, 6, 78, 26, 6),
-            "cross": (0.34, 0.14, 0.24, 11, 60, 20, 11),
-            "left_body": (0.32, 0.12, 0.22, 9, 54, 40, 9),
-            "right_body": (0.35, 0.14, 0.24, 10, 56, 38, 10),
-            "left_hook": (0.36, 0.16, 0.26, 11, 50, 56, 11),
-            "right_hook": (0.38, 0.17, 0.28, 12, 52, 50, 12),
-            "left_uppercut": (0.40, 0.18, 0.30, 13, 44, 26, 13),
-            "right_uppercut": (0.42, 0.19, 0.31, 14, 46, 24, 14),
-        }
-        if name not in specs:
-            return
-        action_dur, active_a, active_b, damage, atk_range, half_angle_deg, cost = specs[name]
-        if actor.stamina < cost:
-            return
-
-        # Repeating the exact same punch back-to-back stales its damage so
-        # single-button mashing loses to mixing attacks with footwork.
-        if actor.streak_action == name:
-            actor.streak_count += 1
-        else:
-            actor.streak_action = name
-            actor.streak_count = 1
-        stale_mult = max(STALE_FLOOR, STALE_DECAY ** max(0, actor.streak_count - STALE_THRESHOLD))
-        damage = max(1, int(round(damage * stale_mult)))
-
-        actor.action = name
-        actor.action_t = 0.0
-        actor.acted = False
-        actor.whiff_penalized = False
-        actor.action_dur = action_dur
-        actor.active_a = active_a
-        actor.active_b = active_b
-        actor.damage = damage
-        actor.range = atk_range
-        actor.half_angle_deg = half_angle_deg
-        actor.stamina = clamp(actor.stamina - cost, 0, actor.max_stamina)
+        return try_start_attack(actor, name).started
 
     def start_dodge(self, actor, side):
         if actor.action_t < actor.action_dur or actor.stagger > 0:
@@ -581,19 +515,28 @@ class TopDownPrototype:
             if defender.name == "Player":
                 self.show_feedback("DODGE SUCCESS")
             self.show_commentary("dodge", attacker, defender)
-            return
+            return False
 
-        vx = defender.x - attacker.x
-        vy = defender.y - attacker.y
+        target_x, target_y = defender.x, defender.y
+        if defender.name == "Player":
+            # Directional ducking is a strict design rule: the correct key
+            # evades and the wrong key does not. Remove the duck-only world
+            # displacement before distance/cone checks so a wrong-direction
+            # duck cannot accidentally escape the cone geometrically. Other
+            # movement (including backstep) remains part of the target point.
+            target_x -= self.player_duck_world_x
+            target_y -= self.player_duck_world_y
+        vx = target_x - attacker.x
+        vy = target_y - attacker.y
         d = length(vx, vy)
         if d > attacker.range + defender.radius:
-            return
+            return False
 
         tx, ty = normalize(vx, vy)
         dot = attacker.facing_x * tx + attacker.facing_y * ty
         limit = math.cos(math.radians(attacker.half_angle_deg))
         if dot < limit:
-            return
+            return False
 
         if defender.name == "Player" and attacker.action in DUCK_EVADE_KEY:
             needed_key = DUCK_EVADE_KEY[attacker.action]
@@ -602,7 +545,7 @@ class TopDownPrototype:
             if duck_ratio >= DUCK_EVADE_THRESHOLD and duck_dir == needed_key:
                 self.show_feedback("DUCK EVADE")
                 self.show_commentary("duck_evade", attacker, defender)
-                return
+                return False
 
         damage = attacker.damage
         punished_whiff = defender.exposed > 0
@@ -661,6 +604,7 @@ class TopDownPrototype:
             self.show_feedback("KO!")
             self.show_commentary("ko", attacker, defender)
             self.end_round(winner, "KO")
+        return True
 
     def update_facing(self, actor, target):
         fx, fy = normalize(target.x - actor.x, target.y - actor.y)
@@ -735,8 +679,7 @@ class TopDownPrototype:
             actor.action_t += dt
             if actor.action in ATTACK_ACTIONS and not actor.acted and actor.active_a <= actor.action_t <= actor.active_b:
                 target = self.enemy if actor.name == "Player" else self.player
-                self.attempt_hit(actor, target)
-                actor.acted = True
+                actor.acted = self.attempt_hit(actor, target)
             if actor.action_t >= actor.action_dur:
                 if actor.action in ATTACK_ACTIONS and not actor.acted and not actor.whiff_penalized:
                     # A clean miss leaves you off balance a little longer,
@@ -767,10 +710,13 @@ class TopDownPrototype:
         self.player_duck_offset = new_offset
         if abs(delta) < 1e-4:
             return
+        old_x, old_y = self.player.x, self.player.y
         nx = self.player.x + right_x * delta
         ny = self.player.y + right_y * delta
         self.player.x = clamp(nx, ARENA[0] + self.player.radius, ARENA[2] - self.player.radius)
         self.player.y = clamp(ny, ARENA[1] + self.player.radius, ARENA[3] - self.player.radius)
+        self.player_duck_world_x += self.player.x - old_x
+        self.player_duck_world_y += self.player.y - old_y
 
     def update_player_backstep(self, dt):
         desired = self.player_back_target * self.back_max
@@ -1682,13 +1628,16 @@ class TopDownPrototype:
             self.canvas.create_text(480, 314, fill=GRAY, font=("Helvetica", 12), text=self.overlay_body)
 
     def tick(self):
-        dt = 0.016
+        now = time.perf_counter()
+        real_dt = frame_delta(self._last_tick_time, now)
+        self._last_tick_time = now
+        dt = real_dt
         if self.hitstop_timer > 0:
             # Real-time countdown for how long the freeze lasts, but the
             # game itself runs at a crawl while it's active - a brief,
             # near-total pause reads as "the punch actually landed" instead
             # of the hp bar just silently ticking down mid-swing.
-            self.hitstop_timer = max(0.0, self.hitstop_timer - dt)
+            self.hitstop_timer = max(0.0, self.hitstop_timer - real_dt)
             dt *= 0.12
         self.update(dt)
         self.draw_arena()

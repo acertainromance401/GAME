@@ -1,4 +1,18 @@
-# terminal
+# GAME
+
+복싱 게임 실험을 함께 관리하는 저장소입니다.
+
+## 현재 본선
+
+현재 집중 개발 대상은 Python/Tkinter 기반의 독립형 탑다운 복싱 게임입니다.
+
+```bash
+.venv/bin/python desktop-pixel-boxing/pixel_boxing_topdown.py
+```
+
+전투 규칙, 8종 펀치, 방향 더킹, 라운드/매치 진행, 카메라, 캐릭터 모션과 경기장 연출은 이 버전을 기준으로 발전시킵니다. `godot-pixel-boxing/`은 이식 가능성을 검증한 실험 스캐폴드이며 현재 개발은 보류합니다.
+
+## C++ TUI
 
 Realtime boxing TUI written in C++20.
 
@@ -46,6 +60,7 @@ bash scripts/open_game_terminal.sh
 ## 문서
 
 - [프로젝트 개요](docs/PROJECT_OVERVIEW.md)
+- [Pixel Boxing Top-Down 게임 설계](docs/PIXEL_BOXING_GAME_DESIGN.md)
 
 ## 현재 목표
 
