@@ -2,6 +2,8 @@
 
 GitHub Pages에서 설치 없이 실행하는 Pixel Boxing 공식 심사용 웹 빌드입니다.
 
+이 빌드의 기준 구현은 `../desktop-pixel-boxing/pixel_boxing/pixel_boxing_topdown.py`입니다. GitHub Pages에서 Tkinter를 직접 실행할 수 없기 때문에 Python 파일을 그대로 패키징한 것이 아니라, 본선과 `boxing_core.py`의 전투 규칙과 적응형 AI를 `game.js`로 이식한 브라우저 실행판입니다. Python 본선, 공유 전투 코어, 웹 빌드와 테스트는 모두 같은 공개 저장소와 커밋 이력에 포함됩니다.
+
 ## Play
 
 [Play Pixel Boxing](https://acertainromance401.github.io/GAME/)
