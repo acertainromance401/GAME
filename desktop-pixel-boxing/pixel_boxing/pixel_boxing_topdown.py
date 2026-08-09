@@ -3,6 +3,7 @@ import random
 import tkinter as tk
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 
 from .audio_feedback import SoundManager
 from .boxing_core import (
@@ -13,7 +14,6 @@ from .boxing_core import (
     DUCK_EVADE_KEY,
     DUCK_EVADE_THRESHOLD,
     DODGE_STAMINA_COST,
-    EXHAUSTION_DURATION,
     GUARD_DAMAGE_MULT,
     PlayerHabitMemory,
     ROUND_SECONDS,
@@ -34,6 +34,8 @@ from .game_settings import GameSettings
 WIDTH = 960
 HEIGHT = 700
 ARENA = (70, 70, 520, 520)
+FIGHTER_RING_MARGIN = 34.0
+KNOCKDOWN_DURATION = 0.9
 
 BG = "#091427"
 ARENA_BG = "#182946"
@@ -88,6 +90,7 @@ def lerp(a, b, t):
     return a + (b - a) * t
 
 
+@lru_cache(maxsize=128)
 def hex_to_rgb(color):
     color = color.lstrip("#")
     return int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
@@ -150,6 +153,13 @@ class Fighter:
     move_inertia_x: float = 0.0
     move_inertia_y: float = 0.0
     duck_pose: float = 0.0
+    hit_reaction: float = 0.0
+    hit_reaction_dur: float = 0.0
+    hit_reaction_strength: float = 0.0
+    hit_reaction_kind: str = ""
+    hit_reaction_side: float = 0.0
+    knocked_out: bool = False
+    knockdown: float = 0.0
 
 
 class TopDownPrototype:
@@ -257,8 +267,11 @@ class TopDownPrototype:
 
         self.root.bind_all("<KeyPress>", self.on_key_down)
         self.root.bind_all("<KeyRelease>", self.on_key_up)
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         self._last_tick_time = time.perf_counter()
+        self._running = True
+        self._tick_after_id = None
         self.tick()
 
     def reset_match(self):
@@ -304,6 +317,7 @@ class TopDownPrototype:
         self.modal_view = None
         self.modal_keys = set()
         self.round_transition_timer = 0.0
+        self.round_result_delay = 0.0
         self.state = "intro"
         self.set_overlay("PIXEL BOXING", "Endless rounds  |  Space Start  |  H Controls  |  O Settings")
         self.push_log("Press Space to start Round 1.")
@@ -341,6 +355,7 @@ class TopDownPrototype:
         self.modal_view = None
         self.modal_keys = set()
         self.round_transition_timer = 0.0
+        self.round_result_delay = 0.0
         self.round_time = float(ROUND_SECONDS)
 
     def set_overlay(self, title, body):
@@ -368,6 +383,7 @@ class TopDownPrototype:
 
     def end_round(self, winner, reason):
         self.state = "round_break"
+        self.round_result_delay = 1.25 if reason == "KO" else 0.0
         if reason != "KO":
             self.play_sound("round_end", min_interval=0.5)
         if winner == "player":
@@ -426,6 +442,45 @@ class TopDownPrototype:
             return "cross"
         return "jab"
 
+    def start_hit_reaction(self, defender, action, damage, guarding=False):
+        duration = 0.15 + 0.08 * clamp(damage / 20.0, 0.0, 1.0)
+        strength = clamp(damage / 13.0, 0.38, 1.35)
+        if guarding:
+            strength *= 0.42
+        defender.hit_reaction = duration
+        defender.hit_reaction_dur = duration
+        defender.hit_reaction_strength = strength
+        defender.hit_reaction_kind = self.punch_category(action)
+        defender.hit_reaction_side = -1.0 if action == "jab" or action.startswith("left_") else 1.0
+
+    def hit_reaction_pose(self, fighter, scale=1.0):
+        if fighter.hit_reaction <= 0.0 or fighter.hit_reaction_dur <= 0.0:
+            return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+        recoil = clamp(fighter.hit_reaction / fighter.hit_reaction_dur, 0.0, 1.0) ** 2
+        power = fighter.hit_reaction_strength * recoil * scale
+        side = fighter.hit_reaction_side
+        kind = fighter.hit_reaction_kind
+        if kind == "body":
+            return (2.8 * power, 0.5 * side * power, 3.6 * power,
+                    1.2 * power, 0.8 * side * power, 2.4 * power)
+        if kind == "hook":
+            return (-2.0 * power, 2.7 * side * power, 1.0 * power,
+                    -4.4 * power, 6.2 * side * power, 0.7 * power)
+        if kind == "uppercut":
+            return (-2.6 * power, 1.0 * side * power, -0.8 * power,
+                    -4.8 * power, 1.8 * side * power, -5.8 * power)
+        return (-2.3 * power, 0.8 * side * power, 0.7 * power,
+                -5.2 * power, 1.6 * side * power, 0.3 * power)
+
+    def update_knockdown_motions(self, dt):
+        for actor in (self.player, self.enemy):
+            if not actor.knocked_out:
+                continue
+            actor.knockdown = clamp(actor.knockdown + dt / KNOCKDOWN_DURATION, 0.0, 1.0)
+            actor.hit_reaction = max(0.0, actor.hit_reaction - dt)
+            actor.hit_flash = max(0.0, actor.hit_flash - dt)
+
     def spawn_hit_particles(self, x, y, color, count):
         # World-space spark burst: stored as plain world (x, y) so it gets
         # projected/panned/scaled by the camera exactly like anything else
@@ -455,7 +510,7 @@ class TopDownPrototype:
     def draw_particles(self):
         for p in self.particles:
             t = clamp(p["life"] / p["max_life"], 0.0, 1.0)
-            sx, sy, persp, cam_z = self.project_world(p["x"], p["y"])
+            sx, sy, persp, _ = self.project_world(p["x"], p["y"])
             scale = self.sprite_scale(persp)
             r = max(0.6, 2.6 * scale * t)
             col = mix_color(p["color"], BG, (1.0 - t) * 0.75)
@@ -714,8 +769,7 @@ class TopDownPrototype:
             label = "BACKSTEP"
 
         dist = 54 if side != "back" else 48
-        actor.x = clamp(actor.x + dx * dist, ARENA[0] + actor.radius, ARENA[2] - actor.radius)
-        actor.y = clamp(actor.y + dy * dist, ARENA[1] + actor.radius, ARENA[3] - actor.radius)
+        actor.x, actor.y = self.clamp_fighter_to_ring(actor, actor.x + dx * dist, actor.y + dy * dist)
         actor.action = "dodge"
         actor.action_t = 0.0
         actor.action_dur = 0.22
@@ -799,6 +853,7 @@ class TopDownPrototype:
         defender.invuln = 0.08
         defender.stagger = STAGGER_LOCK * (1.5 if interrupted else 1.0)
         defender.streak_count = 0
+        self.start_hit_reaction(defender, attacker.action, damage, guarding)
 
         # Impact feedback: brief hitstop (near-freeze) plus a camera rattle,
         # scaled a little by damage so a jab barely nudges the view but a
@@ -837,6 +892,11 @@ class TopDownPrototype:
 
         if defender.hp <= 0:
             winner = "player" if attacker.name == "Player" else "enemy"
+            defender.knocked_out = True
+            defender.knockdown = 0.0
+            defender.action = "idle"
+            defender.action_t = 0.0
+            defender.action_dur = 0.0
             self.show_feedback("KO!")
             self.show_commentary("ko", attacker, defender)
             self.play_sound("ko", min_interval=0.5)
@@ -847,6 +907,13 @@ class TopDownPrototype:
         fx, fy = normalize(target.x - actor.x, target.y - actor.y)
         actor.facing_x = fx
         actor.facing_y = fy
+
+    def clamp_fighter_to_ring(self, actor, x, y):
+        margin = max(actor.radius, FIGHTER_RING_MARGIN)
+        return (
+            clamp(x, ARENA[0] + margin, ARENA[2] - margin),
+            clamp(y, ARENA[1] + margin, ARENA[3] - margin),
+        )
 
     def update_player_movement(self, dt):
         if self.player.action_t < self.player.action_dur or self.player.stagger > 0 or self.player.exhausted > 0:
@@ -863,8 +930,11 @@ class TopDownPrototype:
         dx = nx * speed * dt
         dy = ny * speed * dt
         old_x, old_y = self.player.x, self.player.y
-        self.player.x = clamp(self.player.x + dx, ARENA[0] + self.player.radius, ARENA[2] - self.player.radius)
-        self.player.y = clamp(self.player.y + dy, ARENA[1] + self.player.radius, ARENA[3] - self.player.radius)
+        self.player.x, self.player.y = self.clamp_fighter_to_ring(
+            self.player,
+            self.player.x + dx,
+            self.player.y + dy,
+        )
         actual_dx = self.player.x - old_x
         actual_dy = self.player.y - old_y
         self.player.move_input_x = actual_dx / max(dt, 1e-6)
@@ -872,8 +942,11 @@ class TopDownPrototype:
         # Track the "stance" position (intentional movement only) separately
         # from player.x/y so the camera can follow it without being dragged
         # around by the duck/backstep hold-and-return offsets.
-        self.player_stance_x = clamp(self.player_stance_x + actual_dx, ARENA[0] + self.player.radius, ARENA[2] - self.player.radius)
-        self.player_stance_y = clamp(self.player_stance_y + actual_dy, ARENA[1] + self.player.radius, ARENA[3] - self.player.radius)
+        self.player_stance_x, self.player_stance_y = self.clamp_fighter_to_ring(
+            self.player,
+            self.player_stance_x + actual_dx,
+            self.player_stance_y + actual_dy,
+        )
 
     def update_ai(self, dt):
         e = self.enemy
@@ -889,8 +962,7 @@ class TopDownPrototype:
             if dist > 130:
                 nx, ny = normalize(dx, dy)
                 old_x, old_y = e.x, e.y
-                e.x = clamp(e.x + nx * 155 * dt, ARENA[0] + e.radius, ARENA[2] - e.radius)
-                e.y = clamp(e.y + ny * 155 * dt, ARENA[1] + e.radius, ARENA[3] - e.radius)
+                e.x, e.y = self.clamp_fighter_to_ring(e, e.x + nx * 155 * dt, e.y + ny * 155 * dt)
                 e.move_input_x = (e.x - old_x) / max(dt, 1e-6)
                 e.move_input_y = (e.y - old_y) / max(dt, 1e-6)
 
@@ -928,6 +1000,7 @@ class TopDownPrototype:
         actor.dodge = max(0.0, actor.dodge - dt)
         actor.exhausted = max(0.0, actor.exhausted - dt)
         actor.hit_flash = max(0.0, actor.hit_flash - dt)
+        actor.hit_reaction = max(0.0, actor.hit_reaction - dt)
         actor.exposed = max(0.0, actor.exposed - dt)
         actor.stagger = max(0.0, actor.stagger - dt)
         actor.anim_t += dt
@@ -982,8 +1055,7 @@ class TopDownPrototype:
         old_x, old_y = self.player.x, self.player.y
         nx = self.player.x + right_x * delta
         ny = self.player.y + right_y * delta
-        self.player.x = clamp(nx, ARENA[0] + self.player.radius, ARENA[2] - self.player.radius)
-        self.player.y = clamp(ny, ARENA[1] + self.player.radius, ARENA[3] - self.player.radius)
+        self.player.x, self.player.y = self.clamp_fighter_to_ring(self.player, nx, ny)
         self.player_duck_world_x += self.player.x - old_x
         self.player_duck_world_y += self.player.y - old_y
 
@@ -997,8 +1069,7 @@ class TopDownPrototype:
             return
         nx = self.player.x - self.player.facing_x * delta
         ny = self.player.y - self.player.facing_y * delta
-        self.player.x = clamp(nx, ARENA[0] + self.player.radius, ARENA[2] - self.player.radius)
-        self.player.y = clamp(ny, ARENA[1] + self.player.radius, ARENA[3] - self.player.radius)
+        self.player.x, self.player.y = self.clamp_fighter_to_ring(self.player, nx, ny)
 
         recovering = self.player_back_target <= 0.05 and self.player_back_offset > self.back_max * 0.22
         if recovering and self.player.invuln <= 0.0 and not self.player_back_risk_applied:
@@ -1018,6 +1089,12 @@ class TopDownPrototype:
 
     def update(self, dt):
         if self.state != "fight":
+            if self.state == "round_break":
+                self.update_knockdown_motions(dt)
+                self.round_result_delay = max(0.0, self.round_result_delay - dt)
+                self.feedback_timer = max(0.0, self.feedback_timer - dt)
+                self.commentary_timer = max(0.0, self.commentary_timer - dt)
+                self.update_particles(dt)
             return
 
         self.player.move_input_x = 0.0
@@ -1201,40 +1278,93 @@ class TopDownPrototype:
         # looking pasted onto the screen. Fixed seed keeps the crowd stable
         # across restarts instead of reshuffling every reset_match().
         rng = random.Random(20260809)
-        palette = ["#5a6b8c", "#8a7a6b", "#6b5a4a", "#4a5a6b", "#7a6b8a", "#3a4a5a", "#8a5a5a", "#5a8a6b"]
+        palette = ["#5f7394", "#927765", "#6f594c", "#4f6578", "#80688d", "#40566c", "#925e62", "#59806d"]
         seats = []
-        # Far stands, behind/around the opponent's baseline - the most
-        # prominent bank of seats since the camera looks toward them. More
-        # rows (packed closer right behind the ropes, spreading out further
-        # back) and more seats per row than the first pass, which left the
-        # far background looking sparse/empty.
-        for row_wx in (535, 565, 600, 640, 685, 735, 795, 860, 935):
-            count = 22
-            for i in range(count):
-                wy = -60 + i * (680.0 / (count - 1)) + rng.uniform(-10, 10)
-                seats.append((row_wx + rng.uniform(-9, 9), wy, rng.choice(palette)))
-        # Side stands running along both long edges of the ring - more rows,
-        # packed a bit tighter, so the sides read as full stands rather than
-        # a single thin line of spectators.
-        for row_wy in (0, -30, -62, 590, 622, 655):
-            count = 12
-            for i in range(count):
-                wx = 75 + i * (440.0 / (count - 1)) + rng.uniform(-10, 10)
-                seats.append((wx, row_wy + rng.uniform(-8, 8), rng.choice(palette)))
+        x0, y0, x1, y1 = ARENA
+        for tier, offset in enumerate((28.0, 54.0, 84.0, 118.0)):
+            count = 17
+            for index in range(count):
+                along = index / (count - 1)
+                wx = lerp(x0 - 12.0, x1 + 12.0, along) + rng.uniform(-5.0, 5.0)
+                wy = lerp(y0 - 12.0, y1 + 12.0, along) + rng.uniform(-5.0, 5.0)
+                seats.append((wx, y0 - offset + rng.uniform(-4.0, 4.0), rng.choice(palette), tier))
+                seats.append((wx, y1 + offset + rng.uniform(-4.0, 4.0), rng.choice(palette), tier))
+                seats.append((x0 - offset + rng.uniform(-4.0, 4.0), wy, rng.choice(palette), tier))
+                seats.append((x1 + offset + rng.uniform(-4.0, 4.0), wy, rng.choice(palette), tier))
         return seats
 
-    def draw_crowd(self):
-        for wx, wy, color in self.crowd_seats:
-            sx, sy, persp, cam_z = self.project_world(wx, wy)
-            scale = self.sprite_scale(persp) * 0.85
-            fog_t = clamp((cam_z + 60.0) / 760.0, 0.1, 0.78)
-            tint = mix_color(color, BG, fog_t)
-            body_r = 3.2 * scale
-            head_r = 2.2 * scale
-            self.canvas.create_oval(sx - body_r, sy - 1.0 * scale, sx + body_r, sy + 4.4 * scale, fill=tint, outline="")
-            self.canvas.create_oval(sx - head_r, sy - 5.4 * scale, sx + head_r, sy - 5.4 * scale + 2 * head_r, fill=tint, outline="")
+    def draw_stage_lighting(self):
+        for band in range(9):
+            y0 = 82 + band * 48
+            y1 = y0 + 49
+            shade = mix_color("#10213a", BG, band / 12.0)
+            self.canvas.create_rectangle(0, y0, WIDTH, y1, fill=shade, outline="")
 
-    def draw_ring_ropes(self):
+        beam_specs = (
+            (260, 146, 390, 620, "#10243d"),
+            (480, 124, 480, 650, "#142b45"),
+            (700, 146, 570, 620, "#10243d"),
+        )
+        for light_x, light_y, target_x, target_y, color in beam_specs:
+            self.canvas.create_polygon(
+                light_x - 8, light_y + 8,
+                light_x + 8, light_y + 8,
+                target_x + 170, target_y,
+                target_x - 170, target_y,
+                fill=color,
+                outline="",
+            )
+
+        self.canvas.create_line(120, 112, WIDTH - 120, 112, fill="#40536f", width=5)
+        self.canvas.create_line(120, 128, WIDTH - 120, 128, fill="#263850", width=3)
+        for x in range(130, WIDTH - 120, 48):
+            self.canvas.create_line(x, 112, x + 20, 128, fill="#30435e", width=2)
+            self.canvas.create_line(x + 20, 112, x, 128, fill="#30435e", width=2)
+        for light_x in (260, 480, 700):
+            self.canvas.create_rectangle(light_x - 12, 128, light_x + 12, 143, fill="#182334", outline="#6f8db7")
+            self.canvas.create_line(light_x - 7, 143, light_x + 7, 143, fill="#f4e6b7", width=3)
+
+    def draw_stands(self):
+        x0, y0, x1, y1 = ARENA
+        tiers = []
+        for tier, (inner, outer) in enumerate(((18, 42), (46, 70), (74, 101), (105, 137))):
+            quads = (
+                ((x0 - outer, y0 - outer), (x0 - inner, y0 - inner), (x0 - inner, y1 + inner), (x0 - outer, y1 + outer)),
+                ((x1 + inner, y0 - inner), (x1 + outer, y0 - outer), (x1 + outer, y1 + outer), (x1 + inner, y1 + inner)),
+                ((x0 - outer, y0 - outer), (x1 + outer, y0 - outer), (x1 + inner, y0 - inner), (x0 - inner, y0 - inner)),
+                ((x0 - inner, y1 + inner), (x1 + inner, y1 + inner), (x1 + outer, y1 + outer), (x0 - outer, y1 + outer)),
+            )
+            for quad in quads:
+                projected = [self.project_world(wx, wy) for wx, wy in quad]
+                avg_depth = sum(point[3] for point in projected) / len(projected)
+                tiers.append((avg_depth, tier, projected))
+
+        for _, tier, projected in sorted(tiers, key=lambda item: item[0], reverse=True):
+            points = [coordinate for point in projected for coordinate in point[:2]]
+            fill = mix_color("#17263b", BG, tier * 0.12)
+            edge = mix_color("#4a607e", BG, tier * 0.13)
+            self.canvas.create_polygon(points, fill=fill, outline=edge, width=1)
+
+    def draw_crowd(self):
+        projected_seats = []
+        for wx, wy, color, tier in self.crowd_seats:
+            sx, sy, persp, cam_z = self.project_world(wx, wy)
+            projected_seats.append((cam_z, sx, sy, persp, color, tier))
+        for cam_z, sx, sy, persp, color, tier in sorted(projected_seats, reverse=True):
+            scale = self.sprite_scale(persp) * lerp(0.82, 0.72, tier / 3.0)
+            fog_t = clamp((cam_z + 60.0) / 760.0 + tier * 0.045, 0.08, 0.82)
+            tint = mix_color(color, BG, fog_t)
+            self.canvas.create_line(
+                sx,
+                sy + 3.8 * scale,
+                sx,
+                sy - 5.0 * scale,
+                fill=tint,
+                width=max(1, int(4.8 * scale)),
+                capstyle="round",
+            )
+
+    def draw_ring_ropes(self, foreground=False):
         # Fake "height" for corner posts/ropes: there's no true vertical (Z)
         # axis in this projection, so a post's on-screen rise is just the
         # corner's own screen point pushed straight up, scaled by persp so
@@ -1242,35 +1372,82 @@ class TopDownPrototype:
         # sprite_scale/fog elsewhere in this file.
         corners_world = [(ARENA[0], ARENA[1]), (ARENA[2], ARENA[1]), (ARENA[2], ARENA[3]), (ARENA[0], ARENA[3])]
         projected = [self.project_world(wx, wy) for wx, wy in corners_world]
-        post_color = mix_color("#d3453f", BG, 0.1)
-        rope_color = mix_color("#f2c94c", BG, 0.18)
+        corner_colors = (PLAYER_COLOR, ENEMY_COLOR, ENEMY_COLOR, PLAYER_COLOR)
+        rope_colors = ("#d9e4f5", "#e15a5a", "#d9e4f5")
+        corner_depth_cutoff = sorted(point[3] for point in projected)[1]
+        edge_depths = [
+            (projected[index][3] + projected[(index + 1) % 4][3]) * 0.5
+            for index in range(4)
+        ]
+        edge_depth_cutoff = sorted(edge_depths)[1]
         tops = []
-        for sx, sy, persp, cam_z in projected:
+        for index, (sx, sy, persp, cam_z) in enumerate(projected):
             top_y = sy - 130.0 * persp * 0.55
             tops.append(top_y)
-            self.canvas.create_line(sx, sy, sx, top_y, fill=post_color, width=4)
-            self.canvas.create_oval(sx - 4, top_y - 4, sx + 4, top_y + 4, fill=post_color, outline="")
-        for frac in (0.32, 0.6, 0.88):
+            is_foreground = cam_z <= corner_depth_cutoff
+            if is_foreground != foreground:
+                continue
+            post_color = mix_color(corner_colors[index], BG, 0.16)
+            self.canvas.create_line(sx + 2, sy, sx + 2, top_y, fill="#050912", width=max(5, int(6 * persp)))
+            self.canvas.create_line(sx, sy, sx, top_y, fill=post_color, width=max(3, int(4 * persp)))
+            self.canvas.create_oval(sx - 4, top_y - 4, sx + 4, top_y + 4, fill=post_color, outline="#d9e4f5")
+            pad_top = lerp(sy, top_y, 0.78)
+            pad_bottom = lerp(sy, top_y, 0.35)
+            pad_half = max(4.0, 5.5 * persp)
+            self.canvas.create_rectangle(
+                sx - pad_half,
+                pad_top,
+                sx + pad_half,
+                pad_bottom,
+                fill=post_color,
+                outline=mix_color(corner_colors[index], WHITE, 0.45),
+                width=1,
+            )
+        for rope_index, frac in enumerate((0.32, 0.6, 0.88)):
             pts = []
             for i in range(4):
                 sx, sy, persp, cam_z = projected[i]
                 rope_y = sy + (tops[i] - sy) * frac
                 pts.append((sx, rope_y))
             for i in range(4):
+                is_foreground = edge_depths[i] <= edge_depth_cutoff
+                if is_foreground != foreground:
+                    continue
                 x0, y0 = pts[i]
                 x1, y1 = pts[(i + 1) % 4]
-                self.canvas.create_line(x0, y0, x1, y1, fill=rope_color, width=2)
+                self.canvas.create_line(x0 + 1, y0 + 2, x1 + 1, y1 + 2, fill="#050912", width=4)
+                self.canvas.create_line(x0, y0, x1, y1, fill=rope_colors[rope_index], width=2)
 
     def draw_arena(self):
         self.canvas.delete("all")
         self.canvas.create_rectangle(0, 0, WIDTH, HEIGHT, fill=BG, outline=BG)
+        self.draw_stage_lighting()
+        self.draw_stands()
         self.draw_crowd()
         c0 = self.project_world(ARENA[0], ARENA[1])
         c1 = self.project_world(ARENA[2], ARENA[1])
         c2 = self.project_world(ARENA[2], ARENA[3])
         c3 = self.project_world(ARENA[0], ARENA[3])
         floor_poly = [c0[0], c0[1], c1[0], c1[1], c2[0], c2[1], c3[0], c3[1]]
-        self.canvas.create_polygon(floor_poly, fill=ARENA_BG, outline=ARENA_EDGE, width=3)
+        center_x = sum(point[0] for point in (c0, c1, c2, c3)) / 4.0
+        center_y = sum(point[1] for point in (c0, c1, c2, c3)) / 4.0
+        apron_poly = []
+        for point in (c0, c1, c2, c3):
+            dx = point[0] - center_x
+            dy = point[1] - center_y
+            mag = max(length(dx, dy), 1e-6)
+            apron_poly.extend((point[0] + dx / mag * 17.0, point[1] + dy / mag * 12.0))
+        self.canvas.create_polygon(apron_poly, fill="#0b1322", outline="#49658c", width=3)
+        self.canvas.create_polygon(floor_poly, fill=ARENA_BG, outline="#6f8db7", width=3)
+        inner_world = (
+            (ARENA[0] + 38, ARENA[1] + 38),
+            (ARENA[2] - 38, ARENA[1] + 38),
+            (ARENA[2] - 38, ARENA[3] - 38),
+            (ARENA[0] + 38, ARENA[3] - 38),
+        )
+        inner_projected = [self.project_world(wx, wy) for wx, wy in inner_world]
+        inner_poly = [coordinate for point in inner_projected for coordinate in point[:2]]
+        self.canvas.create_polygon(inner_poly, fill="#1b3152", outline="#304c75", width=1)
 
         # Perspective grid to reinforce over-shoulder depth.
         for gy in range(ARENA[1] + 40, ARENA[3], 44):
@@ -1284,7 +1461,28 @@ class TopDownPrototype:
             fog_t = clamp(((t[3] + b[3]) * 0.5 + 80.0) / 820.0, 0.0, 0.62)
             self.canvas.create_line(t[0], t[1], b[0], b[1], fill=mix_color("#274066", BG, fog_t), width=1)
 
-        self.draw_ring_ropes()
+        logo_center = self.project_world((ARENA[0] + ARENA[2]) * 0.5, (ARENA[1] + ARENA[3]) * 0.5)
+        logo_side = self.project_world((ARENA[0] + ARENA[2]) * 0.5, (ARENA[1] + ARENA[3]) * 0.5 + 44)
+        logo_radius_x = max(22.0, abs(logo_side[0] - logo_center[0]) + 42.0 * logo_center[2])
+        logo_radius_y = max(10.0, 18.0 * logo_center[2])
+        self.canvas.create_oval(
+            logo_center[0] - logo_radius_x,
+            logo_center[1] - logo_radius_y,
+            logo_center[0] + logo_radius_x,
+            logo_center[1] + logo_radius_y,
+            fill="#14223a",
+            outline="#6f8db7",
+            width=2,
+        )
+        self.canvas.create_text(
+            logo_center[0],
+            logo_center[1],
+            text="PIXEL BOXING",
+            fill="#dbe7f7",
+            font=("Helvetica", max(8, int(10 * logo_center[2])), "bold"),
+        )
+
+        self.draw_ring_ropes(foreground=False)
 
     def action_phase(self, fighter):
         if fighter.action_dur <= 1e-6:
@@ -1559,6 +1757,184 @@ class TopDownPrototype:
         }
 
 
+    def draw_knockdown_fighter(
+        self, f, sx, floor_sy, scale, fog_t, body, body_dark, skin,
+        glove, shoe, trunks, trunks_trim, outline,
+    ):
+        progress = clamp(f.knockdown, 0.0, 1.0)
+        fall = progress * progress * (3.0 - 2.0 * progress)
+        fall_sign = -1.0 if sx > WIDTH * 0.5 else 1.0
+        axis_x, axis_y = normalize(
+            lerp(0.0, fall_sign, fall),
+            lerp(-1.0, -0.12, fall),
+        )
+        across_x, across_y = -axis_y, axis_x
+        hip = (
+            sx + fall_sign * 4.0 * scale * fall,
+            floor_sy + lerp(8.8, 16.0, fall) * scale,
+        )
+        chest = (hip[0] + axis_x * 15.0 * scale, hip[1] + axis_y * 15.0 * scale)
+        neck = (hip[0] + axis_x * 24.0 * scale, hip[1] + axis_y * 24.0 * scale)
+        head = (hip[0] + axis_x * 30.0 * scale, hip[1] + axis_y * 30.0 * scale)
+        lead_shoulder = (
+            chest[0] - across_x * 7.0 * scale,
+            chest[1] - across_y * 7.0 * scale,
+        )
+        rear_shoulder = (
+            chest[0] + across_x * 7.0 * scale,
+            chest[1] + across_y * 7.0 * scale,
+        )
+        lead_hip = (hip[0] - across_x * 4.8 * scale, hip[1] - across_y * 4.8 * scale)
+        rear_hip = (hip[0] + across_x * 4.8 * scale, hip[1] + across_y * 4.8 * scale)
+
+        lead_knee = (
+            lead_hip[0] - axis_x * 8.0 * scale - across_x * 2.6 * scale,
+            lead_hip[1] - axis_y * 8.0 * scale - across_y * 2.6 * scale,
+        )
+        rear_knee = (
+            rear_hip[0] - axis_x * 7.0 * scale + across_x * 3.2 * scale,
+            rear_hip[1] - axis_y * 7.0 * scale + across_y * 3.2 * scale,
+        )
+        lead_foot = (
+            lead_knee[0] - axis_x * 9.0 * scale - across_x * 2.2 * scale,
+            lead_knee[1] - axis_y * 9.0 * scale - across_y * 2.2 * scale,
+        )
+        rear_foot = (
+            rear_knee[0] - axis_x * 10.0 * scale + across_x * 1.5 * scale,
+            rear_knee[1] - axis_y * 10.0 * scale + across_y * 1.5 * scale,
+        )
+        lead_elbow = (
+            lead_shoulder[0]
+            + axis_x * 4.0 * scale
+            - across_x * lerp(3.0, 10.0, fall) * scale,
+            lead_shoulder[1]
+            + axis_y * 4.0 * scale
+            - across_y * lerp(3.0, 10.0, fall) * scale,
+        )
+        rear_elbow = (
+            rear_shoulder[0]
+            + axis_x * 2.0 * scale
+            + across_x * lerp(3.0, 11.0, fall) * scale,
+            rear_shoulder[1]
+            + axis_y * 2.0 * scale
+            + across_y * lerp(3.0, 11.0, fall) * scale,
+        )
+        lead_hand = (
+            lerp(
+                head[0] - across_x * 5.0 * scale,
+                lead_elbow[0] - axis_x * 6.0 * scale,
+                fall,
+            ),
+            lerp(
+                head[1] - across_y * 5.0 * scale,
+                lead_elbow[1] - axis_y * 6.0 * scale,
+                fall,
+            ),
+        )
+        rear_hand = (
+            lerp(
+                head[0] + across_x * 5.0 * scale,
+                rear_elbow[0] + across_x * 5.0 * scale,
+                fall,
+            ),
+            lerp(
+                head[1] + across_y * 5.0 * scale,
+                rear_elbow[1] + across_y * 5.0 * scale,
+                fall,
+            ),
+        )
+
+        shadow_half = lerp(11.0, 38.0, fall) * scale
+        self.canvas.create_oval(
+            hip[0] - shadow_half,
+            floor_sy + 12.0 * scale,
+            hip[0] + shadow_half,
+            floor_sy + 20.0 * scale,
+            fill=mix_color("#000000", ARENA_BG, 0.58),
+            outline="",
+        )
+
+        leg_upper_w = max(5, int(7.0 * scale))
+        leg_lower_w = max(4, int(5.0 * scale))
+        arm_upper_w = max(4, int(5.8 * scale))
+        arm_lower_w = max(3, int(4.4 * scale))
+        self.draw_tapered_limb(
+            lead_hip[0], lead_hip[1], lead_knee[0], lead_knee[1],
+            leg_upper_w, leg_upper_w * 0.64, body_dark, outline,
+        )
+        self.draw_tapered_limb(
+            lead_knee[0], lead_knee[1], lead_foot[0], lead_foot[1],
+            leg_lower_w, leg_lower_w * 0.58, body, outline,
+        )
+        self.draw_tapered_limb(
+            rear_hip[0], rear_hip[1], rear_knee[0], rear_knee[1],
+            leg_upper_w, leg_upper_w * 0.64, body_dark, outline,
+        )
+        self.draw_tapered_limb(
+            rear_knee[0], rear_knee[1], rear_foot[0], rear_foot[1],
+            leg_lower_w, leg_lower_w * 0.58, body, outline,
+        )
+        self.draw_foot(lead_foot[0], lead_foot[1], -axis_x, -axis_y, scale, shoe, outline)
+        self.draw_foot(rear_foot[0], rear_foot[1], -axis_x, -axis_y, scale, shoe, outline)
+
+        torso_poly = [
+            lead_shoulder[0], lead_shoulder[1],
+            rear_shoulder[0], rear_shoulder[1],
+            rear_hip[0], rear_hip[1],
+            lead_hip[0], lead_hip[1],
+        ]
+        self.canvas.create_polygon(torso_poly, fill=body, outline=outline, width=2)
+        self.draw_tapered_limb(
+            lead_hip[0], lead_hip[1], lead_knee[0], lead_knee[1],
+            leg_upper_w * 0.9, leg_upper_w * 0.68, trunks, outline,
+        )
+        self.draw_tapered_limb(
+            rear_hip[0], rear_hip[1], rear_knee[0], rear_knee[1],
+            leg_upper_w * 0.9, leg_upper_w * 0.68, trunks, outline,
+        )
+        self.canvas.create_line(
+            lead_hip[0], lead_hip[1], rear_hip[0], rear_hip[1],
+            fill=trunks_trim, width=max(2, int(2.0 * scale)),
+        )
+        self.draw_bone(
+            chest[0], chest[1], neck[0], neck[1],
+            max(3, int(4.2 * scale)), skin, outline,
+        )
+        self.draw_tapered_limb(
+            lead_shoulder[0], lead_shoulder[1], lead_elbow[0], lead_elbow[1],
+            arm_upper_w, arm_upper_w * 0.62, body_dark, outline,
+        )
+        self.draw_tapered_limb(
+            lead_elbow[0], lead_elbow[1], lead_hand[0], lead_hand[1],
+            arm_lower_w, arm_lower_w * 0.58, skin, outline,
+        )
+        self.draw_tapered_limb(
+            rear_shoulder[0], rear_shoulder[1], rear_elbow[0], rear_elbow[1],
+            arm_upper_w, arm_upper_w * 0.62, body_dark, outline,
+        )
+        self.draw_tapered_limb(
+            rear_elbow[0], rear_elbow[1], rear_hand[0], rear_hand[1],
+            arm_lower_w, arm_lower_w * 0.58, skin, outline,
+        )
+        self.draw_fist(lead_hand[0], lead_hand[1], axis_x, axis_y, scale, glove, outline)
+        self.draw_fist(rear_hand[0], rear_hand[1], axis_x, axis_y, scale, glove, outline)
+
+        head_r = 6.5 * scale
+        self.draw_joint(head[0], head[1], head_r, skin, outline)
+        hair = mix_color("#171310", BG, fog_t * 0.9)
+        self.canvas.create_arc(
+            head[0] - head_r,
+            head[1] - head_r,
+            head[0] + head_r,
+            head[1] + head_r,
+            start=0,
+            extent=180,
+            style="pieslice",
+            fill=hair,
+            outline=outline,
+        )
+        self.prev_hand_pos.pop(f.name, None)
+
     def draw_fighter(self, f):
         sx, floor_sy, persp, cam_z = self.project_world(f.x, f.y, actor_depth_boost=False)
         _, boosted_sy, _, _ = self.project_world(f.x, f.y, actor_depth_boost=True)
@@ -1583,13 +1959,18 @@ class TopDownPrototype:
         outline = mix_color("#0a1020", BG, fog_t * 0.7)
         cloth_shadow = mix_color(trunks_trim, outline, 0.45)
 
-        # A grounded contact shadow, anchored at the fighter's actual world
-        # position (not the crouch/duck-shifted torso), so the sprite always
-        # reads as standing ON the floor instead of floating over it -
-        # without this there's no visual link at all between the character
-        # and the ground plane beneath them.
         shadow_color = mix_color("#000000", ARENA_BG, 0.55 + fog_t * 0.3)
         shadow_y = floor_sy + 25.0 * scale
+        shadow_dx = clamp((sx - WIDTH * 0.5) * 0.055, -8.0 * scale, 8.0 * scale)
+        shadow_length = 9.0 * scale
+        self.canvas.create_polygon(
+            sx - 6.5 * scale, shadow_y - 1.8 * scale,
+            sx + 6.5 * scale, shadow_y - 1.8 * scale,
+            sx + shadow_dx + 8.5 * scale, shadow_y + shadow_length,
+            sx + shadow_dx - 8.5 * scale, shadow_y + shadow_length,
+            fill=mix_color(shadow_color, ARENA_BG, 0.18),
+            outline="",
+        )
         self.canvas.create_oval(
             sx - 10.0 * scale, shadow_y - 3.2 * scale,
             sx + 10.0 * scale, shadow_y + 3.2 * scale,
@@ -1603,6 +1984,13 @@ class TopDownPrototype:
         else:
             dir_x, dir_y = dir_x / dmag, dir_y / dmag
         side_x, side_y = -dir_y, dir_x
+
+        if f.knocked_out:
+            self.draw_knockdown_fighter(
+                f, sx, floor_sy, scale, fog_t, body, body_dark, skin,
+                glove, shoe, trunks, trunks_trim, outline,
+            )
+            return
 
         phase = self.action_phase(f)
         duck_ratio = 0.0
@@ -1698,6 +2086,26 @@ class TopDownPrototype:
         head_center_x -= dir_x * 1.8 * scale * duck_tuck
         head_center_y += 1.95 * scale * duck_tuck
 
+        torso_fwd, torso_side, torso_drop, head_fwd, head_side, head_drop = (
+            self.hit_reaction_pose(f, scale)
+        )
+        torso_center_x += dir_x * torso_fwd + side_x * torso_side
+        torso_center_y += dir_y * torso_fwd + side_y * torso_side + torso_drop
+        hip_center_x += dir_x * torso_fwd * 0.38 + side_x * torso_side * 0.3
+        hip_center_y += (
+            dir_y * torso_fwd * 0.38
+            + side_y * torso_side * 0.3
+            + torso_drop * 0.45
+        )
+        neck_x += dir_x * head_fwd * 0.55 + side_x * head_side * 0.55
+        neck_y += (
+            dir_y * head_fwd * 0.55
+            + side_y * head_side * 0.55
+            + head_drop * 0.55
+        )
+        head_center_x += dir_x * head_fwd + side_x * head_side
+        head_center_y += dir_y * head_fwd + side_y * head_side + head_drop
+
         # Guard-up idle hand pose (boxing stance) instead of hanging arms.
         guard_lift = 1.0 - clamp(f.duck_pose * 0.5, 0.0, 0.5)
         lead_hand = (
@@ -1789,7 +2197,7 @@ class TopDownPrototype:
             rib_center_y + side_y * shoulder_half * rear_sign,
         )
 
-        if strike_arm is not None:
+        if strike_arm is not None and profile is not None:
             strike_shoulder = lead_shoulder if strike_arm == "lead" else rear_shoulder
             strike_hand = (
                 strike_shoulder[0]
@@ -1826,7 +2234,7 @@ class TopDownPrototype:
         # uppercuts rotate upward as they rise.
         lead_knuckle = (dir_x, dir_y)
         rear_knuckle = (dir_x, dir_y)
-        if strike_arm is not None:
+        if strike_arm is not None and profile is not None:
             k_fwd = profile["knuckle_fwd"]
             k_side = profile["knuckle_side"] * strike_sign
             k_up = profile["knuckle_up"]
@@ -2284,12 +2692,7 @@ class TopDownPrototype:
         jaw_x2 = head_center_x + side_x * head_r * 0.4
         jaw_y2 = head_center_y + head_r * 0.48
         self.canvas.create_line(
-            jaw_x0,
-            jaw_y0,
-            jaw_x1,
-            jaw_y1,
-            jaw_x2,
-            jaw_y2,
+            [(jaw_x0, jaw_y0), (jaw_x1, jaw_y1), (jaw_x2, jaw_y2)],
             smooth=True,
             fill=skin_shadow,
             width=max(1, int(1.55 * scale)),
@@ -2492,12 +2895,18 @@ class TopDownPrototype:
             else:
                 title, body = "FIGHT!", ""
             self.draw_center_panel(title, (body,), width=420)
-        elif self.modal_view is None and self.state != "fight":
+        elif (
+            self.modal_view is None
+            and self.state != "fight"
+            and self.round_result_delay <= 0.0
+        ):
             self.draw_center_panel(self.overlay_title, (self.overlay_body,), width=620)
 
         self.draw_modal()
 
     def tick(self):
+        if not self._running:
+            return
         now = time.perf_counter()
         real_dt = frame_delta(self._last_tick_time, now)
         self._last_tick_time = now
@@ -2517,9 +2926,27 @@ class TopDownPrototype:
         actors.sort(key=lambda actor: self.project_world(actor.x, actor.y)[3], reverse=True)
         for actor in actors:
             self.draw_fighter(actor)
+        self.draw_ring_ropes(foreground=True)
         self.draw_particles()
         self.draw_hud()
-        self.root.after(16, self.tick)
+        if self._running:
+            self._tick_after_id = self.root.after(16, self.tick)
+
+    def close(self):
+        if not getattr(self, "_running", False):
+            return
+        self._running = False
+        after_id = getattr(self, "_tick_after_id", None)
+        if after_id is not None:
+            try:
+                self.root.after_cancel(after_id)
+            except tk.TclError:
+                pass
+            self._tick_after_id = None
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
 
     def run(self):
         self.root.mainloop()

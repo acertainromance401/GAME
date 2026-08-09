@@ -1,1109 +1,134 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pixel Boxing</title>
-  <style>
-    :root {
-      --bg: #07111f;
-      --panel: #0d1a2b;
-      --panel2: #0a1320;
-      --text: #e8f2ff;
-      --muted: #9db2d1;
-      --accent: #58d7ff;
-      --danger: #ff5f7a;
-      --good: #73ff9b;
-      --gold: #ffd45a;
-    }
-
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      background:
-        radial-gradient(circle at 50% 20%, rgba(88,215,255,0.16), transparent 28%),
-        radial-gradient(circle at 20% 80%, rgba(255,213,90,0.12), transparent 24%),
-        linear-gradient(180deg, #050b14 0%, var(--bg) 40%, #040810 100%);
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    body {
-      display: grid;
-      place-items: center;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
-    .shell {
-      width: min(1100px, 100%);
-      display: grid;
-      gap: 14px;
-    }
-
-    .topbar, .bottombar {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      padding: 12px 16px;
-      background: linear-gradient(180deg, rgba(18,31,52,0.95), rgba(12,20,34,0.95));
-      border: 1px solid rgba(116, 160, 223, 0.2);
-      border-radius: 18px;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.35);
-      backdrop-filter: blur(8px);
-    }
-
-    .title {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .title h1 {
-      margin: 0;
-      font-size: 22px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .title p, .hint, .stats, .log {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .hud {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: 1fr 1fr;
-      align-items: stretch;
-    }
-
-    .card {
-      padding: 12px 14px;
-      border-radius: 16px;
-      background: linear-gradient(180deg, rgba(16, 24, 40, 0.95), rgba(10, 16, 27, 0.95));
-      border: 1px solid rgba(127, 180, 255, 0.18);
-    }
-
-    .card .label {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 8px;
-      font-size: 13px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .bar {
-      height: 16px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: rgba(255,255,255,0.08);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
-    }
-
-    .bar > span {
-      display: block;
-      height: 100%;
-      width: 100%;
-      transform-origin: left center;
-      transition: transform 0.08s linear;
-    }
-
-    .bar.health > span { background: linear-gradient(90deg, #71ffb0, #2bd66f); }
-    .bar.enemy > span { background: linear-gradient(90deg, #ff9b7f, #ff4d6d); }
-    .bar.stamina > span { background: linear-gradient(90deg, #87d7ff, #4a9cff); }
-
-    .canvas-wrap {
-      position: relative;
-      border-radius: 24px;
-      padding: 18px;
-      background: linear-gradient(180deg, rgba(19, 27, 45, 0.96), rgba(7, 12, 21, 0.98));
-      border: 1px solid rgba(120, 167, 255, 0.18);
-      box-shadow: 0 26px 60px rgba(0,0,0,0.42);
-    }
-
-    canvas {
-      width: 100%;
-      height: auto;
-      aspect-ratio: 16 / 9;
-      display: block;
-      border-radius: 18px;
-      background: #08111f;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-    }
-
-    .overlay {
-      position: absolute;
-      inset: 18px;
-      border-radius: 18px;
-      display: grid;
-      place-items: center;
-      pointer-events: none;
-      background: linear-gradient(180deg, rgba(2,5,10,0.08), rgba(2,5,10,0.28));
-      opacity: 0;
-      transition: opacity 0.15s ease;
-    }
-
-    .overlay.show { opacity: 1; }
-
-    .overlay .box {
-      max-width: 540px;
-      padding: 18px 20px;
-      border-radius: 18px;
-      background: rgba(5, 10, 18, 0.82);
-      border: 1px solid rgba(112, 180, 255, 0.22);
-      text-align: center;
-      box-shadow: 0 22px 40px rgba(0,0,0,0.28);
-    }
-
-    .overlay .box h2 {
-      margin: 0 0 8px;
-      font-size: 28px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .overlay .box p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-
-    .log-panel {
-      display: grid;
-      gap: 8px;
-    }
-
-    .log {
-      min-height: 3.8em;
-      color: #dce9ff;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .pill {
-      padding: 5px 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .btn {
-      appearance: none;
-      border: 0;
-      padding: 10px 14px;
-      border-radius: 12px;
-      color: #08111f;
-      font-weight: 700;
-      background: linear-gradient(180deg, #9ee8ff, #58d7ff);
-      cursor: pointer;
-      box-shadow: 0 10px 20px rgba(88,215,255,0.18);
-    }
-
-    .btn:active { transform: translateY(1px); }
-
-    .control-dock {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      align-items: stretch;
-    }
-
-    .control-dock .btn {
-      width: 100%;
-      font-size: 13px;
-      padding: 10px 8px;
-      background: linear-gradient(180deg, #d9f5ff, #72dfff);
-    }
-
-    .control-dock .btn.secondary {
-      color: var(--text);
-      background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
-      border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: none;
-    }
-
-    .control-dock .btn.action {
-      color: #06111e;
-      background: linear-gradient(180deg, #ffe98c, #ffc44f);
-    }
-
-    .control-dock .btn.danger {
-      color: #1d0810;
-      background: linear-gradient(180deg, #ffb0bf, #ff6f8d);
-    }
-
-    .control-dock .btn.guard {
-      color: #06111e;
-      background: linear-gradient(180deg, #a9f4ff, #6bc8ff);
-    }
-
-    .control-dock .btn:focus-visible,
-    .btn:focus-visible {
-      outline: 2px solid var(--gold);
-      outline-offset: 2px;
-    }
-
-    .tiny {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    @media (max-width: 800px) {
-      body { padding: 10px; }
-      .hud { grid-template-columns: 1fr; }
-      .topbar, .bottombar { flex-direction: column; align-items: flex-start; }
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090b0f">
+  <meta name="description" content="플레이어의 습관을 학습하며 라운드마다 강해지는 AI 복서와 싸우는 브라우저 액션 게임">
+  <title>Pixel Boxing: Adaptive Rival</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="shell">
-    <div class="topbar">
-      <div class="title">
-        <h1>Pixel Boxing</h1>
-        <p>Fast browser boxing prototype. Orbit the opponent, land clean shots, survive the rounds.</p>
-      </div>
-      <div class="controls">
-        <span class="pill">Move: Arrow Keys / WASD</span>
-        <span class="pill">Jab: Z</span>
-        <span class="pill">Cross: X</span>
-        <span class="pill">Hook: C</span>
-        <span class="pill">Guard: V</span>
-        <span class="pill">Dodge: Space</span>
-        <span class="pill">Restart: R</span>
-      </div>
-    </div>
-
-    <div class="hud">
-      <div class="card">
-        <div class="label"><span>Boxer</span><span id="playerHpText">100 / 100</span></div>
-        <div class="bar health"><span id="playerHpBar"></span></div>
-      </div>
-      <div class="card">
-        <div class="label"><span>Opponent</span><span id="enemyHpText">100 / 100</span></div>
-        <div class="bar enemy"><span id="enemyHpBar"></span></div>
-      </div>
-      <div class="card">
-        <div class="label"><span>Stamina</span><span id="staminaText">100 / 100</span></div>
-        <div class="bar stamina"><span id="staminaBar"></span></div>
-      </div>
-      <div class="card">
-        <div class="label"><span>Match</span><span id="matchText">Round 1 / 3</span></div>
-        <div class="stats" id="statText">Close the distance, work the angle, make the knockout count.</div>
-      </div>
-    </div>
-
-    <div class="canvas-wrap">
-      <canvas id="game" width="320" height="180" tabindex="0" aria-label="Pixel Boxing Game"></canvas>
-      <div class="overlay show" id="overlay">
-        <div class="box">
-          <h2 id="overlayTitle">Press Start</h2>
-          <p id="overlayText">Click the screen and press any movement key. Land jabs, cross, hooks, and guard when you need it.</p>
+  <main class="game-shell">
+    <header class="broadcast-bar">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">PB</span>
+        <div>
+          <h1>Pixel Boxing</h1>
+          <p>Adaptive Rival</p>
         </div>
       </div>
-    </div>
 
-    <div class="control-dock" aria-label="Touch and mouse controls">
-      <button class="btn secondary" id="startBtn" type="button">Start</button>
-      <button class="btn secondary" id="leftBtn" type="button">Left Orbit</button>
-      <button class="btn secondary" id="rightBtn" type="button">Right Orbit</button>
-      <button class="btn secondary" id="upBtn" type="button">Up</button>
-      <button class="btn secondary" id="downBtn" type="button">Down</button>
-      <button class="btn secondary" id="stopBtn" type="button">Stop</button>
-      <button class="btn action" id="jabBtn" type="button">Jab</button>
-      <button class="btn action" id="crossBtn" type="button">Cross</button>
-      <button class="btn action" id="hookBtn" type="button">Hook</button>
-      <button class="btn guard" id="guardBtn" type="button">Guard</button>
-      <button class="btn secondary" id="dodgeBtn" type="button">Dodge</button>
-      <button class="btn danger" id="restartBtn" type="button">Restart</button>
-    </div>
-
-    <div class="bottombar log-panel">
-      <div class="log" id="log">Ready.</div>
-      <div class="tiny">This is a self-contained demo you can put on GitHub Pages or run locally by opening this file.</div>
-    </div>
-  </div>
-
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-
-    const ui = {
-      playerHpBar: document.getElementById('playerHpBar'),
-      enemyHpBar: document.getElementById('enemyHpBar'),
-      staminaBar: document.getElementById('staminaBar'),
-      playerHpText: document.getElementById('playerHpText'),
-      enemyHpText: document.getElementById('enemyHpText'),
-      staminaText: document.getElementById('staminaText'),
-      matchText: document.getElementById('matchText'),
-      statText: document.getElementById('statText'),
-      log: document.getElementById('log'),
-      overlay: document.getElementById('overlay'),
-      overlayTitle: document.getElementById('overlayTitle'),
-      overlayText: document.getElementById('overlayText'),
-      startBtn: document.getElementById('startBtn'),
-      leftBtn: document.getElementById('leftBtn'),
-      rightBtn: document.getElementById('rightBtn'),
-      upBtn: document.getElementById('upBtn'),
-      downBtn: document.getElementById('downBtn'),
-      stopBtn: document.getElementById('stopBtn'),
-      jabBtn: document.getElementById('jabBtn'),
-      crossBtn: document.getElementById('crossBtn'),
-      hookBtn: document.getElementById('hookBtn'),
-      guardBtn: document.getElementById('guardBtn'),
-      dodgeBtn: document.getElementById('dodgeBtn'),
-      restartBtn: document.getElementById('restartBtn')
-    };
-
-    const W = 320, H = 180;
-    const ring = { x: 28, y: 18, w: 264, h: 118 };
-    const keys = new Set();
-    const heldControls = new Set();
-    const palette = {
-      sky1: '#0a1730', sky2: '#13274b', ring: '#2a3551',
-      rope: '#ad6a34', rope2: '#f1c56b', mat: '#24324e', mat2: '#34466a',
-      crowd: '#0b1424', crowd2: '#1d2944', light: '#fff1a8',
-      skin: '#f3c9a5', shadow: '#ba8f6f', outline: '#0b0b14',
-      player: '#71d7ff', player2: '#2989d8', enemy: '#ff6e86', enemy2: '#d83e64', white: '#eef6ff', yellow: '#ffda63'
-    };
-
-    const rnd = (a, b) => a + Math.random() * (b - a);
-    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-    const len = (dx, dy) => Math.hypot(dx, dy);
-
-    const game = {
-      state: 'intro',
-      round: 1,
-      maxRounds: 3,
-      shake: 0,
-      flash: 0,
-      clock: 0,
-      logs: [],
-      messageTimer: 0,
-      player: makeFighter('player', 72, 112, palette.player, palette.player2),
-      enemy: makeFighter('enemy', 236, 112, palette.enemy, palette.enemy2)
-    };
-
-    function makeFighter(kind, x, y, color1, color2) {
-      return {
-        kind,
-        x, y,
-        vx: 0, vy: 0,
-        facing: 1,
-        hp: 100,
-        stamina: 100,
-        maxHp: 100,
-        maxStamina: 100,
-        action: 'idle',
-        actionTime: 0,
-        actionDur: 0,
-        actionActiveA: 0,
-        actionActiveB: 0,
-        actionDamage: 0,
-        actionReach: 16,
-        actionWidth: 16,
-        actionHeight: 10,
-        actionDone: false,
-        hitstun: 0,
-        guard: false,
-        dodge: 0,
-        invuln: 0,
-        aiCooldown: 0,
-        combo: 0,
-        color1,
-        color2,
-        lastHit: ''
-      };
-    }
-
-    function resetFight() {
-      game.round = 1;
-      game.state = 'intro';
-      resetRound();
-      game.logs = [];
-      game.shake = 0;
-      pushLog('New fight.');
-      showOverlay(true, 'Press Start', 'Click the screen and press any movement key. Land clean shots, use guard and dodge when the enemy closes in.');
-    }
-
-    function ensureStarted() {
-      if (game.state === 'intro') {
-        game.state = 'ready';
-        showOverlay(false, '', '');
-        pushLog('Bell.');
-      }
-    }
-
-    function tapAction(action) {
-      ensureStarted();
-      if (startAction(game.player, action)) {
-        pushLog(`You used ${action}.`);
-      }
-      canvas.focus();
-    }
-
-    function setHeldControl(name, active) {
-      if (active) {
-        heldControls.add(name);
-      } else {
-        heldControls.delete(name);
-      }
-      ensureStarted();
-      canvas.focus();
-    }
-
-    function resetRound() {
-      game.player = makeFighter('player', 72, 112, palette.player, palette.player2);
-      game.enemy = makeFighter('enemy', 236, 112, palette.enemy, palette.enemy2);
-      game.player.hp = 100;
-      game.enemy.hp = 100;
-      game.player.stamina = 100;
-      game.enemy.stamina = 100;
-      game.player.action = 'idle';
-      game.enemy.action = 'idle';
-      game.player.actionTime = game.enemy.actionTime = 0;
-      game.player.hitstun = game.enemy.hitstun = 0;
-      game.player.invuln = game.enemy.invuln = 0;
-      game.player.combo = game.enemy.combo = 0;
-      game.player.guard = game.enemy.guard = false;
-      game.player.dodge = game.enemy.dodge = 0;
-    }
-
-    function pushLog(text) {
-      game.logs.unshift(text);
-      game.logs = game.logs.slice(0, 4);
-      ui.log.textContent = game.logs.join(' · ');
-    }
-
-    function showOverlay(show, title, text) {
-      ui.overlay.classList.toggle('show', show);
-      ui.overlayTitle.textContent = title;
-      ui.overlayText.textContent = text;
-    }
-
-    function startAction(f, action) {
-      if (f.hitstun > 0 || f.actionTime > 0) return false;
-      if (f.stamina <= 0 && action !== 'guard') return false;
-
-      f.action = action;
-      f.actionTime = 0;
-      f.actionDone = false;
-      f.guard = action === 'guard';
-      f.dodge = action === 'dodge' ? 0.18 : 0;
-      f.invuln = action === 'dodge' ? 0.15 : 0;
-
-      const data = {
-        jab:   { d: 0.22, a0: 0.05, a1: 0.13, dmg: 8,  reach: 22, width: 16, height: 10, cost: 7,  push: 8,  y: 5 },
-        cross: { d: 0.34, a0: 0.12, a1: 0.22, dmg: 11, reach: 26, width: 18, height: 10, cost: 10, push: 11, y: 6 },
-        hook:  { d: 0.40, a0: 0.13, a1: 0.28, dmg: 14, reach: 18, width: 14, height: 12, cost: 13, push: 13, y: 4 },
-        guard: { d: 0.999, a0: 0,    a1: 0,    dmg: 0,  reach: 0,  width: 0,  height: 0,  cost: 4,  push: 0,   y: 0 },
-        dodge: { d: 0.20, a0: 0,    a1: 0,    dmg: 0,  reach: 0,  width: 0,  height: 0,  cost: 6,  push: 0,   y: 0 }
-      }[action];
-
-      f.actionDur = data.d;
-      f.actionActiveA = data.a0;
-      f.actionActiveB = data.a1;
-      f.actionDamage = data.dmg;
-      f.actionReach = data.reach;
-      f.actionWidth = data.width;
-      f.actionHeight = data.height;
-      f.stamina = clamp(f.stamina - data.cost, 0, f.maxStamina);
-      f.lastHit = '';
-      if (action === 'guard') pushLog(f.kind === 'player' ? 'Guard up.' : 'Enemy guards.');
-      return true;
-    }
-
-    function oppositeFacing(a, b) {
-      a.facing = a.x < b.x ? 1 : -1;
-    }
-
-    function applyKnockback(src, dst, power) {
-      const dir = src.x < dst.x ? 1 : -1;
-      dst.x += dir * power;
-      dst.y += (src.y < dst.y ? 1 : -1) * 2;
-      dst.x = clamp(dst.x, ring.x + 16, ring.x + ring.w - 16);
-      dst.y = clamp(dst.y, ring.y + 20, ring.y + ring.h - 10);
-      dst.hitstun = 0.14;
-      dst.vx = dir * power * 1.2;
-      dst.vy = (src.y < dst.y ? 1 : -1) * 10;
-    }
-
-    function hitCheck(attacker, defender) {
-      const dx = defender.x - attacker.x;
-      const dy = defender.y - attacker.y;
-      const front = attacker.facing;
-      const forward = dx * front;
-      if (forward < 0) return false;
-      if (forward > attacker.actionReach) return false;
-      if (Math.abs(dy) > attacker.actionHeight) return false;
-      return true;
-    }
-
-    function resolveHit(attacker, defender, actionName) {
-      if (defender.invuln > 0) return;
-      let damage = attacker.actionDamage;
-      let note = 'hit';
-
-      if (defender.guard) {
-        damage = Math.max(1, Math.floor(damage * 0.35));
-        attacker.stamina = clamp(attacker.stamina - 3, 0, attacker.maxStamina);
-        note = 'blocked';
-      }
-
-      defender.hp = clamp(defender.hp - damage, 0, defender.maxHp);
-      defender.lastHit = `${actionName} ${note} for ${damage}`;
-      attacker.combo += 1;
-      game.shake = Math.max(game.shake, damage * 0.5);
-      game.flash = 0.12;
-      pushLog((attacker.kind === 'player' ? 'You' : 'Enemy') + ` landed ${actionName} (${note}, ${damage}).`);
-      applyKnockback(attacker, defender, actionName === 'hook' ? 12 : actionName === 'cross' ? 10 : 8);
-    }
-
-    function finishAction(f) {
-      f.action = 'idle';
-      f.actionTime = 0;
-      f.actionDur = 0;
-      f.actionActiveA = 0;
-      f.actionActiveB = 0;
-      f.actionDamage = 0;
-      f.actionReach = 16;
-      f.actionWidth = 16;
-      f.actionHeight = 10;
-      f.actionDone = false;
-      if (f.guard) f.guard = false;
-    }
-
-    function updateFighter(f, other, dt) {
-      f.stamina = clamp(f.stamina + dt * 8, 0, f.maxStamina);
-      if (f.action === 'guard') f.stamina = clamp(f.stamina - dt * 18, 0, f.maxStamina);
-      f.invuln = Math.max(0, f.invuln - dt);
-      f.hitstun = Math.max(0, f.hitstun - dt);
-      f.dodge = Math.max(0, f.dodge - dt);
-      if (f.hitstun > 0) {
-        f.action = 'hit';
-        f.vx *= 0.92;
-        f.vy *= 0.92;
-      }
-
-      if (f.actionTime > 0) {
-        f.actionTime += dt;
-        if (!f.actionDone && f.actionTime >= f.actionActiveA && f.actionTime <= f.actionActiveB) {
-          if (hitCheck(f, other)) {
-            resolveHit(f, other, f.action);
-            f.actionDone = true;
-          }
-        }
-        if (f.actionTime >= f.actionDur) {
-          if (f.action === 'dodge') f.invuln = 0;
-          finishAction(f);
-        }
-      }
-
-      const speed = f.kind === 'player' ? 66 : 52;
-      if (f.hitstun <= 0 && f.action !== 'guard' && f.action !== 'dodge' && f.actionTime <= 0) {
-        let mvx = 0, mvy = 0;
-        if (f.kind === 'player') {
-          mvx = (keys.has('ArrowRight') || keys.has('d') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('a') ? 1 : 0);
-          mvy = (keys.has('ArrowDown') || keys.has('s') ? 1 : 0) - (keys.has('ArrowUp') || keys.has('w') ? 1 : 0);
-        } else {
-          const dx = other.x - f.x;
-          const dy = other.y - f.y;
-          mvx = Math.sign(dx);
-          mvy = Math.abs(dx) > 30 ? Math.sign(dy) : Math.sign(dy) * 0.45;
-          const rng = len(dx, dy);
-          if (rng < 28) {
-            mvx *= -0.4;
-            mvy *= -0.2;
-          }
-        }
-
-        const mag = Math.hypot(mvx, mvy) || 1;
-        if (mag > 1) { mvx /= mag; mvy /= mag; }
-        f.vx = mvx * speed;
-        f.vy = mvy * speed;
-      }
-
-      if (f.kind === 'player' && (keys.has('Space'))) {
-        // Space is handled on keydown to avoid repeat.
-      }
-
-      f.x += f.vx * dt;
-      f.y += f.vy * dt;
-
-      f.x = clamp(f.x, ring.x + 12, ring.x + ring.w - 12);
-      f.y = clamp(f.y, ring.y + 18, ring.y + ring.h - 12);
-
-      // drag
-      f.vx *= 0.82;
-      f.vy *= 0.82;
-
-      oppositeFacing(f, other);
-    }
-
-    function enemyThink() {
-      const e = game.enemy, p = game.player;
-      if (e.hp <= 0 || game.state === 'ko') return;
-      if (e.actionTime > 0 || e.hitstun > 0) return;
-      if (e.aiCooldown > 0) return;
-
-      const distance = len(p.x - e.x, p.y - e.y);
-      const lowHp = e.hp < 35;
-      const pick = Math.random();
-
-      if (lowHp && pick < 0.35) {
-        startAction(e, 'guard');
-        e.aiCooldown = 0.55;
-        return;
-      }
-      if (distance > 42) {
-        e.vx -= Math.sign(e.x - p.x) * 26;
-        e.vy += Math.sign(p.y - e.y) * 10;
-        e.aiCooldown = 0.20;
-        return;
-      }
-      if (distance < 20 && pick < 0.35) {
-        startAction(e, 'dodge');
-        e.aiCooldown = 0.35;
-        return;
-      }
-      if (distance < 26) {
-        if (pick < 0.5) startAction(e, 'jab');
-        else if (pick < 0.82) startAction(e, 'cross');
-        else startAction(e, 'hook');
-        e.aiCooldown = 0.45;
-        return;
-      }
-      if (pick < 0.4) {
-        startAction(e, 'jab');
-        e.aiCooldown = 0.40;
-      } else {
-        e.vx -= Math.sign(e.x - p.x) * 18;
-        e.vy += Math.sign(p.y - e.y) * 8;
-        e.aiCooldown = 0.18;
-      }
-    }
-
-    function restartBattle() {
-      resetRound();
-      game.state = 'ready';
-      game.round = 1;
-      showOverlay(false, '', '');
-      pushLog('Fight start.');
-    }
-
-    function nextRound() {
-      game.round += 1;
-      if (game.round > game.maxRounds) {
-        game.state = 'ko';
-        showOverlay(true, 'Victory', 'You won the match. Press R to run it again.');
-        return;
-      }
-      resetRound();
-      game.state = 'ready';
-      pushLog(`Round ${game.round} bell.`);
-      showOverlay(false, '', '');
-    }
-
-    function update(dt) {
-      game.clock += dt;
-      game.player.guard = keys.has('v') || heldControls.has('guard');
-      if (game.player.guard && game.player.actionTime <= 0 && game.player.hitstun <= 0) {
-        game.player.action = 'guard';
-      } else if (!game.player.guard && game.player.action === 'guard' && game.player.actionTime <= 0) {
-        finishAction(game.player);
-      }
-
-      if (game.state === 'intro') {
-        // Waiting for first action.
-        if ([...keys].some(k => ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','w','a','s','d','z','x','c','v',' '].includes(k)) || heldControls.size > 0) {
-          game.state = 'ready';
-          showOverlay(false, '', '');
-          pushLog('Bell.');
-        }
-      }
-
-      if (game.state === 'ko') return;
-
-      // Player actions
-      if (game.player.hitstun <= 0 && game.player.actionTime <= 0) {
-        if (keys.has('z')) { startAction(game.player, 'jab'); keys.delete('z'); }
-        else if (keys.has('x')) { startAction(game.player, 'cross'); keys.delete('x'); }
-        else if (keys.has('c')) { startAction(game.player, 'hook'); keys.delete('c'); }
-        else if (keys.has(' ')) { startAction(game.player, 'dodge'); keys.delete(' '); }
-        else if (heldControls.has('left')) { game.player.vx -= 28; }
-        else if (heldControls.has('right')) { game.player.vx += 28; }
-        else if (heldControls.has('up')) { game.player.vy -= 28; }
-        else if (heldControls.has('down')) { game.player.vy += 28; }
-      }
-
-      game.player.guard = keys.has('v');
-      if (game.player.guard && game.player.actionTime <= 0 && game.player.hitstun <= 0) {
-        game.player.action = 'guard';
-      }
-
-      game.player.aiCooldown = Math.max(0, game.player.aiCooldown - dt);
-      game.enemy.aiCooldown = Math.max(0, game.enemy.aiCooldown - dt);
-
-      if (game.enemy.hp > 0 && game.player.hp > 0) {
-        if (game.enemy.aiCooldown <= 0) enemyThink();
-      }
-
-      updateFighter(game.player, game.enemy, dt);
-      updateFighter(game.enemy, game.player, dt);
-
-      // If a fighter is actively guarding, keep them in guard pose.
-      if (game.player.guard && game.player.actionTime <= 0 && game.player.hitstun <= 0) game.player.action = 'guard';
-      if (game.enemy.guard && game.enemy.actionTime <= 0 && game.enemy.hitstun <= 0) game.enemy.action = 'guard';
-
-      // KO checks
-      if (game.player.hp <= 0 && game.state !== 'ko') {
-        game.state = 'ko';
-        showOverlay(true, 'KO', 'You got knocked out. Press R to restart the match.');
-        pushLog('You were knocked out.');
-      }
-      if (game.enemy.hp <= 0 && game.state !== 'ko') {
-        pushLog(`Round ${game.round} KO!`);
-        if (game.round >= game.maxRounds) {
-          game.state = 'ko';
-          showOverlay(true, 'Victory', 'You won the match. Press R to play again.');
-        } else {
-          showOverlay(true, 'Round KO', 'Next round loading...');
-          setTimeout(() => nextRound(), 900);
-        }
-      }
-
-      // match overlay for intro/ko only
-      if (game.state === 'ready') showOverlay(false, '', '');
-
-      // screen effects
-      game.shake = Math.max(0, game.shake - dt * 24);
-      game.flash = Math.max(0, game.flash - dt * 2.5);
-    }
-
-    function drawRect(x, y, w, h, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
-    }
-
-    function drawRing() {
-      // Background
-      const g = ctx.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, palette.sky1);
-      g.addColorStop(0.55, palette.sky2);
-      g.addColorStop(1, '#050b14');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-
-      // Crowd silhouettes and lights
-      for (let i = 0; i < 26; i++) {
-        const x = i * 12 + ((game.clock * 20) % 12);
-        drawRect(x, 18 + (i % 3) * 2, 9, 20 + (i % 4), i % 2 ? palette.crowd : palette.crowd2);
-      }
-      for (let i = 0; i < 8; i++) {
-        drawRect(24 + i * 36, 8 + (i % 2) * 2, 4, 4, i % 2 ? palette.light : palette.yellow);
-      }
-
-      // ring glow
-      drawRect(ring.x - 8, ring.y - 8, ring.w + 16, ring.h + 16, 'rgba(255,255,255,0.03)');
-      drawRect(ring.x, ring.y, ring.w, ring.h, palette.mat);
-      drawRect(ring.x + 2, ring.y + 2, ring.w - 4, ring.h - 4, palette.mat2);
-
-      // ropes
-      const ropeYs = [24, 44, 94, 114];
-      ropeYs.forEach((y, idx) => {
-        drawRect(ring.x - 3, y, ring.w + 6, 2, idx % 2 ? palette.rope2 : palette.rope);
-      });
-      // corner posts
-      [[ring.x, ring.y], [ring.x + ring.w - 4, ring.y], [ring.x, ring.y + ring.h - 4], [ring.x + ring.w - 4, ring.y + ring.h - 4]].forEach(([x, y], i) => {
-        drawRect(x, y, 4, 4, i % 2 ? palette.yellow : palette.rope2);
-      });
-
-      // floor texture
-      for (let y = ring.y + 6; y < ring.y + ring.h - 6; y += 6) {
-        for (let x = ring.x + 6; x < ring.x + ring.w - 6; x += 8) {
-          drawRect(x + ((y + x) % 2), y, 2, 1, 'rgba(255,255,255,0.05)');
-        }
-      }
-
-      // center logo
-      drawRect(150, 79, 20, 2, 'rgba(255,255,255,0.08)');
-      drawRect(159, 70, 2, 20, 'rgba(255,255,255,0.08)');
-    }
-
-    function drawShadow(f) {
-      const width = 18 + Math.abs(f.vx) * 0.03;
-      const alpha = f.kind === 'player' ? 0.24 : 0.28;
-      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
-      ctx.beginPath();
-      ctx.ellipse(f.x, f.y + 11, width, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    function drawBoxer(f) {
-      const facing = f.facing;
-      const action = f.action;
-      const x = f.x;
-      const y = f.y;
-      const bob = action === 'dodge' ? -4 : action === 'hit' ? -1 : Math.sin(game.clock * 8 + f.x * 0.1) * 1.5;
-      const lowered = action === 'guard' ? 2 : 0;
-      const headW = 10, headH = 8;
-      const bodyW = 12, bodyH = 14;
-      const armW = 4, armH = 12;
-      const legW = 4, legH = 10;
-      const torsoColor = f.kind === 'player' ? f.color1 : f.color1;
-      const shade = f.kind === 'player' ? f.color2 : f.color2;
-      const outline = palette.outline;
-      const skin = palette.skin;
-      const flash = f.invuln > 0 ? palette.yellow : skin;
-      const hitTilt = action === 'hit' ? -2 : 0;
-
-      ctx.save();
-      if (game.shake > 0) {
-        const sx = rnd(-game.shake, game.shake);
-        const sy = rnd(-game.shake * 0.6, game.shake * 0.6);
-        ctx.translate(sx, sy);
-      }
-
-      // body anchor
-      const bx = x | 0;
-      const by = (y + bob) | 0;
-
-      // shadow under fighter
-      drawRect(bx - 7, by + 16, 14, 3, 'rgba(0,0,0,0.34)');
-
-      // legs (outline + fill)
-      const legY = by + 11 + lowered;
-      const leftLegX = facing === 1 ? bx - 4 : bx;
-      const rightLegX = facing === 1 ? bx + 3 : bx - 7;
-      drawRect(leftLegX - 1, legY - 1, legW + 2, legH + 2, outline);
-      drawRect(leftLegX, legY, legW, legH, shade);
-      drawRect(rightLegX - 1, legY - 1, legW + 2, legH + 2, outline);
-      drawRect(rightLegX, legY, legW, legH, shade);
-
-      // torso
-      const torsoX = facing === 1 ? bx - 5 : bx - 7;
-      const torsoY = by + 1 + lowered + (action === 'dodge' ? 2 : 0);
-      drawRect(torsoX - 1, torsoY - 1, bodyW + 2, bodyH + 2, outline);
-      drawRect(torsoX, torsoY, bodyW, bodyH, torsoColor);
-      drawRect(torsoX + 2, torsoY + 2, 8, 3, shade);
-      drawRect(torsoX + 3, torsoY + 7, 7, 2, shade);
-
-      // head
-      const headX = facing === 1 ? bx - 2 : bx - 8;
-      const headY = by - 7 + (action === 'guard' ? 1 : 0) + (action === 'hit' ? hitTilt : 0);
-      drawRect(headX - 1, headY - 1, headW + 2, headH + 2, outline);
-      drawRect(headX, headY, headW, headH, flash);
-      drawRect(headX + 2, headY + 2, 2, 2, outline);
-      drawRect(headX + 6, headY + 2, 2, 2, outline);
-      drawRect(headX + 3, headY + 5, 4, 1, outline);
-
-      // arms / gloves
-      const punchOut = action === 'jab' ? 1 : action === 'cross' ? 2 : action === 'hook' ? 1 : 0;
-      const armForward = facing === 1 ? 1 : -1;
-      const backArm = -armForward;
-
-      function arm(baseX, baseY, dir, extended, up) {
-        const ax = baseX + (dir === 1 ? 8 : -1);
-        const ay = baseY + (up ? -1 : 1);
-        const len = extended ? 7 : 4;
-        const glovex = ax + dir * len;
-        const glovey = ay + (up ? -2 : 0);
-        drawRect(ax - 1, ay - 1, 4, 4, outline);
-        drawRect(ax, ay, 2, 2, shade);
-        drawRect(glovex - 1, glovey - 1, 4, 4, outline);
-        drawRect(glovex, glovey, 2, 2, f.kind === 'player' ? palette.player : palette.enemy);
-      }
-
-      if (action === 'jab') {
-        arm(torsoX, torsoY + 3, armForward, true, false);
-        arm(torsoX, torsoY + 5, backArm, false, false);
-      } else if (action === 'cross') {
-        arm(torsoX, torsoY + 3, armForward, false, false);
-        arm(torsoX, torsoY + 5, backArm, true, false);
-      } else if (action === 'hook') {
-        arm(torsoX, torsoY + 2, armForward, true, true);
-        arm(torsoX, torsoY + 5, backArm, false, false);
-      } else if (action === 'guard') {
-        arm(torsoX, torsoY + 2, armForward, false, true);
-        arm(torsoX, torsoY + 3, backArm, false, true);
-      } else if (action === 'dodge') {
-        drawRect(torsoX + 1, torsoY + 3, 2, 2, shade);
-        drawRect(torsoX + 7, torsoY + 3, 2, 2, shade);
-      } else if (action === 'hit') {
-        arm(torsoX, torsoY + 2, -armForward, false, true);
-        arm(torsoX, torsoY + 5, backArm, false, false);
-      } else {
-        arm(torsoX, torsoY + 3, armForward, false, false);
-        arm(torsoX, torsoY + 5, backArm, false, false);
-      }
-
-      // glove highlight / eye sparkle
-      if (action === 'guard') {
-        drawRect(headX + (facing === 1 ? 6 : 3), headY + 1, 1, 1, palette.white);
-      }
-      if (action === 'hit') {
-        drawRect(headX + 4, headY + 3, 2, 1, palette.yellow);
-      }
-
-      ctx.restore();
-    }
-
-    function drawUI() {
-      const p = game.player, e = game.enemy;
-      ui.playerHpText.textContent = `${p.hp} / ${p.maxHp}`;
-      ui.enemyHpText.textContent = `${e.hp} / ${e.maxHp}`;
-      ui.staminaText.textContent = `${Math.round(p.stamina)} / ${p.maxStamina}`;
-      ui.matchText.textContent = `Round ${game.round} / ${game.maxRounds}`;
-      ui.statText.textContent = game.state === 'ko'
-        ? 'Match finished. Press R to restart.'
-        : (game.state === 'intro'
-          ? 'Click the game and start fighting.'
-          : `Angle control, clean shots, and timing. ${p.combo > 0 ? `Combo ${p.combo}.` : 'Look for the opening.'}`);
-      ui.playerHpBar.style.transform = `scaleX(${clamp(p.hp / p.maxHp, 0, 1)})`;
-      ui.enemyHpBar.style.transform = `scaleX(${clamp(e.hp / e.maxHp, 0, 1)})`;
-      ui.staminaBar.style.transform = `scaleX(${clamp(p.stamina / p.maxStamina, 0, 1)})`;
-    }
-
-    function render() {
-      drawRing();
-
-      // Draw in a stable order based on depth.
-      const fighters = [game.player, game.enemy].sort((a, b) => a.y - b.y);
-      drawShadow(fighters[0]);
-      drawShadow(fighters[1]);
-
-      drawBoxer(fighters[0]);
-      drawBoxer(fighters[1]);
-
-      if (game.flash > 0) {
-        ctx.fillStyle = `rgba(255,255,255,${0.08 * game.flash * 4})`;
-        ctx.fillRect(0, 0, W, H);
-      }
-
-      if (game.state === 'intro') {
-        // subtle title chip inside the arena
-        ctx.fillStyle = 'rgba(0,0,0,0.22)';
-        ctx.fillRect(106, 69, 108, 20);
-        ctx.fillStyle = palette.white;
-        ctx.fillText('READY', 140, 82);
-      }
-
-      if (game.state === 'ko') {
-        ctx.fillStyle = 'rgba(0,0,0,0.34)';
-        ctx.fillRect(0, 0, W, H);
-      }
-
-      drawUI();
-    }
-
-    function tick(ts) {
-      if (!game.lastTs) game.lastTs = ts;
-      let dt = (ts - game.lastTs) / 1000;
-      game.lastTs = ts;
-      dt = Math.min(dt, 0.033);
-
-      if (game.state !== 'ko') {
-        update(dt);
-      }
-
-      render();
-      requestAnimationFrame(tick);
-    }
-
-    function onKeyDown(e) {
-      const key = e.key;
-      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','z','x','c','v','r','w','a','s','d'].includes(key.toLowerCase()) || key.startsWith('Arrow')) {
-        e.preventDefault();
-      }
-      keys.add(key);
-
-      if (key.toLowerCase() === 'r') {
-        resetFight();
-      }
-
-      if (game.state === 'intro') {
-        game.state = 'ready';
-        showOverlay(false, '', '');
-      }
-
-      if (game.state === 'ko' && key.toLowerCase() === 'r') {
-        resetFight();
-      }
-
-      if (game.state === 'ready' || game.state === 'intro') {
-        if (key === ' ') startAction(game.player, 'dodge');
-        if (key.toLowerCase() === 'z') startAction(game.player, 'jab');
-        if (key.toLowerCase() === 'x') startAction(game.player, 'cross');
-        if (key.toLowerCase() === 'c') startAction(game.player, 'hook');
-      } else if (game.state === 'ko' && key.toLowerCase() !== 'r') {
-        // do nothing
-      }
-    }
-
-    function onKeyUp(e) {
-      keys.delete(e.key);
-      if (e.key.toLowerCase() === 'v') {
-        game.player.guard = false;
-        if (game.player.action === 'guard' && game.player.actionTime <= 0) finishAction(game.player);
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown, { passive: false });
-    window.addEventListener('keyup', onKeyUp);
-    canvas.addEventListener('pointerdown', () => {
-      canvas.focus();
-      ensureStarted();
-    });
-    document.body.addEventListener('click', () => canvas.focus());
-
-    ui.startBtn.addEventListener('click', () => {
-      ensureStarted();
-      canvas.focus();
-    });
-    ui.leftBtn.addEventListener('mousedown', () => setHeldControl('left', true));
-    ui.leftBtn.addEventListener('mouseup', () => setHeldControl('left', false));
-    ui.leftBtn.addEventListener('mouseleave', () => setHeldControl('left', false));
-    ui.rightBtn.addEventListener('mousedown', () => setHeldControl('right', true));
-    ui.rightBtn.addEventListener('mouseup', () => setHeldControl('right', false));
-    ui.rightBtn.addEventListener('mouseleave', () => setHeldControl('right', false));
-    ui.upBtn.addEventListener('mousedown', () => setHeldControl('up', true));
-    ui.upBtn.addEventListener('mouseup', () => setHeldControl('up', false));
-    ui.upBtn.addEventListener('mouseleave', () => setHeldControl('up', false));
-    ui.downBtn.addEventListener('mousedown', () => setHeldControl('down', true));
-    ui.downBtn.addEventListener('mouseup', () => setHeldControl('down', false));
-    ui.downBtn.addEventListener('mouseleave', () => setHeldControl('down', false));
-    ui.stopBtn.addEventListener('click', () => heldControls.clear());
-    ui.jabBtn.addEventListener('click', () => tapAction('jab'));
-    ui.crossBtn.addEventListener('click', () => tapAction('cross'));
-    ui.hookBtn.addEventListener('click', () => tapAction('hook'));
-    ui.guardBtn.addEventListener('mousedown', () => setHeldControl('guard', true));
-    ui.guardBtn.addEventListener('mouseup', () => setHeldControl('guard', false));
-    ui.guardBtn.addEventListener('mouseleave', () => setHeldControl('guard', false));
-    ui.dodgeBtn.addEventListener('click', () => tapAction('dodge'));
-    ui.restartBtn.addEventListener('click', () => resetFight());
-
-    // Initial state
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    resetFight();
-    showOverlay(true, 'Press Start', 'Click Start or the ring, or use the buttons below. Z jab, X cross, C hook, V guard, Space dodge, R restart.');
-    requestAnimationFrame(tick);
-  </script>
+      <div class="round-readout" aria-live="polite">
+        <span id="roundLabel">ROUND 1</span>
+        <strong id="timerLabel">45</strong>
+        <span id="aiReadLabel">AI READ 012%</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="icon-button" id="soundButton" type="button" aria-label="사운드 끄기" title="사운드 켜기/끄기">SFX</button>
+        <button class="icon-button" id="pauseButton" type="button" aria-label="일시정지" title="일시정지">II</button>
+        <a class="repo-link" href="https://github.com/acertainromance401/GAME" target="_blank" rel="noreferrer">SOURCE</a>
+      </div>
+    </header>
+
+    <section class="fight-hud" aria-label="경기 상태">
+      <div class="fighter-status player-status">
+        <div class="status-line">
+          <strong>PLAYER</strong>
+          <span id="playerHpText">100</span>
+        </div>
+        <div class="meter hp-meter"><span id="playerHpBar"></span></div>
+        <div class="meter stamina-meter"><span id="playerStaminaBar"></span></div>
+      </div>
+
+      <div class="session-score">
+        <span>SESSION</span>
+        <strong><b id="playerScore">0</b> : <b id="enemyScore">0</b></strong>
+      </div>
+
+      <div class="fighter-status enemy-status">
+        <div class="status-line">
+          <span id="enemyHpText">100</span>
+          <strong>RIVAL AI</strong>
+        </div>
+        <div class="meter hp-meter"><span id="enemyHpBar"></span></div>
+        <div class="meter stamina-meter"><span id="enemyStaminaBar"></span></div>
+      </div>
+    </section>
+
+    <section class="arena-stage" aria-label="Pixel Boxing 경기장">
+      <canvas id="gameCanvas" width="960" height="600" tabindex="0" aria-label="복싱 게임 캔버스"></canvas>
+
+      <div class="fight-overlay is-visible" id="fightOverlay" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
+        <div class="overlay-panel">
+          <span class="overlay-kicker" id="overlayKicker">ADAPTIVE COMBAT</span>
+          <h2 id="overlayTitle">상대는 당신을 기억한다</h2>
+          <p id="overlayText">반복하는 공격과 방어 습관을 AI가 학습합니다. 라운드가 이어질수록 같은 선택은 더 쉽게 공략당합니다.</p>
+          <button class="primary-action" id="overlayButton" type="button">FIGHT</button>
+        </div>
+      </div>
+
+      <div class="impact-message" id="impactMessage" aria-live="assertive"></div>
+    </section>
+
+    <section class="tactical-strip" aria-label="AI 분석 상태">
+      <div class="readout-block">
+        <span class="readout-label">RIVAL MODEL</span>
+        <strong id="modelLabel">관찰 시작 전</strong>
+      </div>
+      <div class="readout-block center-readout">
+        <span class="readout-label">LAST EXCHANGE</span>
+        <strong id="exchangeLabel">거리를 만들고 첫 선택을 보여주세요</strong>
+      </div>
+      <div class="readout-block right-readout">
+        <span class="readout-label">STATUS</span>
+        <strong id="statusLabel">READY</strong>
+      </div>
+    </section>
+
+    <section class="controls-panel" aria-label="게임 조작">
+      <div class="control-group movement-controls">
+        <span class="group-label">MOVE</span>
+        <div class="dpad">
+          <button class="control-button dpad-up" data-hold="up" type="button" aria-label="위로 이동">&uarr;</button>
+          <button class="control-button dpad-left" data-hold="left" type="button" aria-label="왼쪽 이동">&larr;</button>
+          <button class="control-button dpad-down" data-hold="down" type="button" aria-label="아래로 이동">&darr;</button>
+          <button class="control-button dpad-right" data-hold="right" type="button" aria-label="오른쪽 이동">&rarr;</button>
+        </div>
+      </div>
+
+      <div class="control-group defense-controls">
+        <span class="group-label">DEFENSE</span>
+        <div class="defense-grid">
+          <button class="control-button defense-button" data-action="duck_left" type="button"><kbd>Q</kbd><span>LEFT DUCK</span></button>
+          <button class="control-button defense-button guard-button" data-hold="guard" type="button"><kbd>W</kbd><span>GUARD</span></button>
+          <button class="control-button defense-button" data-action="duck_right" type="button"><kbd>E</kbd><span>RIGHT DUCK</span></button>
+          <button class="control-button defense-button wide-control" data-action="backstep" type="button"><kbd>S</kbd><span>BACKSTEP</span></button>
+        </div>
+      </div>
+
+      <div class="control-group attack-controls">
+        <span class="group-label">8 PUNCHES</span>
+        <div class="attack-grid">
+          <button class="control-button attack-button lead" data-action="jab" type="button"><kbd>A</kbd><span>JAB</span></button>
+          <button class="control-button attack-button rear" data-action="cross" type="button"><kbd>D</kbd><span>CROSS</span></button>
+          <button class="control-button attack-button lead" data-action="left_body" type="button"><kbd>Q+A</kbd><span>L BODY</span></button>
+          <button class="control-button attack-button rear" data-action="right_body" type="button"><kbd>E+D</kbd><span>R BODY</span></button>
+          <button class="control-button attack-button lead" data-action="left_hook" type="button"><kbd>E+A</kbd><span>L HOOK</span></button>
+          <button class="control-button attack-button rear" data-action="right_hook" type="button"><kbd>Q+D</kbd><span>R HOOK</span></button>
+          <button class="control-button attack-button lead" data-action="left_uppercut" type="button"><kbd>W+A</kbd><span>L UPPER</span></button>
+          <button class="control-button attack-button rear" data-action="right_uppercut" type="button"><kbd>W+D</kbd><span>R UPPER</span></button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="submission-footer">
+      <p>키보드와 터치 지원 · 별도 설치 및 유료 라이선스 없음 · MIT License</p>
+      <button id="resetLearningButton" type="button">RESET AI MEMORY</button>
+    </footer>
+  </main>
+
+  <script src="game.js" defer></script>
 </body>
 </html>

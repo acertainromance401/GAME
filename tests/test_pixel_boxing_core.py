@@ -172,6 +172,7 @@ class StrikeGeometryTests(unittest.TestCase):
         head = Hurtbox((8.0, 2.5), 1.0, "head")
         contact = first_strike_contact(strike, [head])
         self.assertIsNotNone(contact)
+        assert contact is not None
         self.assertEqual(contact.zone, "head")
         self.assertAlmostEqual(contact.point[0], 8.0)
         self.assertAlmostEqual(contact.point[1], 0.0)
@@ -320,9 +321,9 @@ class LiveGameRegressionTests(unittest.TestCase):
         game.feedback_text = ""
         game.commentary_text = ""
         game.show_feedback = lambda text: setattr(game, "feedback_text", text)
-        game.show_commentary = lambda *args, **kwargs: None
-        game.spawn_hit_particles = lambda *args, **kwargs: None
-        game.end_round = lambda *args, **kwargs: None
+        game.show_commentary = lambda *_args, **_kwargs: None
+        game.spawn_hit_particles = lambda *_args, **_kwargs: None
+        game.end_round = lambda *_args, **_kwargs: None
         self.game = game
 
     def _configure_attack(self, attacker, name):
@@ -359,6 +360,47 @@ class LiveGameRegressionTests(unittest.TestCase):
         self.assertTrue(self.game.attempt_hit(self.game.enemy, self.game.player))
         self.assertEqual(self.game.player.hp, 96)
 
+    def test_hit_reactions_distinguish_hook_body_and_guarded_impacts(self):
+        hook_target = Fighter("Enemy", 250.0, 295.0, "#ff6b8f")
+        self.game.start_hit_reaction(hook_target, "right_hook", 12)
+        hook_pose = self.game.hit_reaction_pose(hook_target)
+
+        body_target = Fighter("Enemy", 250.0, 295.0, "#ff6b8f")
+        self.game.start_hit_reaction(body_target, "right_body", 12)
+        body_pose = self.game.hit_reaction_pose(body_target)
+
+        guarded_target = Fighter("Enemy", 250.0, 295.0, "#ff6b8f")
+        self.game.start_hit_reaction(guarded_target, "right_hook", 12, guarding=True)
+        guarded_pose = self.game.hit_reaction_pose(guarded_target)
+
+        self.assertGreater(abs(hook_pose[4]), abs(body_pose[4]))
+        self.assertGreater(body_pose[2], hook_pose[2])
+        self.assertLess(abs(guarded_pose[4]), abs(hook_pose[4]))
+
+    def test_ko_hit_marks_defender_down_and_ends_round(self):
+        self.game.enemy.hp = 1
+        ended = []
+        self.game.end_round = lambda winner, reason: ended.append((winner, reason))
+        self._configure_attack(self.game.player, "cross")
+
+        self.assertTrue(self.game.attempt_hit(self.game.player, self.game.enemy))
+
+        self.assertEqual(self.game.enemy.hp, 0)
+        self.assertTrue(self.game.enemy.knocked_out)
+        self.assertEqual(self.game.enemy.action, "idle")
+        self.assertEqual(ended, [("player", "KO")])
+
+    def test_knockdown_motion_reaches_prone_pose(self):
+        self.game.enemy.knocked_out = True
+
+        self.game.update_knockdown_motions(0.45)
+        halfway = self.game.enemy.knockdown
+        self.game.update_knockdown_motions(0.9)
+
+        self.assertGreater(halfway, 0.0)
+        self.assertLess(halfway, 1.0)
+        self.assertEqual(self.game.enemy.knockdown, 1.0)
+
     def test_live_far_miss_triggers_whiff_exposure(self):
         self.game.player.x = 170.0
         self.game.enemy.x = 420.0
@@ -380,7 +422,7 @@ class LiveGameRegressionTests(unittest.TestCase):
     def test_live_body_counter_gets_extra_bonus_damage(self):
         self._configure_attack(self.game.player, "right_body")
         self.game.enemy.exposed = 0.3
-        self.game.play_sound = lambda name, min_interval=0.035: None
+        self.game.play_sound = lambda name, min_interval=0.035: (name, min_interval, None)[-1]
         self.assertTrue(self.game.attempt_hit(self.game.player, self.game.enemy))
         self.assertEqual(self.game.enemy.hp, 83)
 
@@ -422,8 +464,8 @@ class LiveGameRegressionTests(unittest.TestCase):
             )
 
         chosen = []
-        game.start_dodge = lambda actor, side: chosen.append(f"dodge:{side}")
-        game.start_attack = lambda actor, name: chosen.append(name) or True
+        game.start_dodge = lambda actor, side: (actor, chosen.append(f"dodge:{side}"))[1]
+        game.start_attack = lambda actor, name: (actor, chosen.append(name) or True)[1]
         game.ensure_adaptation_state = TopDownPrototype.ensure_adaptation_state.__get__(game, TopDownPrototype)
         game.enemy_action_weights = TopDownPrototype.enemy_action_weights.__get__(game, TopDownPrototype)
         game.choose_enemy_option = lambda weights: max(weights, key=weights.get)

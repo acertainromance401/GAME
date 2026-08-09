@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import wave
 from types import SimpleNamespace
+from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DESKTOP_GAME = ROOT / "desktop-pixel-boxing"
@@ -11,7 +12,7 @@ sys.path.insert(0, str(DESKTOP_GAME))
 
 from audio_feedback import SOUND_LIBRARY, SoundManager, write_tone_wav  # noqa: E402
 from game_settings import GameSettings  # noqa: E402
-from pixel_boxing_topdown import Fighter, TopDownPrototype  # noqa: E402
+from pixel_boxing_topdown import ARENA, FIGHTER_RING_MARGIN, Fighter, TopDownPrototype  # noqa: E402
 
 
 class SettingsTests(unittest.TestCase):
@@ -52,7 +53,7 @@ class AudioTests(unittest.TestCase):
 
 class PhaseTwoUiStateTests(unittest.TestCase):
     def setUp(self):
-        game = TopDownPrototype.__new__(TopDownPrototype)
+        game: Any = TopDownPrototype.__new__(TopDownPrototype)
         game.modal_view = None
         game.modal_keys = set()
         game.keys = {"up", "q", "s"}
@@ -65,7 +66,7 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         game.player_back_risk_applied = False
         game.player = Fighter("Player", 220.0, 220.0, "#65d1ff")
         game.settings = GameSettings()
-        game.settings.save = lambda path=None: True
+        game.settings.save = lambda path=None: (path, True)[1]
         game.sound = SoundManager(enabled=False)
         game.commentary_text = "active"
         game.commentary_timer = 1.0
@@ -84,6 +85,46 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         self.assertEqual(self.game.keys, set())
         self.assertEqual(self.game.player_duck_target, 0.0)
         self.assertEqual(self.game.player_back_target, 0.0)
+
+    def test_fighter_position_keeps_full_sprite_inside_ring(self):
+        x, y = self.game.clamp_fighter_to_ring(self.game.player, -100.0, 999.0)
+
+        self.assertGreater(FIGHTER_RING_MARGIN, self.game.player.radius)
+        self.assertEqual(x, ARENA[0] + FIGHTER_RING_MARGIN)
+        self.assertEqual(y, ARENA[3] - FIGHTER_RING_MARGIN)
+
+    def test_crowd_uses_one_canvas_item_per_spectator(self):
+        calls = []
+        game: Any = TopDownPrototype.__new__(TopDownPrototype)
+        game.crowd_seats = [(100.0, 120.0, "#5f7394", 0)]
+        game.project_world = lambda x, y: (x, y, 1.0, 0.0)
+        game.sprite_scale = lambda perspective: perspective
+        game.canvas = SimpleNamespace(
+            create_line=lambda *args, **kwargs: calls.append((args, kwargs))
+        )
+
+        game.draw_crowd()
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][1]["capstyle"], "round")
+
+    def test_close_cancels_scheduled_frame_once(self):
+        cancelled = []
+        destroyed = []
+        self.game._running = True
+        self.game._tick_after_id = "after#1"
+        self.game.root = SimpleNamespace(
+            after_cancel=cancelled.append,
+            destroy=lambda: destroyed.append(True),
+        )
+
+        self.game.close()
+        self.game.close()
+
+        self.assertEqual(cancelled, ["after#1"])
+        self.assertEqual(destroyed, [True])
+        self.assertFalse(self.game._running)
+        self.assertIsNone(self.game._tick_after_id)
 
     def test_invalid_modal_name_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -109,7 +150,7 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         self.game.state = "round_intro"
         self.game.round_transition_timer = 0.01
         self.game.round = 2
-        self.game.play_sound = lambda name, min_interval=0.035: sounds.append(name)
+        self.game.play_sound = lambda name, min_interval=0.035: (min_interval, sounds.append(name))[1]
         self.game.update_round_transition(0.02)
         self.assertEqual(self.game.state, "fight")
         self.assertEqual(sounds, ["round_bell"])
@@ -123,7 +164,7 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         self.game.score_enemy = 5
         self.game.enemy_adaptation = 0.64
         self.game.ensure_adaptation_state = lambda: None
-        self.game.play_sound = lambda name, min_interval=0.035: sounds.append(name)
+        self.game.play_sound = lambda name, min_interval=0.035: (min_interval, sounds.append(name))[1]
         self.game.set_overlay = lambda title, body: setattr(self.game, "overlay", (title, body))
 
         self.game.end_round("enemy", "Time")
@@ -132,9 +173,28 @@ class PhaseTwoUiStateTests(unittest.TestCase):
         self.assertEqual(self.game.round, 11)
         self.assertEqual(self.game.score_enemy, 6)
         self.assertEqual(sounds, ["round_end"])
+        self.assertEqual(self.game.round_result_delay, 0.0)
         self.assertEqual(self.game.overlay[0], "ROUND 10 - ENEMY (Time)")
         self.assertIn("AI READ 064%", self.game.overlay[1])
         self.assertIn("Space: next round", self.game.overlay[1])
+
+    def test_ko_result_waits_for_knockdown_animation(self):
+        sounds = []
+        self.game.state = "fight"
+        self.game.round = 4
+        self.game.score_player = 1
+        self.game.score_enemy = 1
+        self.game.enemy_adaptation = 0.5
+        self.game.ensure_adaptation_state = lambda: None
+        self.game.play_sound = lambda name, min_interval=0.035: (min_interval, sounds.append(name))[1]
+        self.game.set_overlay = lambda title, body: setattr(self.game, "overlay", (title, body))
+
+        self.game.end_round("player", "KO")
+
+        self.assertEqual(self.game.state, "round_break")
+        self.assertEqual(self.game.round_result_delay, 1.25)
+        self.assertEqual(sounds, [])
+        self.assertEqual(self.game.overlay[0], "ROUND 4 - PLAYER (KO)")
 
     def test_commentary_setting_suppresses_new_caption(self):
         self.game.settings.commentary_enabled = False

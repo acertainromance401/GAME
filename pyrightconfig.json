@@ -1,0 +1,9 @@
+{
+  "include": [
+    "desktop-pixel-boxing",
+    "tests"
+  ],
+  "extraPaths": [
+    "./desktop-pixel-boxing"
+  ]
+}
