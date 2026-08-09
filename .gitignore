@@ -7,3 +7,6 @@ cmake-build-*/
 *.VC.VC.opendb
 compile_commands.json
 game_save.txt
+__pycache__/
+*.pyc
+.venv/

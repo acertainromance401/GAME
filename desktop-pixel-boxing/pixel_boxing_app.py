@@ -8,7 +8,7 @@ HEIGHT = 540
 ARENA = (80, 90, 880, 430)
 ROUND_LIMIT = 3
 ROUND_SECONDS = 45
-CHAR_SCALE = 1.12
+CHAR_SCALE = 1.18
 DEBUG_HITBOX_DEFAULT = False
 
 BG_TOP = "#081325"
@@ -145,7 +145,7 @@ class PixelBoxingApp:
 
         self.controls = tk.Label(
             self.hud,
-            text="Move: Arrow | Duck: Q/E | Guard: W | Jab: A | Cross: D | Q+A Left Body | Q+D Right Hook | E+A Left Hook | E+D Right Body | W+A Left Uppercut | W+D Right Uppercut | Next Round: Space | Hitbox: H | Restart: R",
+            text="Move: Arrow | Backstep: S | Duck: Q/E | Guard: W | Jab: A | Cross: D | Q+A Left Body | Q+D Right Hook | E+A Left Hook | E+D Right Body | W+A Left Uppercut | W+D Right Uppercut | Next Round: Space | Hitbox: H | Restart: R",
             fg=GRAY,
             bg="#05080d",
             font=("Helvetica", 10),
@@ -166,6 +166,8 @@ class PixelBoxingApp:
         self.round_time = float(ROUND_SECONDS)
         self.score_player = 0
         self.score_enemy = 0
+        self.dodge_hud_timer = 0.0
+        self.dodge_hud_text = ""
         self.last_tick = None
         self.log = ["Neon Ring ready."]
         self.keys_down = set()
@@ -236,11 +238,19 @@ class PixelBoxingApp:
         self.overlay_visible = True
         self.overlay_title = "NEON RING"
         self.overlay_text = "Press Space to start. Win rounds by KO or by HP when time expires."
+        self.dodge_hud_timer = 0.0
+        self.dodge_hud_text = ""
         self.log = ["Match reset."]
         self.keys_down.clear()
         self.key_debug = ""
         for key in self.player_pattern:
             self.player_pattern[key] = 0.0
+
+    def show_dodge_feedback(self, defender, source="DODGE"):
+        who = "YOU" if defender.name == "Player" else "ENEMY"
+        self.dodge_hud_text = f"{who} {source} SUCCESS"
+        self.dodge_hud_timer = 0.36
+        self.push_log(f"{defender.name} {source.lower()} success")
 
     def start_round(self):
         self.state = "fight"
@@ -291,8 +301,8 @@ class PixelBoxingApp:
         self.keys_down.add(key)
 
         if key == "h":
-            self.show_hitboxes = not self.show_hitboxes
-            self.push_log(f"Hitbox debug {'ON' if self.show_hitboxes else 'OFF'}")
+            self.show_hitboxes = False
+            self.push_log("Hitbox debug disabled")
             return
 
         if key == "r":
@@ -324,6 +334,9 @@ class PixelBoxingApp:
         elif key == "down":
             self.record_player_pattern("move_down")
             self.move_player(0, 1)
+        elif key == "s":
+            self.record_player_pattern("move_down")
+            self.backstep_player()
         elif key == "left":
             self.record_player_pattern("move_left")
             self.move_player(-1, 0)
@@ -362,6 +375,27 @@ class PixelBoxingApp:
         self.player.vx = step_x * 5
         self.player.vy = step_y * 5
         self.player.facing = 1 if self.player.x < self.enemy.x else -1
+
+    def backstep_player(self):
+        if self.player.hitstun > 0 or self.player.action_t > 0:
+            return
+        # Backstep slides opposite from facing with brief i-frame.
+        self.player.facing = 1 if self.player.x < self.enemy.x else -1
+        step = -self.player.facing
+        self.player.x = clamp(self.player.x + step * 42, ARENA[0] + 32, ARENA[2] - 32)
+        self.player.vx = step * 180
+        self.player.vy = 0
+        self.player.invuln = max(self.player.invuln, 0.16)
+        self.player.dodge = 0.16
+        self.player.action = "dodge"
+        self.player.action_t = 0.0
+        self.player.action_dur = 0.20
+        self.player.active_a = 0.0
+        self.player.active_b = 0.0
+        self.player.damage = 0
+        self.player.reach = 0
+        self.player.action_done = True
+        self.player.flash = 0.0
 
     def start_combo_action(self, key):
         q_down = "q" in self.keys_down
@@ -428,9 +462,9 @@ class PixelBoxingApp:
         fighter.action_t = 0.0
         fighter.action_done = False
         if action == "jab":
-            fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.40, 0.14, 0.26, 8, 30
+            fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.32, 0.08, 0.18, 7, 28
         elif action == "cross":
-            fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.46, 0.18, 0.32, 11, 34
+            fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.48, 0.18, 0.34, 11, 34
         elif action in ("left_body", "right_body"):
             fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.44, 0.16, 0.30, 11, 24
         elif action in ("left_hook", "right_hook"):
@@ -441,9 +475,13 @@ class PixelBoxingApp:
             fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 999, 0.0, 0.0, 0, 0
             fighter.guard = True
         elif action == "dodge":
-            fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.18, 0.0, 0.0, 0, 0
+            fighter.action_dur, fighter.active_a, fighter.active_b, fighter.damage, fighter.reach = 0.20, 0.0, 0.0, 0, 0
             fighter.invuln = 0.16
             fighter.dodge = 0.16
+            step = -fighter.facing
+            fighter.x = clamp(fighter.x + step * 24, ARENA[0] + 32, ARENA[2] - 32)
+            fighter.vx = step * 130
+            fighter.vy = 0
         fighter.flash = 0.0
 
     def finish_action(self, fighter):
@@ -536,16 +574,23 @@ class PixelBoxingApp:
         self.start_action(e, action)
         e.ai_last_action = action
 
-    def apply_hit(self, attacker, defender, name):
+    def apply_hit(self, attacker, defender, name, zone="body"):
         if defender.invuln > 0:
+            if defender.action == "dodge":
+                self.show_dodge_feedback(defender, "DODGE")
+            return
+        if defender.action == "dodge" and defender.dodge > 0:
+            self.show_dodge_feedback(defender, "DODGE")
             return
         damage = attacker.damage
+        if zone == "head":
+            damage = int(round(damage * 1.45))
         note = "hit"
         if defender.guard:
             damage = max(1, int(damage * 0.35))
             note = "blocked"
         defender.hp = clamp(defender.hp - damage, 0, defender.max_hp)
-        defender.hitstun = 0.14 if damage >= 13 else 0.10
+        defender.hitstun = 0.18 if zone == "head" else (0.14 if damage >= 13 else 0.10)
         defender.invuln = 0.08
         defender.flash = 0.20
         defender.hurt_timer = 0.22 if damage < 13 else 0.30
@@ -555,7 +600,7 @@ class PixelBoxingApp:
         self.shake = max(self.shake, damage * 0.7)
         self.screen_flash = 0.12
         self.hit_stop = max(self.hit_stop, 0.08 if damage < 12 else 0.12)
-        self.push_log(f"{attacker.name} {name.replace('_', ' ')} {note} {damage}")
+        self.push_log(f"{attacker.name} {name.replace('_', ' ')} {zone.upper()} {note} {damage}")
         self.knockback(attacker, defender, 11 if name == "jab" else 14 if "hook" in name else 13 if "body" in name else 15)
 
         if attacker.name == "Enemy":
@@ -577,6 +622,7 @@ class PixelBoxingApp:
     def update_fighter(self, f, other, dt):
         f.stamina = clamp(f.stamina + dt * 9, 0, f.max_stamina)
         f.invuln = max(0.0, f.invuln - dt)
+        f.dodge = max(0.0, f.dodge - dt)
         f.hitstun = max(0.0, f.hitstun - dt)
         f.flash = max(0.0, f.flash - dt)
         f.hurt_timer = max(0.0, f.hurt_timer - dt)
@@ -596,8 +642,12 @@ class PixelBoxingApp:
         if f.action in ATTACK_ACTIONS or f.action == "dodge":
             f.action_t += dt
             if f.action in ATTACK_ACTIONS and not f.action_done and f.active_a <= f.action_t <= f.active_b:
-                if self.combat_contact(f, other) == "body":
-                    self.apply_hit(f, other, f.action)
+                contact_zone = self.combat_contact(f, other)
+                if contact_zone in ("body", "head"):
+                    self.apply_hit(f, other, f.action, contact_zone)
+                    f.action_done = True
+                elif contact_zone == "evade":
+                    # Punch is spent when the opponent slips it.
                     f.action_done = True
             if f.action_t >= f.action_dur:
                 self.finish_action(f)
@@ -670,6 +720,10 @@ class PixelBoxingApp:
 
         return [(torso_left, torso_top, torso_right, torso_bottom), (head_left, head_top, head_right, head_bottom)]
 
+    def fighter_hurtbox_map(self, f):
+        torso, head = self.fighter_hurtboxes(f)
+        return {"body": torso, "head": head}
+
     def fighter_attackboxes(self, f):
         if f.action not in ATTACK_ACTIONS:
             return []
@@ -677,19 +731,39 @@ class PixelBoxingApp:
             return []
 
         phase = clamp(f.action_t / f.action_dur, 0.0, 1.0)
-        arm_length = self.sc(14) + (self.sc(8) if phase >= 0.22 else 0) + (self.sc(10) if phase >= 0.48 else 0)
+        action_bonus = {
+            "jab": self.sc(2),
+            "cross": self.sc(4),
+            "left_body": self.sc(-1),
+            "right_body": self.sc(-1),
+            "left_hook": self.sc(1),
+            "right_hook": self.sc(1),
+            "left_uppercut": self.sc(0),
+            "right_uppercut": self.sc(0),
+        }
+        # Long-arm character silhouette with controlled extension per move.
+        arm_length = self.sc(16) + action_bonus.get(f.action, 0) + (self.sc(4) if phase >= 0.22 else 0) + (self.sc(6) if phase >= 0.48 else 0)
         arm_thickness = self.sc(12) if f.action in ("jab", "cross") else self.sc(14)
         vertical_shift = 0
-        if f.action in ("left_body", "right_body"):
-            vertical_shift = self.sc(11)
-        elif f.action in ("left_hook", "right_hook"):
-            vertical_shift = self.sc(6)
+        if f.action == "left_body":
+            vertical_shift = self.sc(12)
+        elif f.action == "right_body":
+            vertical_shift = self.sc(14)
+        elif f.action == "left_hook":
+            vertical_shift = self.sc(3)
+        elif f.action == "right_hook":
+            vertical_shift = self.sc(5)
         elif f.action in ("left_uppercut", "right_uppercut"):
             vertical_shift = self.sc(15)
 
         center_x, center_y, pose = self.fighter_origin(f)
-        shoulder_x = center_x + self.sc(8) if f.facing == 1 else center_x - self.sc(8)
-        fist_x = shoulder_x + (arm_length if f.facing == 1 else -arm_length)
+        forward = 1 if f.facing == 1 else -1
+        strike_side = "lead"
+        if f.action in ("cross", "right_body", "right_hook", "right_uppercut"):
+            strike_side = "rear"
+        shoulder_sign = forward if strike_side == "lead" else -forward
+        shoulder_x = center_x + shoulder_sign * self.sc(8)
+        fist_x = shoulder_x + forward * arm_length
         if f.facing == 1:
             left = shoulder_x
             right = fist_x
@@ -697,12 +771,14 @@ class PixelBoxingApp:
             left = fist_x
             right = shoulder_x
         top = center_y - self.sc(10) + vertical_shift + pose["torso"]
+        if strike_side == "rear":
+            top += self.sc(1)
         if f.duck_side:
             top += self.sc(2)
         bottom = top + arm_thickness
         if left > right:
             left, right = right, left
-        pad = self.sc(4)
+        pad = self.sc(3)
         boxes = [(left - pad, top - pad, right + pad, bottom + pad)]
 
         elbow_mid_x = (shoulder_x + fist_x) / 2
@@ -722,11 +798,27 @@ class PixelBoxingApp:
         bx0, by0, bx1, by1 = b
         return ax0 < bx1 and ax1 > bx0 and ay0 < by1 and ay1 > by0
 
+    def is_head_punch(self, action):
+        return action in ("jab", "cross", "left_hook", "right_hook")
+
+    def duck_evades_head_punch(self, attacker, defender):
+        if not defender.duck_side:
+            return False
+        if not self.is_head_punch(attacker.action):
+            return False
+        return True
+
     def combat_contact(self, attacker, defender):
         attackboxes = self.fighter_attackboxes(attacker)
         if not attackboxes:
             return None
-        if any(self.rects_overlap(attack, hurt) for attack in attackboxes for hurt in self.fighter_hurtboxes(defender)):
+        hurt = self.fighter_hurtbox_map(defender)
+        if any(self.rects_overlap(attack, hurt["head"]) for attack in attackboxes):
+            if self.duck_evades_head_punch(attacker, defender):
+                self.show_dodge_feedback(defender, "DUCK")
+                return "evade"
+            return "head"
+        if any(self.rects_overlap(attack, hurt["body"]) for attack in attackboxes):
             return "body"
         return None
 
@@ -752,79 +844,106 @@ class PixelBoxingApp:
             pose["head"] = -self.sc(3)
             pose["guard"] = True
         elif f.duck_side:
-            pose["duck"] = 1 if f.duck_side == "right" else -1
-            pose["torso"] = self.sc(6)
-            pose["head"] = self.sc(5)
+            pose["duck"] = 2 if f.duck_side == "right" else -2
+            pose["x"] = self.sc(10) if f.duck_side == "right" else -self.sc(10)
+            pose["y"] = self.sc(2)
+            pose["torso"] = self.sc(12)
+            pose["head"] = self.sc(12)
 
         if f.action in ("jab", "cross", "left_body", "right_body", "left_hook", "right_hook", "left_uppercut", "right_uppercut"):
             if f.action == "jab":
                 if phase < 0.18:
-                    pose["x"] = -self.sc(2)
-                    pose["y"] = -self.sc(1)
+                    pose["x"] = -self.sc(3)
+                    pose["y"] = -self.sc(2)
                     pose["torso"] = -self.sc(2)
                 elif phase < 0.42:
-                    pose["x"] = self.sc(1)
+                    pose["x"] = self.sc(3)
                     pose["torso"] = -self.sc(1)
                 elif phase < 0.72:
-                    pose["x"] = self.sc(4)
+                    pose["x"] = self.sc(7)
                     pose["torso"] = self.sc(1)
                 else:
-                    pose["x"] = self.sc(2)
+                    pose["x"] = self.sc(3)
             elif f.action == "cross":
                 if phase < 0.18:
-                    pose["x"] = -self.sc(3)
-                    pose["y"] = -self.sc(1)
+                    pose["x"] = -self.sc(4)
+                    pose["y"] = -self.sc(2)
                     pose["torso"] = -self.sc(2)
                 elif phase < 0.42:
-                    pose["x"] = self.sc(2)
+                    pose["x"] = self.sc(4)
                     pose["torso"] = -self.sc(1)
                 elif phase < 0.72:
-                    pose["x"] = self.sc(5)
-                    pose["torso"] = self.sc(1)
-                else:
-                    pose["x"] = self.sc(3)
-            elif f.action in ("left_hook", "right_hook"):
-                if phase < 0.20:
-                    pose["x"] = -self.sc(2)
-                    pose["torso"] = -self.sc(1)
-                elif phase < 0.48:
-                    pose["x"] = self.sc(2)
+                    pose["x"] = self.sc(9)
                     pose["torso"] = self.sc(1)
                 else:
                     pose["x"] = self.sc(4)
-                    pose["torso"] = self.sc(1)
-            elif f.action in ("left_body", "right_body"):
+            elif f.action == "left_hook":
                 if phase < 0.20:
-                    pose["x"] = -self.sc(1)
-                    pose["y"] = self.sc(1)
+                    pose["x"] = -self.sc(2)
+                    pose["y"] = -self.sc(1)
+                    pose["torso"] = -self.sc(2)
+                elif phase < 0.48:
+                    pose["x"] = self.sc(5)
+                    pose["y"] = -self.sc(1)
+                    pose["torso"] = -self.sc(1)
+                else:
+                    pose["x"] = self.sc(7)
+                    pose["y"] = -self.sc(1)
+            elif f.action == "right_hook":
+                if phase < 0.20:
+                    pose["x"] = -self.sc(4)
+                    pose["torso"] = -self.sc(1)
+                elif phase < 0.48:
+                    pose["x"] = self.sc(4)
                     pose["torso"] = self.sc(1)
+                else:
+                    pose["x"] = self.sc(9)
+                    pose["torso"] = self.sc(2)
+            elif f.action == "left_body":
+                if phase < 0.20:
+                    pose["x"] = -self.sc(2)
+                    pose["y"] = self.sc(2)
+                    pose["torso"] = self.sc(2)
                 elif phase < 0.48:
                     pose["x"] = self.sc(2)
-                    pose["y"] = self.sc(1)
-                    pose["torso"] = self.sc(2)
+                    pose["y"] = self.sc(3)
+                    pose["torso"] = self.sc(3)
                 else:
-                    pose["x"] = self.sc(3)
-                    pose["y"] = self.sc(1)
+                    pose["x"] = self.sc(4)
+                    pose["y"] = self.sc(2)
+            elif f.action == "right_body":
+                if phase < 0.20:
+                    pose["x"] = -self.sc(4)
+                    pose["y"] = self.sc(2)
+                    pose["torso"] = self.sc(2)
+                elif phase < 0.48:
+                    pose["x"] = self.sc(2)
+                    pose["y"] = self.sc(3)
+                    pose["torso"] = self.sc(3)
+                else:
+                    pose["x"] = self.sc(4)
+                    pose["y"] = self.sc(2)
             elif f.action in ("left_uppercut", "right_uppercut"):
                 if phase < 0.18:
                     pose["x"] = -self.sc(2)
                     pose["y"] = self.sc(2)
                     pose["torso"] = self.sc(1)
                 elif phase < 0.48:
-                    pose["x"] = self.sc(2)
+                    pose["x"] = self.sc(4)
                     pose["y"] = self.sc(3)
                     pose["torso"] = self.sc(2)
                     pose["head"] = self.sc(1)
                 else:
-                    pose["x"] = self.sc(3)
+                    pose["x"] = self.sc(5)
                     pose["y"] = self.sc(2)
                     pose["head"] = self.sc(1)
             if f.action in ("cross", "right_body", "right_hook", "right_uppercut"):
                 pose["x"] += self.sc(1)
         elif f.action == "dodge":
-            pose["x"] = -self.sc(3) if f.facing == 1 else self.sc(3)
-            pose["y"] = self.sc(5)
-            pose["head"] = self.sc(4)
+            pose["x"] = -self.sc(9) if f.facing == 1 else self.sc(9)
+            pose["y"] = self.sc(9)
+            pose["torso"] = self.sc(3)
+            pose["head"] = self.sc(7)
         elif f.action == "hit":
             pose["x"] = -self.sc(2) if f.facing == 1 else self.sc(2)
             pose["y"] = self.sc(1)
@@ -890,6 +1009,7 @@ class PixelBoxingApp:
 
         self.screen_flash = max(0.0, self.screen_flash - dt * 2.0)
         self.shake = max(0.0, self.shake - dt * 20)
+        self.dodge_hud_timer = max(0.0, self.dodge_hud_timer - dt)
 
         if self.player.action_t > 0:
             self.overlay_text = self.action_label(self.player.action)
@@ -956,6 +1076,8 @@ class PixelBoxingApp:
         self.player.ai_timer = 0.0
         self.enemy.ai_timer = 0.25
         self.hit_stop = 0.0
+        self.dodge_hud_timer = 0.0
+        self.dodge_hud_text = ""
         self.round_time = float(ROUND_SECONDS)
 
     def action_label(self, action):
@@ -1021,13 +1143,14 @@ class PixelBoxingApp:
             facing = 1 if f.x < self.enemy.x else -1
         f.facing = facing
 
-        duck_shift = -self.sc(6) if f.duck_side == 'left' else self.sc(6) if f.duck_side == 'right' else 0
+        duck_shift_x = -self.sc(10) if f.duck_side == 'left' else self.sc(10) if f.duck_side == 'right' else 0
+        duck_drop = self.sc(7) if f.duck_side else 0
         bob = math.sin(f.walk_phase * 0.9) * 1.0
         if f.action == 'hit':
             bob += self.sc(2)
         if f.action == 'dodge':
             bob -= self.sc(4)
-        y = f.y + duck_shift + bob
+        y = f.y + duck_drop + bob
 
         # Palette / flash
         body = f.color if f.flash <= 0 else GOLD
@@ -1039,7 +1162,7 @@ class PixelBoxingApp:
         attackboxes = self.fighter_attackboxes(f)
 
         # Pixel-art style body blocks
-        base_x = int(f.x)
+        base_x = int(f.x + duck_shift_x)
         base_y = int(y)
         if f.action == 'hit':
             base_x += -self.sc(2) if f.facing == 1 else self.sc(2)
@@ -1048,31 +1171,18 @@ class PixelBoxingApp:
         base_x += int(pose["x"] * (1 if f.facing == 1 else -1))
         base_y += pose["y"]
 
-        # Visible silhouette first so the fighter cannot disappear behind tiny detail blocks.
-        core_w = self.sc(24)
-        core_h = self.sc(28)
-        core_left = base_x - core_w // 2
-        core_top = base_y - self.sc(8)
-        self.canvas.create_rectangle(core_left - 1, core_top - 1, core_left + core_w + 1, core_top + core_h + 1, fill=outline, outline="")
-        self.canvas.create_rectangle(core_left, core_top, core_left + core_w, core_top + core_h, fill=body, outline="")
-
-        head_w = self.sc(13)
-        head_h = self.sc(13)
-        head_left = base_x - head_w // 2
-        head_top = core_top - self.sc(12)
-        self.canvas.create_rectangle(head_left - 1, head_top - 1, head_left + head_w + 1, head_top + head_h + 1, fill=outline, outline="")
-        self.canvas.create_rectangle(head_left, head_top, head_left + head_w, head_top + head_h, fill=skin, outline="")
-
         # legs
         leg_shift = self.sc(5) if f.action == 'guard' else self.sc(7) if f.duck_side else 0
         if f.action in ('jab', 'cross', 'left_body', 'right_body', 'left_hook', 'right_hook', 'left_uppercut', 'right_uppercut'):
             leg_shift += self.sc(2)
         step = math.sin(f.walk_phase) * (self.sc(2) if f.action == 'move' else 0)
         step_offset = 1 if step > 0 else 0
-        left_leg_y = base_y + self.sc(2) + leg_shift + step_offset
-        right_leg_y = base_y + self.sc(2) + leg_shift + (1 if step < 0 else 0)
-        left_leg_x = base_x - self.sc(9) + (1 if step < 0 else 0)
-        right_leg_x = base_x + self.sc(1) + (1 if step > 0 else 0)
+        duck_left = f.duck_side == 'left'
+        duck_right = f.duck_side == 'right'
+        left_leg_y = base_y + self.sc(2) + leg_shift + step_offset + (self.sc(1) if duck_left else 0)
+        right_leg_y = base_y + self.sc(2) + leg_shift + (1 if step < 0 else 0) + (self.sc(1) if duck_right else 0)
+        left_leg_x = base_x - self.sc(9) + (1 if step < 0 else 0) + (self.sc(1) if duck_right else -self.sc(1) if duck_left else 0)
+        right_leg_x = base_x + self.sc(1) + (1 if step > 0 else 0) + (self.sc(3) if duck_right else 0)
         self.canvas.create_rectangle(left_leg_x, left_leg_y, left_leg_x + self.sc(7), left_leg_y + self.sc(20), fill=dark, outline=outline)
         self.canvas.create_rectangle(right_leg_x, right_leg_y, right_leg_x + self.sc(7), right_leg_y + self.sc(20), fill=dark, outline=outline)
         self.canvas.create_rectangle(left_leg_x + 1, left_leg_y + 1, left_leg_x + self.sc(6), left_leg_y + self.sc(19), fill=body, outline=outline)
@@ -1102,67 +1212,84 @@ class PixelBoxingApp:
 
         # gloves / arms
         phase = self.action_phase(f)
-        if f.action == 'jab':
+        forward_dir = 1 if f.facing == 1 else -1
+        if f.duck_side and f.action not in ATTACK_ACTIONS and f.action not in ('guard', 'dodge', 'hit'):
+            self.draw_arm(f, base_x, torso_y + self.sc(8), forward_dir, extended=False, color=dark, rear=False, swing=-self.sc(1))
+            self.draw_arm(f, base_x, torso_y + self.sc(5), forward_dir, extended=False, color=dark, upper=True, rear=True, swing=-self.sc(2))
+        elif f.action == 'jab':
             lead_ext = phase >= 0.28
             lead_up = phase < 0.22
             rear_up = phase < 0.55
-            self.draw_arm(f, base_x, torso_y + (self.sc(5) if lead_up else self.sc(6)), 1 if f.facing == 1 else -1, extended=lead_ext, color=f.color)
-            self.draw_arm(f, base_x, torso_y + self.sc(7), -1 if f.facing == 1 else 1, extended=False, color=dark, upper=rear_up)
+            self.draw_arm(f, base_x, torso_y + (self.sc(5) if lead_up else self.sc(6)), forward_dir, extended=lead_ext, color=f.color, rear=False)
+            self.draw_arm(f, base_x, torso_y + self.sc(7), forward_dir, extended=False, color=dark, upper=rear_up, rear=True)
         elif f.action == 'cross':
             lead_guard = phase < 0.40
             rear_ext = phase >= 0.30
-            self.draw_arm(f, base_x, torso_y + self.sc(6), 1 if f.facing == 1 else -1, extended=False, color=dark, upper=lead_guard)
-            self.draw_arm(f, base_x, torso_y + (self.sc(6) if phase < 0.24 else self.sc(5)), -1 if f.facing == 1 else 1, extended=rear_ext, color=f.color)
+            self.draw_arm(f, base_x, torso_y + self.sc(6), forward_dir, extended=False, color=dark, upper=lead_guard, rear=False)
+            self.draw_arm(f, base_x, torso_y + (self.sc(6) if phase < 0.24 else self.sc(5)), forward_dir, extended=rear_ext, color=f.color, rear=True, swing=self.sc(2))
         elif f.action in ('left_hook', 'right_hook'):
             hook_h = phase < 0.25
             hook_ext = phase >= 0.34
-            self.draw_arm(f, base_x, torso_y + self.sc(3), 1 if f.facing == 1 else -1, extended=hook_ext, color=f.color, upper=hook_h)
-            self.draw_arm(f, base_x, torso_y + self.sc(7), -1 if f.facing == 1 else 1, extended=False, color=dark, upper=False)
+            hook_rear = f.action == 'right_hook'
+            hook_base_y = torso_y + (self.sc(2) if f.action == 'left_hook' else self.sc(3))
+            self.draw_arm(f, base_x, hook_base_y, forward_dir, extended=hook_ext, color=f.color, upper=hook_h, rear=hook_rear, swing=self.sc(3 if f.action == 'left_hook' else 4))
+            self.draw_arm(f, base_x, torso_y + self.sc(7), forward_dir, extended=False, color=dark, upper=False, rear=not hook_rear)
         elif f.action in ('left_body', 'right_body'):
             body_ext = phase >= 0.28
-            self.draw_arm(f, base_x, torso_y + self.sc(7), 1 if f.facing == 1 else -1, extended=body_ext, color=f.color)
-            self.draw_arm(f, base_x, torso_y + self.sc(6), -1 if f.facing == 1 else 1, extended=False, color=dark, upper=True)
+            body_rear = f.action == 'right_body'
+            body_base_y = torso_y + (self.sc(7) if f.action == 'left_body' else self.sc(7))
+            self.draw_arm(f, base_x, body_base_y, forward_dir, extended=body_ext, color=f.color, rear=body_rear, swing=self.sc(1 if f.action == 'left_body' else 1))
+            self.draw_arm(f, base_x, torso_y + self.sc(6), forward_dir, extended=False, color=dark, upper=True, rear=not body_rear)
         elif f.action in ('left_uppercut', 'right_uppercut'):
             upper_ext = phase >= 0.32
-            self.draw_arm(f, base_x, torso_y + self.sc(2), 1 if f.facing == 1 else -1, extended=upper_ext, color=f.color, upper=True)
-            self.draw_arm(f, base_x, torso_y + self.sc(6), -1 if f.facing == 1 else 1, extended=False, color=dark, upper=False)
+            upper_rear = f.action == 'right_uppercut'
+            self.draw_arm(f, base_x, torso_y + self.sc(2), forward_dir, extended=upper_ext, color=f.color, upper=True, rear=upper_rear, swing=self.sc(2))
+            self.draw_arm(f, base_x, torso_y + self.sc(6), forward_dir, extended=False, color=dark, upper=False, rear=not upper_rear)
         elif f.action == 'guard':
-            self.draw_arm(f, base_x, torso_y + self.sc(1), 1 if f.facing == 1 else -1, extended=False, color=dark, upper=True)
-            self.draw_arm(f, base_x, torso_y + self.sc(2), -1 if f.facing == 1 else 1, extended=False, color=dark, upper=True)
+            self.draw_arm(f, base_x, torso_y + self.sc(1), forward_dir, extended=False, color=dark, upper=True, rear=False)
+            self.draw_arm(f, base_x, torso_y + self.sc(2), forward_dir, extended=False, color=dark, upper=True, rear=True)
         elif f.action == 'dodge':
-            self.draw_arm(f, base_x, torso_y + self.sc(5), 1 if f.facing == 1 else -1, extended=False, color=dark)
-            self.draw_arm(f, base_x, torso_y + self.sc(3), -1 if f.facing == 1 else 1, extended=False, color=dark, upper=True)
+            self.draw_arm(f, base_x, torso_y + self.sc(6), forward_dir, extended=False, color=dark, rear=False, swing=-self.sc(2))
+            self.draw_arm(f, base_x, torso_y + self.sc(4), forward_dir, extended=False, color=dark, upper=True, rear=True, swing=-self.sc(2))
         else:
-            self.draw_arm(f, base_x, torso_y + self.sc(5), 1 if f.facing == 1 else -1, extended=False, color=dark)
-            self.draw_arm(f, base_x, torso_y + self.sc(6), -1 if f.facing == 1 else 1, extended=False, color=dark)
+            self.draw_arm(f, base_x, torso_y + self.sc(5), forward_dir, extended=False, color=dark, rear=False)
+            self.draw_arm(f, base_x, torso_y + self.sc(6), forward_dir, extended=False, color=dark, rear=True)
 
         if f.flash > 0:
             self.canvas.create_rectangle(base_x - 1, head_y - 1, base_x + 12, head_y + 12, outline="#ffffff", width=1)
 
-        if self.show_hitboxes:
-            for box in hurtboxes:
-                self.canvas.create_rectangle(box[0], box[1], box[2], box[3], outline="#35d7ff", width=1, dash=(3, 2))
-            for idx, attackbox in enumerate(attackboxes):
-                self.canvas.create_rectangle(attackbox[0], attackbox[1], attackbox[2], attackbox[3], outline="#ffb347", width=1, dash=(4, 2))
-                if idx == 0:
-                    self.canvas.create_text((attackbox[0] + attackbox[2]) / 2, attackbox[1] - 7, text="ARM HITBOX", fill="#ffb347", font=("Helvetica", 8, "bold"))
+        # Hitbox overlays are intentionally hidden during normal play for visual clarity.
 
-    def draw_arm(self, f, base_x, base_y, dir_sign, extended=False, color=BLUE, upper=False):
+        # Attack trails removed to avoid hitbox-like afterimage artifacts.
+
+    def draw_arm(self, f, base_x, base_y, dir_sign, extended=False, color=BLUE, upper=False, rear=False, swing=0):
         outline = OUTLINE
-        if f.facing == -1:
-            dir_sign *= -1
-        start_x = base_x + (self.sc(7) if dir_sign == 1 else -self.sc(3))
+        forward = dir_sign
+        anchor_sign = -forward if rear else forward
+        start_x = base_x + anchor_sign * self.sc(8) + swing
         start_y = base_y + (-self.sc(2) if upper else 0)
-        reach = self.sc(12) if extended else self.sc(6)
-        elbow_x = start_x + dir_sign * self.sc(3)
-        glove_x = start_x + dir_sign * reach
-        glove_y = start_y + (-self.sc(4) if upper else 0)
-        self.canvas.create_rectangle(start_x - 1, start_y - 1, start_x + 3, start_y + 3, fill=outline, outline="")
-        self.canvas.create_rectangle(elbow_x - 1, start_y - 1, elbow_x + 3, start_y + 3, fill=outline, outline="")
-        self.canvas.create_rectangle(glove_x - 2, glove_y - 2, glove_x + 4, glove_y + 4, fill=outline, outline="")
-        self.canvas.create_rectangle(start_x, start_y, start_x + 2, start_y + 2, fill=color, outline="")
-        self.canvas.create_rectangle(elbow_x, start_y, elbow_x + 2, start_y + 2, fill=color, outline="")
-        self.canvas.create_rectangle(glove_x - 1, glove_y - 1, glove_x + 3, glove_y + 3, fill=color, outline="")
+        reach = self.sc(17) if extended else self.sc(10)
+        elbow_x = start_x + forward * (self.sc(8) if extended else self.sc(5))
+        glove_x = start_x + forward * reach
+        glove_y = start_y + (-self.sc(5) if upper else 0)
+        if rear and extended:
+            glove_x += forward * self.sc(2)
+
+        seg_top = start_y + 1
+        seg_bottom = seg_top + self.sc(3)
+        seg0_l, seg0_r = sorted((start_x + 1, elbow_x + 1))
+        seg1_l, seg1_r = sorted((elbow_x + 1, glove_x + 1))
+        self.canvas.create_rectangle(seg0_l - 1, seg_top - 1, seg0_r + 2, seg_bottom + 1, fill=outline, outline="")
+        self.canvas.create_rectangle(seg1_l - 1, seg_top - 1, seg1_r + 2, seg_bottom + 1, fill=outline, outline="")
+        self.canvas.create_rectangle(seg0_l, seg_top, seg0_r + 1, seg_bottom, fill=color, outline="")
+        self.canvas.create_rectangle(seg1_l, seg_top, seg1_r + 1, seg_bottom, fill=color, outline="")
+
+        self.canvas.create_rectangle(start_x - 1, start_y - 1, start_x + 4, start_y + 4, fill=outline, outline="")
+        self.canvas.create_rectangle(elbow_x - 1, start_y - 1, elbow_x + 4, start_y + 4, fill=outline, outline="")
+        self.canvas.create_rectangle(glove_x - 3, glove_y - 3, glove_x + 6, glove_y + 6, fill=outline, outline="")
+        self.canvas.create_rectangle(start_x, start_y, start_x + 3, start_y + 3, fill=color, outline="")
+        self.canvas.create_rectangle(elbow_x, start_y, elbow_x + 3, start_y + 3, fill=color, outline="")
+        self.canvas.create_rectangle(glove_x - 2, glove_y - 2, glove_x + 5, glove_y + 5, fill=color, outline="")
 
     def mix(self, c1, c2, t):
         def hex_to_rgb(h):
@@ -1187,6 +1314,10 @@ class PixelBoxingApp:
         self.canvas.create_rectangle(352, 12, 608, 58, fill="#09111f", outline="#2a3b5c", tags="hud")
         self.canvas.create_text(480, 28, text=f"P {self.score_player}  -  {self.score_enemy} E", fill=WHITE, font=("Helvetica", 15, "bold"), tags="hud")
         self.canvas.create_text(480, 46, text=f"Time {int(self.round_time):02d}s", fill=GOLD, font=("Helvetica", 11, "bold"), tags="hud")
+
+        if self.dodge_hud_timer > 0:
+            pulse = 0.35 + 0.65 * (self.dodge_hud_timer / 0.36)
+            self.canvas.create_text(480, 72, text=self.dodge_hud_text, fill=self.mix("#6fe8ff", WHITE, pulse * 0.5), font=("Helvetica", 12, "bold"), tags="hud")
 
         # quick status chip
         status_text = self.action_label(self.player.action)
