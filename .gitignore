@@ -10,3 +10,5 @@ game_save.txt
 __pycache__/
 *.pyc
 .venv/
+godot-pixel-boxing/.godot/
+

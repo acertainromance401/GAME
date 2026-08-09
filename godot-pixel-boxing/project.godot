@@ -1,0 +1,30 @@
+; Engine configuration file.
+; Godot 4.7 project - initial migration scaffold for the pixel-boxing
+; prototype (ported from desktop-pixel-boxing/pixel_boxing_topdown.py).
+;
+; STATUS: phase 1 only - core constants/punch data + a minimal top-down
+; scene with arrow-key movement and a round timer. Full combat (punches,
+; hit detection, hitstop, camera shake, particles, skeletal animation,
+; Korean commentary) has NOT been ported yet; see scripts/main.gd and
+; scripts/combat_data.gd for what exists so far.
+
+config_version=5
+
+[application]
+
+config/name="Pixel Boxing (Godot Port Scaffold)"
+run/main_scene="res://scenes/Main.tscn"
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=700
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+
+[autoload]
+
+CombatData="*res://scripts/combat_data.gd"
