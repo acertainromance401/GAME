@@ -1,141 +1,135 @@
-# GAME
+# RIVAL
 
-하나의 복싱 게임 아이디어를 여러 표현 방식으로 검증하고 발전시킨 저장소입니다. 시작점은 C++ 터미널 TUI였고, 브라우저 및 Tkinter 기반 횡 액션 프로토타입을 거쳐 현재는 Python/Tkinter 기반의 **Pixel Boxing Top-Down**을 본선으로 개발하고 있습니다.
+플레이어의 반복 습관을 기억하고 라운드가 진행될수록 대응 방식을 바꾸는 **iPhone 가로형 3D 복싱 게임**입니다. 현재 저장소의 메인 제품은 Swift 6, SwiftUI, SceneKit으로 구현한 네이티브 iOS 앱입니다. Python·웹·C++ 버전은 RIVAL로 발전하기까지의 규칙 검증과 이식 과정을 보여주는 이전 구현으로 함께 보존합니다.
 
-## Play Now
+## 앱 확인
 
-**[브라우저에서 Pixel Boxing 플레이](https://acertainromance401.github.io/GAME/)**
-
-설치나 유료 라이선스 없이 바로 실행할 수 있습니다. 키보드와 화면 터치 조작을 모두 지원하며, 웹 빌드 전체 소스와 데스크톱 본선 소스는 이 공개 저장소에 함께 포함되어 있습니다.
-
-심사용 웹 빌드는 `desktop-pixel-boxing/pixel_boxing/pixel_boxing_topdown.py`를 기준으로 제작했습니다. GitHub Pages는 Tkinter/Python 데스크톱 창을 직접 실행할 수 없으므로, 본선이 사용하는 `boxing_core.py`의 8종 공격 수치, 방향 더킹, 스태미나·카운터 규칙, 무제한 45초 라운드와 행동 패턴 AI를 `pixel-boxing/game.js`에 브라우저용으로 이식했습니다. 즉 Python 파일 자체를 웹에서 실행하는 구조는 아니지만, 별개의 축소 프로토타입이 아니라 현재 본선의 핵심 게임을 심사용으로 동기화한 빌드입니다.
-
-- 이동: 방향키
-- 기본 공격: `A` 잽, `D` 크로스
-- 방어: `Q/E` 좌우 더킹, `W` 가드, `S` 백스텝
-- 조합 공격: `Q/E/W + A/D`
-- 일시정지: `P` 또는 `Esc`
-- 라이선스: [MIT](LICENSE)
-
-### 심사용 제출 기준
-
-| 기준 | 제출 상태 |
+| 항목 | 링크 및 상태 |
 | --- | --- |
-| 링크 클릭 후 브라우저에서 플레이 | [GitHub Pages 웹 빌드](https://acertainromance401.github.io/GAME/) |
-| 별도 유료 라이선스 없이 실행 | 충족. 계정, 설치, 플러그인과 결제 불필요 |
-| PC 실행 파일 직접 제출 금지 | 충족. `.exe`가 아닌 정적 웹 빌드 제출 |
-| 전체 소스를 동일 저장소에 포함 | 충족. Python 본선, 전투 코어, 웹 이식판과 테스트 포함 |
-| 커밋 기록 유지 | 충족. 기존 공개 Git 이력 위에 Pages 배포 커밋 유지 |
-| 공개 저장소 권장 | 충족. [acertainromance401/GAME](https://github.com/acertainromance401/GAME)은 public 저장소 |
+| TestFlight 외부 테스트 | [RIVAL Public Test](https://testflight.apple.com/join/btSgA8uT) · 2026-08-10 기준 Apple 베타 앱 심사 대기 중 |
+| 플레이 영상 | [YouTube에서 보기](https://youtu.be/01h8Lo5UIJc?si=z4azF3XPkZuc9WOX) |
+| 게임 소개·플레이 설명 | [PDF](ios-pixel-boxing/RIVAL_GAME_GUIDE.pdf) · [Markdown 원본](ios-pixel-boxing/GAME_GUIDE.md) |
+| AI 활용 기술 설명 | [PDF](ios-pixel-boxing/RIVAL_AI_USAGE.pdf) · [Markdown 원본](ios-pixel-boxing/AI_USAGE.md) |
+| iOS 빌드·배포 안내 | [ios-pixel-boxing/README.md](ios-pixel-boxing/README.md) |
 
-저장소가 공개되어 있으므로 별도 심사 계정 초대는 필요하지 않습니다.
+TestFlight 빌드는 `RIVAL 1.0 (1)`이며 iOS 17 이상 iPhone에서 가로 화면으로 실행됩니다. 외부 테스트는 Apple의 베타 앱 심사가 승인된 뒤 공개 링크를 통해 참여할 수 있습니다.
 
-## 원래의 핵심 컨셉
+## 게임 핵심
 
-이 프로젝트가 처음부터 지향한 중심 경험은 **플레이어의 행동 패턴을 학습하고 라운드가 진행될수록 강해지는 강화학습 기반 AI 적과 싸우는 난이도 상승형 액션 게임**입니다. 적의 체력이나 피해량만 높이는 방식이 아니라, 플레이어가 반복하는 공격, 가드, 더킹과 거리 습관을 파악한 뒤 그 행동을 공략하도록 만드는 것이 목표입니다.
+RIVAL은 단순히 체력과 공격력이 커지는 상대가 아닙니다. 플레이어가 자주 사용하는 공격, 가드, 좌우 더킹, 전후 이동과 거리 습관을 경기 중 기록하고, 그 비율과 현재 라운드를 함께 사용해 다음 행동의 선택 가중치를 조정합니다.
 
-현재 플레이 가능한 구현은 훈련된 강화학습 정책을 배포한 최종 단계 전의 형태입니다. 플레이 습관을 실시간으로 누적하는 행동 모델과 라운드별 적응 가중치를 사용해 같은 체감을 먼저 구현했으며, 순수 전투 시뮬레이터와 17개 행동 인터페이스를 기반으로 향후 실제 강화학습 정책을 훈련·평가·교체할 수 있도록 설계했습니다.
+- 잽, 크로스, 좌우 바디, 좌우 훅, 좌우 어퍼컷으로 구성된 8종 공격
+- 상대 공격 손에 맞춰 방향을 선택하는 좌우 더킹
+- 가드 파괴, 백스텝, 헛스윙 노출, 카운터 보너스와 반복 기술 약화
+- 플레이어 승리 때만 올라가는 45초 라운드와 단계별 AI 적응도
+- 앱을 종료해도 `UserDefaults`에 유지되는 플레이 습관 메모리
+- SceneKit 노드와 관절로 생성한 3D 링, 복서, 조명, 카메라와 KO 모션
+- SwiftUI 기반 가로형 터치 HUD, VoiceOver 레이블과 피해량 비례 햅틱
 
-## 현재 본선
+현재 AI는 훈련된 외부 머신러닝 모델이나 네트워크 API를 실행하지 않습니다. 기기 안에서 행동 빈도를 누적하고 규칙 기반 가중치를 갱신하므로 오프라인으로 동작하며, 플레이 데이터는 외부 서버로 전송되지 않습니다.
 
-현재 기준 구현은 `desktop-pixel-boxing/pixel_boxing/pixel_boxing_topdown.py`입니다. 실제 월드 좌표는 2차원이지만 카메라 기준축과 원근 배율을 사용해, 플레이어 뒤에서 상대와 정사각형 링을 바라보는 의사 3D 시점을 구성합니다.
+## 조작
 
-```bash
-.venv/bin/python desktop-pixel-boxing/pixel_boxing_topdown.py
+화면 왼쪽의 이동·방어 버튼과 오른쪽의 `JAB`, `CROSS`를 함께 사용합니다.
+
+| 홀드 입력 | JAB | CROSS |
+| --- | --- | --- |
+| 없음 | 잽 | 크로스 |
+| 중앙 가드 | 왼쪽 어퍼컷 | 오른쪽 어퍼컷 |
+| L 더킹 | 왼쪽 바디 | 오른쪽 훅 |
+| R 더킹 | 왼쪽 훅 | 오른쪽 바디 |
+
+`BACKSTEP`은 스태미나를 소비해 상대 반대 방향으로 빠르게 이동하며 짧은 무적 시간을 부여합니다. 자세한 피해량, 사거리, 가드 비용과 라운드 판정은 [게임 설명서](ios-pixel-boxing/GAME_GUIDE.md)에서 확인할 수 있습니다.
+
+## 소스 코드 지도
+
+메인 앱 소스는 모두 [`ios-pixel-boxing`](ios-pixel-boxing/)에 있습니다. 특정 기능을 확인하거나 수정하려면 아래 파일부터 보면 됩니다.
+
+| 확인할 기능 | 소스 파일 | 주요 내용 |
+| --- | --- | --- |
+| 앱 시작점과 생명주기 | [PixelBoxingApp.swift](ios-pixel-boxing/PixelBoxingIOS/PixelBoxingApp.swift) | `RIVALApp`, `AppDelegate`, 가로 방향 고정과 최초 화면 생성 |
+| 전투 수치와 8종 공격 | [CombatCore.swift](ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift) | `Punch`, `AttackSpec`, `CombatData`에 피해량·사거리·스태미나 비용·더킹 방향 정의 |
+| 라운드와 적중 판정 | [CombatCore.swift](ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift) | `FighterModel`, `CombatEngine`이 이동, 공격, 가드, 노출, 카운터, KO와 라운드 처리 |
+| 플레이 습관 학습 | [CombatCore.swift](ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift) | `HabitMemory`, `HabitSnapshot`이 행동 기록·저장·비율 계산·RIVAL 선택 가중치 생성 |
+| 화면용 게임 상태 | [CombatCore.swift](ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift) | `CombatSnapshot`, `CombatCommentary`가 HUD 수치와 경기 해설 제공 |
+| 입력·전투·햅틱 연결 | [GameController.swift](ios-pixel-boxing/PixelBoxingIOS/GameController.swift) | `GameController`가 터치 홀드, 조합 공격, 백스텝, 학습 초기화와 햅틱을 엔진에 연결 |
+| 3D 링과 복서 | [Arena3DScene.swift](ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift) | `Arena3DScene`, `BoxerRig`이 링·로프·객석·관절형 복서·공격·피격·KO 자세 생성 |
+| 카메라와 렌더링 | [Arena3DScene.swift](ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift) | 어깨너머 카메라, 거리 기반 줌, 회전 제한, 프레임 업데이트와 SwiftUI 브리지 |
+| 터치 HUD와 팝업 | [GameView.swift](ios-pixel-boxing/PixelBoxingIOS/GameView.swift) | HP·스태미나·라운드 HUD, 조작 버튼, 시작 안내, 일시정지와 학습 초기화 UI |
+| 앱 리소스와 메타데이터 | [Assets.xcassets](ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/) · [Info.plist](ios-pixel-boxing/PixelBoxingIOS/Info.plist) | 앱 아이콘·색상과 표시 이름·가로 방향·전체 화면 설정 |
+| Xcode 프로젝트 원본 | [project.yml](ios-pixel-boxing/project.yml) | 앱·테스트 타깃, Bundle ID, Team, iOS 17, Swift 6와 버전 정의 |
+| 단위 회귀 테스트 | [PlaceholderTests.swift](ios-pixel-boxing/PixelBoxingIOSTests/PlaceholderTests.swift) | 공격 수치, 조합, 더킹, 카운터, AI 적응, 롤백, 카메라 등 30개 테스트 |
+| 가로 UI 테스트 | [PixelBoxingIOSUITests.swift](ios-pixel-boxing/PixelBoxingIOSUITests/PixelBoxingIOSUITests.swift) | 가로 회전, 안내 화면, 조작 버튼 터치 범위와 학습 초기화 검사 |
+| TestFlight 내보내기 | [ExportOptions.plist](ios-pixel-boxing/ExportOptions.plist) · [TestFlightUploadOptions.plist](ios-pixel-boxing/TestFlightUploadOptions.plist) | App Store Connect 배포와 업로드 옵션 |
+| 앱 아이콘 생성 | [generate_app_icon.swift](ios-pixel-boxing/scripts/generate_app_icon.swift) | 외부 이미지 없이 앱 아이콘을 생성하는 Swift 스크립트 |
+
+`RIVAL.xcodeproj`는 XcodeGen으로 만들어지는 생성물입니다. 타깃, 서명, 버전 또는 빌드 설정은 생성된 프로젝트를 직접 고치지 말고 [`project.yml`](ios-pixel-boxing/project.yml)을 수정한 뒤 프로젝트를 다시 생성해야 합니다.
+
+## 앱 구조
+
+```mermaid
+flowchart LR
+    A[RIVALApp] --> B[GameView]
+    B --> C[GameController]
+    C --> D[CombatEngine]
+    D --> E[CombatData]
+    D --> F[HabitMemory]
+    D --> G[CombatSnapshot]
+    C --> H[Arena3DScene]
+    G --> B
+    D --> H
 ```
 
-핵심 기능은 다음과 같습니다.
+1. `RIVALApp`이 SwiftUI 루트인 `GameView`를 생성합니다.
+2. `GameView`의 버튼 입력은 `GameController`를 통해 `CombatEngine`으로 전달됩니다.
+3. `CombatEngine`은 `CombatData`의 공격 규칙과 `HabitMemory`의 플레이 습관을 사용해 전투와 RIVAL 행동을 결정합니다.
+4. 결과는 `CombatSnapshot`으로 HUD에 전달되고, 같은 엔진 상태를 `Arena3DScene`이 3D 자세와 카메라에 반영합니다.
+5. 입력, 규칙, 화면 상태와 3D 표현을 분리해 전투 판정을 SceneKit 애니메이션과 독립적으로 테스트할 수 있습니다.
 
-- 잽, 크로스, 바디샷, 훅, 어퍼컷으로 구분된 8종 펀치
-- 상대 주먹이 들어오는 방향을 읽는 좌우 더킹, 가드와 백스텝
-- 헛스윙 노출, 카운터 보너스, 반복 기술 약화와 스태미나 고갈
-- 플레이 습관을 누적해 라운드가 진행될수록 대응을 바꾸는 적응형 AI
-- 링 안 360도 이동, 카메라 추적, 공격별 모션과 피격·KO 다운 반응
-- 사운드, 해설 자막, 설정 저장, 일시정지와 조작 안내
-- 순수 Python 전투 코어와 57개 자동 회귀 테스트
+## 빌드와 테스트
 
-## 프로젝트 발전 과정
+XcodeGen이 필요합니다. 저장소는 생성된 Xcode 프로젝트와 빌드 결과물을 Git으로 관리하지 않으며, [`project.yml`](ios-pixel-boxing/project.yml)을 기준으로 항상 재생성합니다.
 
-이 프로젝트는 처음부터 현재 형태를 정해 놓고 구현한 것이 아니라, 각 버전에서 확인된 한계를 다음 버전의 질문으로 바꾸며 발전했습니다.
+```bash
+cd ios-pixel-boxing
+xcodegen generate
+xcodebuild \
+  -project RIVAL.xcodeproj \
+  -scheme RIVAL \
+  -sdk iphoneos \
+  -destination 'generic/platform=iOS' \
+  CODE_SIGNING_ALLOWED=NO \
+  build-for-testing
+```
 
-### 1. C++ 터미널 TUI: 전투 구조부터 검증
+위 명령은 시뮬레이터를 실행하지 않고 generic iOS 실기기 대상으로 앱과 테스트 타깃의 컴파일을 검증합니다. 실제 iPhone 실행과 TestFlight Archive에는 [`project.yml`](ios-pixel-boxing/project.yml)에 설정된 Apple Developer Team의 유효한 서명이 필요합니다.
 
-첫 버전은 그래픽보다 **전투가 계속 굴러가는 구조**를 먼저 확인하기 위해 C++20과 ANSI/FTXUI로 만들었습니다. 실시간 입력, 라운드 진행, HP와 스태미나, 저장·불러오기, 플레이 패턴 기록과 학습형 AI를 터미널 안에서 구현했습니다.
+## 개발 과정
 
-이 단계에서 “상대가 플레이어의 반복 행동을 읽고 달라지는 복싱 게임”이라는 핵심 아이디어를 확인했습니다. 동시에 문자와 로그만으로는 주먹의 방향, 거리, 타이밍과 캐릭터 움직임을 즉각적으로 전달하기 어렵다는 한계도 분명해졌습니다.
+이 프로젝트는 표현 방식을 먼저 정한 것이 아니라, 각 버전에서 확인한 한계를 다음 구현의 질문으로 바꾸며 발전했습니다.
 
-### 2. 브라우저와 횡 액션 프로토타입: 타격을 화면에 보이게 만들기
-
-다음 단계에서는 `pixel-boxing/index.html`의 브라우저 프로토타입과 `desktop-pixel-boxing/pixel_boxing_app.py`의 Tkinter 횡 액션 게임을 만들었습니다. 캐릭터, 링, HP 바, 공격 모션과 회피를 직접 화면에 표시하면서 버튼 입력과 타격 반응을 빠르게 조정할 수 있게 됐습니다.
-
-횡 방향 표현은 공격과 방어의 즉각적인 가독성을 높였지만, 전투가 사실상 하나의 축에 묶였습니다. 링을 돌며 각도와 거리를 만들거나, 어느 손에서 주먹이 들어오는지를 공간적으로 읽게 하기에는 부족했습니다. 여기서 목표가 단순한 횡스크롤 난타전이 아니라 **링 안에서 상대를 읽는 복싱 액션**이라는 점이 더 명확해졌습니다.
-
-### 3. Pixel Boxing Top-Down: 거리와 방향을 전투 규칙으로
-
-이 한계를 해결하기 위해 별도의 `pixel_boxing_topdown.py`를 만들고 현재 본선으로 전환했습니다. 정사각형 링 안을 360도로 이동하고, 플레이어와 상대의 방향을 기준으로 카메라를 회전시키며, 깊이에 따라 링과 캐릭터를 투영하는 의사 3D 시점을 채택했습니다.
-
-이 단계에서 좌우 더킹은 단순 무적 이동이 아니라 **상대 주먹이 오는 방향으로 피해야 하는 판정**이 됐습니다. `A/D`를 왼손/오른손 축으로 두고 `Q/E/W`를 방어이자 조합 키로 사용해, 적은 키로 8종 펀치를 구분했습니다. 잽은 가장 긴 견제기, 크로스는 더 짧고 정밀한 강타로 역할을 분리하고, 훅·바디·어퍼컷도 사거리와 궤적, 자세와 회수 동작이 다르게 보이도록 발전시켰습니다.
-
-### 4. 현재 단계: 규칙, 연출과 안정성을 함께 다듬기
-
-현재 버전은 거대한 프로토타입을 계속 덧붙이는 대신 전투 규칙을 순수 Python 코어로 분리하고, 라이브 게임과 헤드리스 시뮬레이터가 같은 공격 데이터를 사용하도록 정리했습니다. 설정·오디오·HUD를 추가하고, 플레이 습관을 기록해 반복 가드나 공격 성향을 공략하는 적응형 AI를 연결했습니다.
-
-시각적으로는 도형 기반 표현을 유지하면서 관절형 복서, 공격별 생체역학, 정사각형 링, 로프·코너·에이프런, 360도 관중석, 피격 반응과 전신 KO 다운을 순차적으로 보강했습니다. 마지막으로 관중 Canvas 항목과 색상 계산을 줄여 동일 프로파일 워크로드를 약 41% 단축했고, 일반 전투 전체 장면 렌더를 평균 6.48ms로 낮췄습니다.
-
-## 개발자의 사고 흐름
-
-이 프로젝트에서 유지한 판단 기준은 다음과 같습니다.
-
-1. **표현보다 핵심 루프를 먼저 확인한다.** TUI에서 전투·라운드·AI를 먼저 만들고, 규칙이 작동한다는 확신을 얻은 뒤 시각 표현을 확장했습니다.
-2. **강한 AI보다 나를 읽는 AI를 만든다.** 적을 처음부터 완벽하게 만들기보다, 초반에는 단순하고 라운드가 쌓일수록 내 가드·더킹·공격 반복을 파악해 대응하도록 설계했습니다.
-3. **연타보다 판단이 이기게 한다.** 헛스윙 노출, 카운터, 반복 기술 약화, 스태미나와 탈진을 연결해 버튼을 많이 누르는 것보다 거리와 타이밍에 맞는 선택이 중요하게 만들었습니다.
-4. **현실성은 가독성을 위해 사용한다.** 실제 복싱의 손 구분, 피벗, 몸통 회전과 주먹 궤적을 참고하되, 플레이어가 화면에서 기술과 회피 방향을 읽을 수 있는지를 우선했습니다.
-5. **기존 도구의 한계를 확인한 뒤 다음 기술을 선택한다.** TUI의 시각 한계 때문에 횡 액션으로, 한 축 전투의 한계 때문에 탑다운으로 이동했습니다. Godot 이식도 시험했지만, 현재 게임의 규칙과 감각을 먼저 완성하기 위해 Tkinter 본선을 유지했습니다.
-6. **작은 단계마다 실행과 플레이로 검증한다.** 전투 코어, 사용성, 적응형 AI, 그래픽·모션을 단계별로 나누고 자동 테스트, 실제 실행, 렌더 측정과 플레이 확인을 거쳐 다음 단계로 진행했습니다.
-
-## 개선 방식
-
-| 발견한 문제 | 선택한 개선 방향 | 현재 결과 |
+| 단계 | 구현 | 확인한 내용 |
 | --- | --- | --- |
-| TUI에서 공격 방향과 거리를 읽기 어려움 | 브라우저·Tkinter 횡 액션으로 시각화 | 공격·회피 입력과 타격 반응을 화면에서 조정 |
-| 횡 방향 한 축으로는 링과 각도 표현이 제한됨 | 360도 월드 좌표와 의사 3D 카메라 도입 | 정사각형 링 안에서 거리·각도 싸움 구현 |
-| 공격 버튼 연타가 유리해질 수 있음 | 헛스윙, 노출, 반복 약화, 스태미나·탈진 연결 | 기술 선택과 카운터 중심의 공방 형성 |
-| 회피가 방향과 무관한 무적기로 보임 | 공격 손에 대응하는 방향 더킹 규칙 도입 | 상대 손과 공격 방향을 읽는 플레이 강화 |
-| 공격 종류가 수치만 다른 것처럼 보임 | 8종 공격의 사거리·각도·자세·궤적 분리 | 잽, 크로스, 훅, 바디, 어퍼컷의 역할 구분 |
-| AI가 단순히 강해지기만 함 | 플레이 습관 기록과 라운드별 적응도 적용 | 반복 행동을 점차 공략하는 상대 구현 |
-| 캐릭터와 링이 평면 도형처럼 보임 | 관절형 복서, 원근 링, 로프와 360도 관중 보강 | 복싱 경기로 읽히는 화면과 KO 연출 완성 |
-| 관중 증가 후 Canvas 호출이 많아짐 | 관중 항목 통합과 색상 변환 캐시 | 프로파일 렌더 비용 약 41% 감소 |
-| 변경이 전투 규칙을 깨뜨릴 위험 | 순수 전투 코어와 자동 회귀 테스트 구축 | 전투·UI·설정·모션을 포함한 57개 테스트 통과 |
+| 1 | C++20 터미널 TUI | 실시간 전투, 라운드, HP·스태미나, 저장과 플레이 패턴 기록 |
+| 2 | 브라우저·Tkinter 횡 액션 | 공격·회피 입력, 타격 모션과 화면 피드백 |
+| 3 | Python Pixel Boxing Top-Down | 링 안 360도 이동, 의사 3D 카메라, 방향 더킹과 8종 공격 규칙 |
+| 4 | Swift RIVAL iOS | 네이티브 터치 입력, SceneKit 3D 복서, 온디바이스 적응형 AI와 TestFlight 배포 |
+
+핵심 판단 기준은 버튼 연타보다 거리·방향·타이밍이 이기게 만드는 것입니다. 헛스윙 노출, 카운터, 반복 기술 약화, 스태미나와 탈진을 연결했고, RIVAL은 플레이어의 반복 선택을 점차 공략하도록 설계했습니다.
 
 ## 저장소 구성
 
-- `desktop-pixel-boxing/pixel_boxing/`: 현재 본선의 전투, 설정, 오디오와 렌더링 구현
-- `pixel-boxing/`: GitHub Pages에 자동 배포되는 공식 브라우저 플레이 빌드
-- `ios-pixel-boxing/`: Python 본선의 규칙과 적응형 AI를 Swift로 이식하고 SceneKit 3D 링·복서·어깨너머 카메라로 재구성한 iPhone 가로형 앱
-- `tests/`: 현재 Python 본선의 전투 및 UI 회귀 테스트
-- `desktop-pixel-boxing/pixel_boxing_app.py`: 이전 Tkinter 횡 액션 프로토타입
-- `include/`, `src/`: 최초 C++20 TUI 게임과 학습 AI
-- `godot-pixel-boxing/`: 엔진 이식 가능성을 확인한 실험 스캐폴드
-- `docs/`: 현재 설계 기준, 모션 연구와 프로젝트 구조 문서
+| 경로 | 역할 |
+| --- | --- |
+| [`ios-pixel-boxing`](ios-pixel-boxing/) | 현재 메인 RIVAL iPhone 앱, Swift 전투 엔진, SceneKit 3D 화면, 테스트와 제출 문서 |
+| [`desktop-pixel-boxing`](desktop-pixel-boxing/) | iOS 이식 기준이 된 Python/Tkinter 탑다운 구현과 이전 횡 액션 프로토타입 |
+| [`pixel-boxing`](pixel-boxing/) | 설치 없이 확인할 수 있는 [GitHub Pages 웹 이식판](https://acertainromance401.github.io/GAME/) |
+| [`include`](include/) · [`src`](src/) | 아이디어를 처음 검증한 C++20 터미널 TUI와 학습 AI |
+| [`tests`](tests/) | Python 전투 코어와 UI 동작을 검증하는 레거시 회귀 테스트 |
+| [`docs`](docs/) | 프로젝트 구조와 기존 설계 자료 |
 
-## 테스트
+현재 제품 기능은 iOS 소스를 기준으로 확인하고, 이전 버전은 규칙의 기원과 구현 변화를 비교할 때 사용합니다.
 
-```bash
-.venv/bin/python -m unittest tests.test_pixel_boxing_core tests.test_pixel_boxing_phase2 -v
-```
+## 라이선스
 
-C++ TUI는 다음 명령으로 별도 빌드할 수 있습니다.
-
-```bash
-cmake -S . -B build -DGAME_USE_FTXUI=ON
-cmake --build build
-./build/game_tui
-```
-
-## 문서
-
-- [프로젝트 개요](docs/PROJECT_OVERVIEW.md)
-- [Pixel Boxing Top-Down 게임 설계](docs/PIXEL_BOXING_GAME_DESIGN.md)
-- [복싱 모션 기준](docs/motion.md)
-- [현재 본선 실행 안내](desktop-pixel-boxing/README.md)
-- [iPhone 앱 빌드 및 TestFlight 안내](ios-pixel-boxing/README.md)
+이 저장소의 소스 코드는 [MIT License](LICENSE)로 공개되어 있습니다.
