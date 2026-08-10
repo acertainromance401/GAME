@@ -111,6 +111,7 @@
 
 - `desktop-pixel-boxing/pixel_boxing/`: 현재 본선의 전투, 설정, 오디오와 렌더링 구현
 - `pixel-boxing/`: GitHub Pages에 자동 배포되는 공식 브라우저 플레이 빌드
+- `ios-pixel-boxing/`: Python 본선의 규칙과 적응형 AI를 Swift로 이식하고 SceneKit 3D 링·복서·어깨너머 카메라로 재구성한 iPhone 가로형 앱
 - `tests/`: 현재 Python 본선의 전투 및 UI 회귀 테스트
 - `desktop-pixel-boxing/pixel_boxing_app.py`: 이전 Tkinter 횡 액션 프로토타입
 - `include/`, `src/`: 최초 C++20 TUI 게임과 학습 AI
@@ -137,3 +138,4 @@ cmake --build build
 - [Pixel Boxing Top-Down 게임 설계](docs/PIXEL_BOXING_GAME_DESIGN.md)
 - [복싱 모션 기준](docs/motion.md)
 - [현재 본선 실행 안내](desktop-pixel-boxing/README.md)
+- [iPhone 앱 빌드 및 TestFlight 안내](ios-pixel-boxing/README.md)

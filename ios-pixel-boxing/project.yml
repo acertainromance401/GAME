@@ -1,0 +1,67 @@
+name: RIVAL
+
+options:
+  bundleIdPrefix: com.acertainromance401
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  RIVAL:
+    type: application
+    platform: iOS
+    sources:
+      - path: PixelBoxingIOS
+    info:
+      path: PixelBoxingIOS/Info.plist
+      properties:
+        CFBundleDisplayName: RIVAL
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.acertainromance401.pixelboxing
+        DEVELOPMENT_TEAM: 6S5ZH3ZJ93
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    scheme:
+      testTargets:
+        - RIVALTests
+        - RIVALUITests
+
+  RIVALTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PixelBoxingIOSTests
+    dependencies:
+      - target: RIVAL
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.acertainromance401.pixelboxing.tests
+
+  RIVALUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: PixelBoxingIOSUITests
+    dependencies:
+      - target: RIVAL
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.acertainromance401.pixelboxing.uitests

@@ -11,4 +11,8 @@ __pycache__/
 *.pyc
 .venv/
 godot-pixel-boxing/.godot/
+.DS_Store
+ios-pixel-boxing/build/
+ios-pixel-boxing/*.xcodeproj/
+*.xcuserstate
 
