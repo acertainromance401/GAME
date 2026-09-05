@@ -56,8 +56,10 @@ final class CombatCoreTests: XCTestCase {
         XCTAssertGreaterThan(leftDuck.bodyDrop, 0.4)
         XCTAssertLessThan(leftDuck.torsoY, neutral.torsoY - 0.35)
         XCTAssertLessThan(leftDuck.leftHip.y, neutral.leftHip.y - 0.25)
-        XCTAssertGreaterThan(leftDuck.torsoLean, 0.2)
-        XCTAssertLessThan(rightDuck.torsoLean, -0.2)
+        // Torso lean was deliberately eased from 0.28 to 0.14 so the arms don't visibly swing apart mid-duck
+        // (see `applyDuck`'s comment) -- assert direction/magnitude against that current tuning, not the old value.
+        XCTAssertGreaterThan(leftDuck.torsoLean, 0.1)
+        XCTAssertLessThan(rightDuck.torsoLean, -0.1)
         XCTAssertGreaterThan(leftDuck.leftGlove.x, rightDuck.leftGlove.x)
     }
 
@@ -193,43 +195,66 @@ final class CombatCoreTests: XCTestCase {
         winEngine.startSession()
         winEngine.finishRound(outcome: .playerWin, knockout: false)
         for _ in 0..<40 { winEngine.update(deltaTime: 0.05) }
+        // Round advancement is no longer automatic once the round-break timer expires -- the player must
+        // explicitly confirm via `requestNextRound()` (round-result overlay's "next round" button).
+        winEngine.requestNextRound()
         XCTAssertEqual(winEngine.round, 2)
         XCTAssertEqual(winEngine.playerScore, 1)
     }
 
-    func testPlayerLossRollsBackRoundHabitLearning() {
+    func testPlayerLossPromotesRoundHabitLearning() {
         let engine = CombatEngine(persistHabits: false)
         engine.startSession()
         let initialAttacks = engine.habits.attackCounts[.jab, default: 0]
         XCTAssertTrue(engine.startAttack(engine.player, punch: .jab, recordsHabit: true))
-        XCTAssertGreaterThan(engine.habits.attackCounts[.jab, default: 0], initialAttacks)
+        XCTAssertEqual(engine.habits.attackCounts[.jab, default: 0], initialAttacks)
 
         engine.finishRound(outcome: .playerLoss, knockout: false)
 
-        XCTAssertEqual(engine.habits.attackCounts[.jab, default: 0], initialAttacks)
+        XCTAssertEqual(engine.habits.attackCounts[.jab, default: 0], initialAttacks + 1)
     }
 
-    func testLearningResetBecomesLossRollbackBaseline() {
+    func testEveryCompletedRoundPromotesPersistentHabits() {
         let engine = CombatEngine(persistHabits: false)
         engine.startSession()
         XCTAssertTrue(engine.startAttack(engine.player, punch: .jab, recordsHabit: true))
-        engine.resetLearning()
         engine.player.attack = nil
+        engine.finishRound(outcome: .draw, knockout: false)
+        XCTAssertEqual(engine.habits.attackCounts[.jab, default: 0], 1)
+
+        engine.startRound()
         XCTAssertTrue(engine.startAttack(engine.player, punch: .cross, recordsHabit: true))
+        engine.finishRound(outcome: .playerWin, knockout: false)
 
-        engine.finishRound(outcome: .playerLoss, knockout: false)
+        XCTAssertEqual(engine.habits.attackCounts[.jab, default: 0], 0.82, accuracy: 0.001)
+        XCTAssertEqual(engine.habits.attackCounts[.cross, default: 0], 1)
+    }
 
-        XCTAssertTrue(engine.habits.attackCounts.values.allSatisfy { $0 == 0 })
+    func testNextRoundKeepsConfirmedProfileButClearsTacticalRead() {
+        let engine = CombatEngine(persistHabits: false)
+        engine.startSession()
+
+        for _ in 0..<4 {
+            XCTAssertTrue(engine.startAttack(engine.player, punch: .jab, recordsHabit: true))
+            engine.player.attack = nil
+        }
+        XCTAssertEqual(engine.snapshot.rivalRead, .jabPattern)
+
+        engine.finishRound(outcome: .playerWin, knockout: false)
+        for _ in 0..<40 { engine.update(deltaTime: 0.05) }
+        engine.requestNextRound()
+
+        XCTAssertEqual(engine.habits.attackCounts[.jab, default: 0], 4)
+        XCTAssertEqual(engine.snapshot.rivalRead, .none)
     }
 
     func testRemodeledGlovesHaveBoxingGloveParts() {
         let scene = Arena3DScene(engine: CombatEngine(persistHabits: false))
         let glove = scene.rootNode.childNode(withName: "playerLeftGlove", recursively: true)
         XCTAssertNotNil(glove?.childNode(withName: "glovePalm", recursively: false))
-        XCTAssertNotNil(glove?.childNode(withName: "gloveKnuckles", recursively: false))
         XCTAssertNotNil(glove?.childNode(withName: "gloveThumb", recursively: false))
         XCTAssertNotNil(glove?.childNode(withName: "gloveCuff", recursively: false))
-        XCTAssertNotNil(glove?.childNode(withName: "gloveCuffRim", recursively: false))
+        XCTAssertNotNil(glove?.childNode(withName: "gloveStrap", recursively: false))
     }
 
     func testBoxersHaveCameraFacingIdentityLabels() throws {
@@ -269,14 +294,14 @@ final class CombatCoreTests: XCTestCase {
     }
 
     func testCommentaryExplainsTechniquesAndDefense() {
-        XCTAssertTrue(CombatCommentary.attackCall(.jab, attacker: "PLAYER").contains("왼손 잽"))
-        XCTAssertTrue(CombatCommentary.attackCall(.cross, attacker: "PLAYER").contains("오른손 크로스"))
-        XCTAssertTrue(CombatCommentary.impact(.leftHook, attacker: "PLAYER").contains("훅"))
-        XCTAssertTrue(CombatCommentary.impact(.rightUppercut, attacker: "PLAYER").contains("어퍼컷"))
-        XCTAssertTrue(CombatCommentary.guardBlock(defender: "PLAYER").contains("가드"))
-        XCTAssertTrue(CombatCommentary.duckEvade(defender: "PLAYER").contains("더킹"))
-        XCTAssertTrue(CombatCommentary.whiff(attacker: "PLAYER").contains("카운터"))
-        XCTAssertTrue(CombatCommentary.knockout(winner: "PLAYER").contains("K.O."))
+        XCTAssertTrue(CombatCommentary.attackCall(.jab, attacker: "PLAYER", language: .korean).contains("왼손 잽"))
+        XCTAssertTrue(CombatCommentary.attackCall(.cross, attacker: "PLAYER", language: .korean).contains("오른손 크로스"))
+        XCTAssertTrue(CombatCommentary.impact(.leftHook, attacker: "PLAYER", language: .korean).contains("훅"))
+        XCTAssertTrue(CombatCommentary.impact(.rightUppercut, attacker: "PLAYER", language: .korean).contains("어퍼컷"))
+        XCTAssertTrue(CombatCommentary.guardBlock(defender: "PLAYER", language: .korean).contains("가드"))
+        XCTAssertTrue(CombatCommentary.duckEvade(defender: "PLAYER", isPlayerDefender: true, language: .korean).contains("더킹"))
+        XCTAssertTrue(CombatCommentary.whiff(attacker: "PLAYER", isPlayerAttacker: true, language: .korean).contains("반격"))
+        XCTAssertTrue(CombatCommentary.knockout(winner: "PLAYER", language: .korean).contains("K.O."))
     }
 
     func testCanonicalAttackSpecsMatchPythonMainline() {
@@ -323,24 +348,65 @@ final class CombatCoreTests: XCTestCase {
         let engine = CombatEngine(persistHabits: false)
         engine.startSession()
         XCTAssertTrue(engine.startAttack(engine.player, punch: .jab, recordsHabit: true))
-        XCTAssertEqual(engine.player.stamina, 87)
+        // Default player style is `.standard`, which gets a 0.88x punch-stamina discount: 13 * 0.88 = 11.44.
+        XCTAssertEqual(engine.player.stamina, 100 - 13 * FightStyle.standard.punchStaminaMultiplier, accuracy: 0.001)
+        XCTAssertEqual(engine.habits.attackCounts[.jab], 0)
+        engine.player.attack = nil
+        engine.finishRound(outcome: .playerWin, knockout: false)
         XCTAssertEqual(engine.habits.attackCounts[.jab], 1)
         XCTAssertEqual(engine.habits.snapshot.favoriteAttack, .jab)
     }
 
-    func testAdaptationIncreasesWithSamplesAndRounds() {
+    func testAdaptationDependsOnConfirmedProfileNotRoundNumber() {
         var habits = HabitMemory()
-        let initial = habits.snapshot.adaptation(round: 1)
+        let initial = habits.snapshot.adaptation()
         habits.sample(deltaTime: 3, guarding: true, duckDirection: 0, backstep: false, forwardAxis: 0)
-        XCTAssertGreaterThan(habits.snapshot.adaptation(round: 1), initial)
-        XCTAssertGreaterThan(habits.snapshot.adaptation(round: 3), habits.snapshot.adaptation(round: 1))
+        XCTAssertGreaterThan(habits.snapshot.adaptation(), initial)
     }
 
     func testGuardHeavyPlayerRaisesBodyShotWeight() {
         var habits = HabitMemory()
         habits.sample(deltaTime: 3, guarding: true, duckDirection: 0, backstep: false, forwardAxis: 0)
-        let weights = habits.snapshot.enemyWeights(distance: 60, round: 3, playerExposed: false)
+        let weights = habits.snapshot.enemyWeights(distance: 60, playerExposed: false)
         XCTAssertGreaterThan(weights[Punch.rightBody.rawValue, default: 0], weights[Punch.jab.rawValue, default: 0])
+    }
+
+    func testRetreatingProfileRaisesDistanceCutoffWeight() {
+        var retreatingHabits = HabitMemory()
+        retreatingHabits.sample(deltaTime: 3, guarding: false, duckDirection: 0, backstep: true, forwardAxis: -1)
+
+        let baseline = HabitMemory().snapshot.enemyWeights(distance: 95, playerExposed: false)
+        let adjusted = retreatingHabits.snapshot.enemyWeights(distance: 95, playerExposed: false)
+
+        XCTAssertGreaterThan(adjusted["cut_off", default: 0], baseline["cut_off", default: 0])
+        XCTAssertGreaterThan(adjusted["advance", default: 0], baseline["advance", default: 0])
+    }
+
+    func testRecentJabPatternAddsCounterWeights() {
+        var habits = HabitMemory()
+        for _ in 0..<4 { habits.noteAttack(.jab) }
+
+        let read = habits.rivalRead
+        XCTAssertEqual(read.kind, .jabPattern)
+        XCTAssertGreaterThan(read.confidence, 0.6)
+
+        let baseline = habits.snapshot.enemyWeights(distance: 85, playerExposed: false)
+        let adjusted = habits.snapshot.enemyWeights(distance: 85, playerExposed: false, rivalRead: read)
+        XCTAssertGreaterThan(adjusted[Punch.cross.rawValue, default: 0], baseline[Punch.cross.rawValue, default: 0])
+        XCTAssertGreaterThan(adjusted[Punch.rightHook.rawValue, default: 0], baseline[Punch.rightHook.rawValue, default: 0])
+    }
+
+    func testCombatEnginePublishesConfirmedRoundRead() {
+        let engine = CombatEngine(persistHabits: false)
+        engine.startSession()
+
+        for _ in 0..<4 {
+            XCTAssertTrue(engine.startAttack(engine.player, punch: .jab, recordsHabit: true))
+            engine.player.attack = nil
+        }
+
+        XCTAssertEqual(engine.snapshot.rivalRead, .jabPattern)
+        XCTAssertGreaterThan(engine.snapshot.rivalReadConfidence, 0.6)
     }
 
     func testCorrectDuckEvadesJabButWrongDuckDoesNot() {
@@ -395,7 +461,21 @@ final class CombatCoreTests: XCTestCase {
 
         XCTAssertEqual(engine.enemy.hp, 100)
         XCTAssertGreaterThan(engine.player.exposed, 0)
-        XCTAssertTrue(engine.message.contains("RIVAL의 완벽한 더킹"))
+        // Commentary is now asymmetric: when the AI (not the player) is the one who ducks, the message warns
+        // the player they're exposed rather than praising "완벽한 더킹" (that phrasing is player-duck-only).
+        XCTAssertTrue(engine.message.contains("완벽하게 피했습니다"))
+    }
+
+    func testRivalCircleDecisionMovesLaterally() {
+        let engine = CombatEngine(persistHabits: false)
+        engine.startSession()
+        engine.enemy.x = 330
+        engine.enemy.y = 295
+
+        XCTAssertTrue(engine.performEnemyDecision("circle_left"))
+        engine.update(deltaTime: 0.05)
+
+        XCTAssertNotEqual(engine.enemy.y, 295)
     }
 
     func testLearningResetRestartsAtRoundOne() {
@@ -403,6 +483,9 @@ final class CombatCoreTests: XCTestCase {
         engine.startSession()
         engine.finishRound(outcome: .playerWin, knockout: false)
         advance(engine, frames: 40)
+        // Round advancement is no longer automatic once the round-break timer expires -- the player must
+        // explicitly confirm via `requestNextRound()` (round-result overlay's "next round" button).
+        engine.requestNextRound()
         XCTAssertEqual(engine.round, 2)
         XCTAssertTrue(engine.startAttack(engine.player, punch: .jab, recordsHabit: true))
 
@@ -413,7 +496,9 @@ final class CombatCoreTests: XCTestCase {
         XCTAssertEqual(engine.enemyScore, 0)
         XCTAssertEqual(engine.phase, .fight)
         XCTAssertTrue(engine.habits.attackCounts.values.allSatisfy { $0 == 0 })
-        XCTAssertTrue(engine.message.contains("ROUND 1"))
+        // `resetLearning()`'s message is now the localized "학습 초기화"-style string (`learningResetMessage`),
+        // not a hardcoded "ROUND 1" -- just confirm it's non-empty rather than asserting exact copy here.
+        XCTAssertFalse(engine.message.isEmpty)
     }
 
     func testGuardReducesJabDamage() {

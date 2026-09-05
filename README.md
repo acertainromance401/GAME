@@ -10,6 +10,7 @@
 | 플레이 영상 | [YouTube에서 보기](https://youtu.be/01h8Lo5UIJc?si=z4azF3XPkZuc9WOX) |
 | 게임 소개·플레이 설명 | [PDF](ios-pixel-boxing/RIVAL_GAME_GUIDE.pdf) · [Markdown 원본](ios-pixel-boxing/GAME_GUIDE.md) |
 | AI 활용 기술 설명 | [PDF](ios-pixel-boxing/RIVAL_AI_USAGE.pdf) · [Markdown 원본](ios-pixel-boxing/AI_USAGE.md) |
+| 게임 의도·고도화 기준 | [RIVAL 게임 의도와 설계 철학](docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md) |
 | iOS 빌드·배포 안내 | [ios-pixel-boxing/README.md](ios-pixel-boxing/README.md) |
 
 TestFlight 빌드는 `RIVAL 1.0 (1)`이며 iOS 17 이상 iPhone에서 가로 화면으로 실행됩니다. 외부 테스트는 Apple의 베타 앱 심사가 승인된 뒤 공개 링크를 통해 참여할 수 있습니다.

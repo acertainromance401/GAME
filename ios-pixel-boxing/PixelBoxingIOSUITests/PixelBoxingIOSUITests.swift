@@ -2,6 +2,40 @@ import XCTest
 
 final class RIVALUITests: XCTestCase {
     @MainActor
+    func testCaptureOpeningForVisualInspection() {
+        let device = XCUIDevice.shared
+        device.orientation = .landscapeLeft
+
+        let app = XCUIApplication()
+        app.launchEnvironment["RIVAL_OPENING_VISUAL_TEST"] = "1"
+        app.launchEnvironment["RIVAL_OPENING_CAPTURE_BEAT"] = "1"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["RIVAL"].waitForExistence(timeout: 8))
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "RIVAL animated opening"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    func testCaptureRedesignedMainMenuForVisualInspection() {
+        let device = XCUIDevice.shared
+        device.orientation = .landscapeLeft
+
+        let app = XCUIApplication()
+        app.launch()
+
+        XCTAssertTrue(app.buttons["mainMenuContinue"].waitForExistence(timeout: 8))
+
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "RIVAL redesigned main menu"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testLandscapeGameStartsWithComboControls() {
         let device = XCUIDevice.shared
         device.orientation = .landscapeLeft
