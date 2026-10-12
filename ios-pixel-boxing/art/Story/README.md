@@ -14,7 +14,7 @@ slugger and championship scenes. Commands below are run from the iOS workspace
 (`ios-pixel-boxing`), not the parent GAME repository. Generated backups remain
 local and are excluded from Git. Re-generation is not performed by document
 updates; visual approval and any generation checks apply only to their recorded
-versions. [Development cases](../../DEVELOPMENT_ISSUES_AND_SOLUTIONS.md) retain
+versions. [Development cases](../../../docs/engineering/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md) retain
 the limitations and reverted waist-mesh experiment.
 
 ## Pressure

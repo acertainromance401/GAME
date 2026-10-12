@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DESKTOP_GAME = ROOT / "desktop-pixel-boxing"
+DESKTOP_GAME = ROOT
 sys.path.insert(0, str(DESKTOP_GAME))
 
 from audio_feedback import SOUND_LIBRARY, SoundManager, write_tone_wav  # noqa: E402

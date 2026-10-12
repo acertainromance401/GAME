@@ -39,12 +39,12 @@ iPad 13형(2752 × 2064)으로 각 5장씩, 총 30장 제출했다. 순서는 �
 
 | 순서 | 업로드 파일 | 헤드라인 | 원본 |
 | --- | --- | --- | --- |
-| 1 | [01-read-dodge-counter.png](ko-KR/iphone-6.5-landscape/01-read-dodge-counter.png) | 읽고, 반격하라. | [IMG_7497.PNG](../../IMG_7497.PNG) |
-| 2 | [02-a-rival-that-remembers.png](ko-KR/iphone-6.5-landscape/02-a-rival-that-remembers.png) | 당신을 기억한다. | [IMG_7493.PNG](../../IMG_7493.PNG) |
-| 3 | [03-choose-your-style.png](ko-KR/iphone-6.5-landscape/03-choose-your-style.png) | 내 스타일로. | [IMG_7500.PNG](../../IMG_7500.PNG) |
-| 4 | [04-train-without-limits.png](ko-KR/iphone-6.5-landscape/04-train-without-limits.png) | 마음껏 연습. | [IMG_7495.PNG](../../IMG_7495.PNG) |
-| 5 | [05-step-into-the-ring.png](ko-KR/iphone-6.5-landscape/05-step-into-the-ring.png) | 링 위의 심리전. | [IMG_7501.PNG](../../IMG_7501.PNG) |
-| 6 | [06-change-your-strategy.png](ko-KR/iphone-6.5-landscape/06-change-your-strategy.png) | 다음은 다르게. | [IMG_7502.PNG](../../IMG_7502.PNG) |
+| 1 | [01-read-dodge-counter.png](ko-KR/iphone-6.5-landscape/01-read-dodge-counter.png) | 읽고, 반격하라. | [IMG_7497.PNG](../../docs/media/archive/device-originals/IMG_7497.PNG) |
+| 2 | [02-a-rival-that-remembers.png](ko-KR/iphone-6.5-landscape/02-a-rival-that-remembers.png) | 당신을 기억한다. | [IMG_7493.PNG](../../docs/media/archive/device-originals/IMG_7493.PNG) |
+| 3 | [03-choose-your-style.png](ko-KR/iphone-6.5-landscape/03-choose-your-style.png) | 내 스타일로. | [IMG_7500.PNG](../../docs/media/archive/device-originals/IMG_7500.PNG) |
+| 4 | [04-train-without-limits.png](ko-KR/iphone-6.5-landscape/04-train-without-limits.png) | 마음껏 연습. | [IMG_7495.PNG](../../docs/media/archive/device-originals/IMG_7495.PNG) |
+| 5 | [05-step-into-the-ring.png](ko-KR/iphone-6.5-landscape/05-step-into-the-ring.png) | 링 위의 심리전. | [IMG_7501.PNG](../../docs/media/archive/device-originals/IMG_7501.PNG) |
+| 6 | [06-change-your-strategy.png](ko-KR/iphone-6.5-landscape/06-change-your-strategy.png) | 다음은 다르게. | [IMG_7502.PNG](../../docs/media/archive/device-originals/IMG_7502.PNG) |
 
 ## 영어·일본어 버전
 

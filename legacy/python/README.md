@@ -1,8 +1,10 @@
 # Pixel Boxing Top-Down
 
-Python/Tkinter로 실행되는 독립형 탑다운 복싱 게임입니다. 현재 저장소의 주 개발 대상입니다.
+Python/Tkinter로 실행되는 과거 탑다운 복싱 구현입니다. 현재 메인 제품은 [RIVAL iOS](../../ios-pixel-boxing/README.md)이며, 이 버전은 규칙의 기원과 이식 과정을 비교하기 위해 보존합니다.
 
 ## Current Progress
+
+아래 성능·테스트 수치는 당시 기록이며 현재 iOS 앱의 검증 결과가 아닙니다.
 
 - 그래픽과 모션 4단계의 4-1~4-5 승인 범위가 완료되었습니다.
 - 도형 기반 복서 실루엣, 공격·더킹·이동 모션, 링 구조물, 360도 관중석과 경기장 조명이 적용되어 있습니다.
@@ -15,13 +17,13 @@ Python/Tkinter로 실행되는 독립형 탑다운 복싱 게임입니다. 현�
 
 ```bash
 cd /path/to/GAME
-.venv/bin/python desktop-pixel-boxing/pixel_boxing_topdown.py
+.venv/bin/python legacy/python/pixel_boxing_topdown.py
 ```
 
 ## Test
 
 ```bash
-.venv/bin/python -m unittest tests.test_pixel_boxing_core tests.test_pixel_boxing_phase2 -v
+.venv/bin/python -m unittest discover -s legacy/python/tests -p 'test_*.py' -v
 ```
 
 ## Controls
@@ -50,8 +52,8 @@ cd /path/to/GAME
 ## Notes
 
 - Python 표준 라이브러리의 `tkinter`를 사용합니다.
-- 실제 메인 게임 구현은 `desktop-pixel-boxing/pixel_boxing/` 패키지 아래에 정리되어 있습니다.
+- 실제 메인 게임 구현은 `legacy/python/pixel_boxing/` 패키지 아래에 정리되어 있습니다.
 - 루트의 `pixel_boxing_topdown.py`, `boxing_core.py`, `audio_feedback.py`, `game_settings.py`는 기존 실행/테스트 경로 호환용 진입점입니다.
-- 상세 컨셉, 전투 규칙, 차별점과 단계별 계획은 [게임 설계 문서](../docs/PIXEL_BOXING_GAME_DESIGN.md)를 기준으로 합니다.
+- 상세 컨셉, 전투 규칙, 차별점과 단계별 계획은 [게임 설계 문서](../../docs/legacy/PIXEL_BOXING_GAME_DESIGN.md)를 기준으로 합니다.
 - `pixel_boxing_app.py`와 `pixel_boxing_desktop.py`는 이전 프로토타입입니다.
-- `godot-pixel-boxing/`은 이식 검증용 실험이며 현재 개발은 보류합니다.
+- `legacy/godot/`은 이식 검증용 실험이며 현재 개발은 보류합니다.

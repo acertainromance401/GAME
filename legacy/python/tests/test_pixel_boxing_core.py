@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DESKTOP_GAME = ROOT / "desktop-pixel-boxing"
+DESKTOP_GAME = ROOT
 sys.path.insert(0, str(DESKTOP_GAME))
 
 from boxing_core import (  # noqa: E402

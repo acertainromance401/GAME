@@ -1,9 +1,8 @@
 {
   "include": [
-    "desktop-pixel-boxing",
-    "tests"
+    "legacy/python"
   ],
   "extraPaths": [
-    "./desktop-pixel-boxing"
+    "./legacy/python"
   ]
 }

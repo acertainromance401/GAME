@@ -3,7 +3,7 @@
 > 플레이어의 반복 습관을 학습해 점점 대응 방식을 바꾸는 `RIVAL`과 겨루는 iPhone 가로형 3D 복싱 게임입니다.
 
 출시 중인 1.1 유료 앱과 구분되는 1.2 업데이트 작업 트리입니다. 기존 Bundle Identifier·저장 키·스타일 식별자는
-업데이트에서도 유지합니다. 구현 기준은 [게임 의도와 설계 철학](../docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)이며,
+업데이트에서도 유지합니다. 구현 기준은 [게임 의도와 설계 철학](../docs/product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)이며,
 과거 제출 PDF와 현재 소스의 변경 사항을 구분합니다.
 
 ## 현재 문서 기준
@@ -17,7 +17,7 @@
 
 ## 1.2 진행 상태
 
-- 2026-10-11 `1.2(6)` 앱·Story 비소모성 상품·Total Wins 순위표를 함께 제출했고, 당시 상태는 `Waiting for Review`였습니다. 수동 출시를 유지합니다. [제출 기록](AppStoreMetadata/1.2-submission.json)과 [릴리스 체크리스트](RELEASE_READINESS_CHECKLIST.md)를 따르며 현재 승인 상태를 새로 조회한 것은 아닙니다.
+- 2026-10-11 `1.2(6)` 앱·Story 비소모성 상품·Total Wins 순위표를 함께 제출했고, 당시 상태는 `Waiting for Review`였습니다. 수동 출시를 유지합니다. [제출 기록](AppStoreMetadata/1.2-submission.json)과 [릴리스 체크리스트](../docs/release/RELEASE_READINESS_CHECKLIST.md)를 따르며 현재 승인 상태를 새로 조회한 것은 아닙니다.
 - 무료 RIVAL·체육관과 선택적 유료 스토리를 분리하는 업데이트입니다. 10월 12일 확인한 공개 앱은 여전히 유료 `1.1`이며, 무료 가격 전환·1.2 출시는 완료로 기록하지 않습니다.
 - 스토리는 압박형 → 견제형 → 카운터형 → 강타형 → RIVAL 순서입니다. 구매는 이용권·퍼스트 벨 시작 복장을 해금하고, 상대 외형·챔피언 복장·벨트에는 이용권과 해당 승리 기록이 모두 필요합니다.
 - 기존 유료 구매자 권한은 검증된 Production 원본 빌드 `1...4`에 한정합니다. 무료 전환과 버전 배포 시차에 따른 경계, 실계정 구매·복원·권한 취소·Game Center 제출은 별도 확인 사항입니다.
@@ -27,16 +27,16 @@
 
 ## 제출 문서
 
-- **게임 소개 및 설명:** [현재 Markdown 원본](GAME_GUIDE.md)
-- **AI 활용 기술:** [현재 Markdown 원본](AI_USAGE.md)
-- **강화학습 이력과 현재 AI 구분:** [감사 문서](RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)
-- **개발 고민과 문제 해결:** [상세 기록](DEVELOPMENT_ISSUES_AND_SOLUTIONS.md) · 2026-10-12, 당시 해결 이력과 현재 코드·검증 수준 구분
+- **게임 소개 및 설명:** [현재 Markdown 원본](../docs/product/GAME_GUIDE.md)
+- **AI 활용 기술:** [현재 Markdown 원본](../docs/engineering/AI_USAGE.md)
+- **강화학습 이력과 현재 AI 구분:** [감사 문서](../docs/engineering/RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)
+- **개발 고민과 문제 해결:** [상세 기록](../docs/engineering/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md) · 2026-10-12, 당시 해결 이력과 현재 코드·검증 수준 구분
 
 과거 제출 PDF는 현재 Markdown과 별도 산출물입니다. 이번 정리에서는 PDF를 재생성하지 않았습니다.
 
 ## 개발 설명
 
-`desktop-pixel-boxing/pixel_boxing/pixel_boxing_topdown.py`와 `boxing_core.py`를 기준으로 만든 네이티브 iPhone 가로 화면 버전입니다. iOS는 Tkinter와 Python `.py` 창을 직접 앱 번들로 실행할 수 없으므로, 동일 저장소 안에서 전투 규칙과 행동 패턴 AI를 Swift로 이식하고 화면은 SceneKit 기반 실제 3D 씬으로 재구성했습니다.
+`legacy/python/pixel_boxing/pixel_boxing_topdown.py`와 `boxing_core.py`를 기준으로 만든 네이티브 iPhone 가로 화면 버전입니다. iOS는 Tkinter와 Python `.py` 창을 직접 앱 번들로 실행할 수 없으므로, 동일 저장소 안에서 전투 규칙과 행동 패턴 AI를 Swift로 이식하고 화면은 SceneKit 기반 실제 3D 씬으로 재구성했습니다.
 
 ## 포함 기능
 
@@ -137,7 +137,7 @@ JAB/CROSS 버튼 위의 `BACKSTEP`은 기본 비용 31에 스타일 배율을 �
 리치 확장이며, 표면 반경 0.34는 렌더링 단위에서 게임 단위 13.6으로 환산합니다.
 이 값은 거리 후보 한계이며, 활성 구간의 실제 공유 포즈·장갑 궤적 접촉도 필요합니다.
 공격 방향·조준점은 시작 때 고정하고 접촉 시각의 방어 상태를 적용합니다.
-스타일별 배율과 체육관 샌드백 판정은 [게임 가이드](GAME_GUIDE.md#26-8종-공격의-실제-전투-수치)를 따릅니다.
+스타일별 배율과 체육관 샌드백 판정은 [게임 가이드](../docs/product/GAME_GUIDE.md#26-8종-공격의-실제-전투-수치)를 따릅니다.
 
 ## 라운드 판정과 AI 난이도
 
@@ -189,13 +189,13 @@ iPhone SDK `build-for-testing`도 통과했습니다. 원본 경로의 Xcode 프
 방향성 피격 복귀·접촉 후 강타 시각 펄스를 적용했습니다. 전투 수치와 엔진 시간은
 유지합니다. `bash scripts/check_motion.sh`로 실제 모션 소스의 수치 assertion 44,189개를
 통과했고 iPhone SDK `build-for-testing`에 성공했습니다. 전체 XCTest 실행과 실기기
-설치·플레이는 하지 않았습니다. [구현 범위와 검증 한계](../docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md#13-2026-09-ios-고도화-현황)를 따릅니다.
+설치·플레이는 하지 않았습니다. [구현 범위와 검증 한계](../docs/product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md#13-2026-09-ios-고도화-현황)를 따릅니다.
 
 **2026-09-09 후반 AI·조작·모션:** 실제 코어의 고정 난수 봇 대전 72개와 관측·입력·방어
 모션 수학 검사를 실행했습니다. iPhone SDK 테스트 코드 컴파일을 확인했으며, 이번 변경의
 전체 XCTest 실행·실기기 설치·조작감 확인은 하지 않았습니다. 봇 상대 차이는 사람 상대
 난이도 검증이 아닙니다. 재현 명령은 `bash scripts/check_ai_behavior.sh`이며 앱 저장소를
-사용하지 않습니다. [정본의 상세 결과](../docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)를 따릅니다.
+사용하지 않습니다. [정본의 상세 결과](../docs/product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)를 따릅니다.
 
 2026-09-07 내부 메뉴·잽/크로스·피격까지: iPhone 12 mini 단위 테스트 82개와 UI 테스트 11개 통과. 테스트용 경기와
 승수 기록은 실사용 저장소에서 격리됩니다. 시뮬레이터는 이번 검증에 사용하지 않았습니다.
@@ -236,7 +236,7 @@ chmod +x scripts/pre_release_check.sh
 ./scripts/pre_release_check.sh --device-id <UDID>
 ```
 
-체크 항목 상세는 [RELEASE_READINESS_CHECKLIST.md](RELEASE_READINESS_CHECKLIST.md)를 사용합니다.
+체크 항목 상세는 [RELEASE_READINESS_CHECKLIST.md](../docs/release/RELEASE_READINESS_CHECKLIST.md)를 사용합니다.
 
 ## 실제 iPhone 및 TestFlight 배포
 

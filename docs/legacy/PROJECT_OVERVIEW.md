@@ -3,12 +3,12 @@
 > 문서 범위 정리: 2026-10-12. 현재 제품 본선은 네이티브 iOS RIVAL 1.2(6)
 > 작업 트리이며 공개 유료 1.1과 구분한다. 아래 Python·웹·C++의 구조와 검증은
 > 이전 구현의 기록이다. 현재 기능·학습·스토리·배포 기준은
-> [iOS README](../ios-pixel-boxing/README.md), [설계 철학](RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md),
-> [릴리스 체크리스트](../ios-pixel-boxing/RELEASE_READINESS_CHECKLIST.md)를 따른다.
+> [iOS README](../../ios-pixel-boxing/README.md), [설계 철학](../product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md),
+> [릴리스 체크리스트](../release/RELEASE_READINESS_CHECKLIST.md)를 따른다.
 
 ## Summary
 
-이 저장소는 하나의 복싱 게임을 C++ 터미널 TUI, 브라우저 및 Tkinter 횡 액션, Python/Tkinter 의사 3D 탑다운, SwiftUI·SceneKit iOS로 발전시킨 기록을 함께 보관합니다. 현재 제품 본선은 [ios-pixel-boxing](../ios-pixel-boxing/)이며, 아래 Python 구조는 규칙 검증과 iOS 이식의 기준이 된 이전 단계입니다.
+이 저장소는 하나의 복싱 게임을 C++ 터미널 TUI, 브라우저 및 Tkinter 횡 액션, Python/Tkinter 의사 3D 탑다운, SwiftUI·SceneKit iOS로 발전시킨 기록을 함께 보관합니다. 현재 제품 본선은 [ios-pixel-boxing](../../ios-pixel-boxing)이며, 아래 Python 구조는 규칙 검증과 iOS 이식의 기준이 된 이전 단계입니다.
 
 ## Development Line
 
@@ -18,17 +18,17 @@
 4. **Pixel Boxing Top-Down**: 360도 링 이동, 의사 3D 카메라, 방향 더킹과 거리·각도 중심 전투를 본선으로 확립했습니다.
 5. **Stabilization and polish**: 전투 코어 분리, 자동 테스트, 적응형 AI, 설정·오디오·HUD, 링·관중·피격·KO 연출과 렌더 최적화를 진행했습니다.
 
-자세한 의사결정 배경과 단계별 개선 내용은 저장소 [메인 README](../README.md)의 프로젝트 발전 과정에 정리되어 있습니다.
+자세한 의사결정 배경과 단계별 개선 내용은 저장소 [메인 README](../../README.md)의 프로젝트 발전 과정에 정리되어 있습니다.
 
 ## Legacy Python Runtime
 
 ### Runtime flow
 
-1. 호환 진입점 `desktop-pixel-boxing/pixel_boxing_topdown.py`가 canonical 패키지를 불러옵니다.
+1. 호환 진입점 `legacy/python/pixel_boxing_topdown.py`가 canonical 패키지를 불러옵니다.
 2. `pixel_boxing/pixel_boxing_topdown.py`의 `TopDownPrototype`이 입력, 라운드 상태, AI, 카메라와 Canvas 렌더를 조정합니다.
 3. `pixel_boxing/boxing_core.py`가 공격 명세, 전투 규칙, 플레이 습관 모델, 적응 가중치와 헤드리스 시뮬레이터를 제공합니다.
 4. `pixel_boxing/game_settings.py`와 `pixel_boxing/audio_feedback.py`가 영구 설정과 오디오 피드백을 담당합니다.
-5. `tests/test_pixel_boxing_core.py`와 `tests/test_pixel_boxing_phase2.py`가 전투 및 라이브 연결을 회귀 검증합니다.
+5. `legacy/python/tests/test_pixel_boxing_core.py`와 `legacy/python/tests/test_pixel_boxing_phase2.py`가 전투 및 라이브 연결을 회귀 검증합니다.
 
 ### Recorded Python Capabilities
 
@@ -46,11 +46,11 @@
 
 ### Legacy Python Game
 
-- `desktop-pixel-boxing/pixel_boxing/`: canonical Python 패키지
-- `desktop-pixel-boxing/pixel_boxing_topdown.py`: 기존 실행 경로를 유지하는 호환 진입점
-- `tests/`: 전투 코어와 Tk 게임 연결 회귀 테스트
-- `docs/PIXEL_BOXING_GAME_DESIGN.md`: 현재 게임의 규칙과 단계별 개발 기준
-- `docs/motion.md`: 오소독스 스탠스와 8종 펀치 모션 기준
+- `legacy/python/pixel_boxing/`: canonical Python 패키지
+- `legacy/python/pixel_boxing_topdown.py`: 기존 실행 경로를 유지하는 호환 진입점
+- `legacy/python/tests/`: 전투 코어와 Tk 게임 연결 회귀 테스트
+- `docs/legacy/PIXEL_BOXING_GAME_DESIGN.md`: 현재 게임의 규칙과 단계별 개발 기준
+- `docs/legacy/motion.md`: 오소독스 스탠스와 8종 펀치 모션 기준
 
 ### Official browser build
 
@@ -62,27 +62,28 @@
 
 ### Earlier visual prototypes
 
-- `desktop-pixel-boxing/pixel_boxing_app.py`: Tkinter 횡 액션 프로토타입
-- `desktop-pixel-boxing/pixel_boxing_desktop.py`: 이전 데스크톱 실험
+- `legacy/python/pixel_boxing_app.py`: Tkinter 횡 액션 프로토타입
+- `legacy/python/pixel_boxing_desktop.py`: 이전 데스크톱 실험
 
 ### Original C++ TUI
 
-- `include/game/`, `src/game/`: 전투 상태, 세션, AI, 패턴 모델, 저장과 렌더러
-- `CMakeLists.txt`: `game_core`, `game_tui`, `game_tests`와 선택적 FTXUI 구성
-- `tests/smoke_tests.cpp`: C++ 스모크 테스트
+- `legacy/terminal-cpp/include/game/`, `legacy/terminal-cpp/src/game/`: 전투 상태, 세션, AI, 패턴 모델, 저장과 렌더러
+- `CMakeLists.txt`: 기존 루트 진입점을 유지하는 하위 프로젝트 연결
+- `legacy/terminal-cpp/CMakeLists.txt`: `game_core`, `game_tui`, `game_tests`와 선택적 FTXUI 구성
+- `legacy/terminal-cpp/tests/smoke_tests.cpp`: C++ 스모크 테스트
 - `scripts/open_game_terminal.sh`: macOS Terminal 실행 도우미
 
 ### Portability experiments
 
-- `godot-pixel-boxing/`: Godot 4 이식 가능성을 검증한 실험이며 현재 본 개발은 보류
-- `desktop-pixel-boxing/`: PyInstaller 기반 macOS 애플리케이션 패키징이 가능한 현재 데스크톱 소스
+- `legacy/godot/`: Godot 4 이식 가능성을 검증한 실험이며 현재 본 개발은 보류
+- `legacy/python/`: PyInstaller 기반 macOS 애플리케이션 패키징이 가능한 현재 데스크톱 소스
 
 ## Verification
 
 Python 본선:
 
 ```bash
-.venv/bin/python -m unittest tests.test_pixel_boxing_core tests.test_pixel_boxing_phase2 -v
+.venv/bin/python -m unittest discover -s legacy/python/tests -p 'test_*.py' -v
 ```
 
 C++ TUI:

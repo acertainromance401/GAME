@@ -15,14 +15,14 @@
 
 > 완료 라운드의 공격·방어·이동 습관과 공격 결과를 기기 안에서 기억하고, 다음 라운드부터 대응에 반영하는 상대 `RIVAL`과 겨루는 iPhone·iPad 가로형 3D 복싱 게임입니다.
 
-`1.2(6)`는 실제 [RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj)의
-마케팅 버전 `1.2`, 빌드 번호 `6`이며 [project.yml](project.yml)도 일치합니다.
+`1.2(6)`는 실제 [RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj)의
+마케팅 버전 `1.2`, 빌드 번호 `6`이며 [project.yml](../../ios-pixel-boxing/project.yml)도 일치합니다.
 2026-10-12 확인 당시 공개 App Store는 유료 1.1(USD 1.99 / KRW 3,300)입니다.
 무료 전환·1.2 출시는 미완료이며, 무료 일반 모드와 선택적 Story IAP는 제출본의 제품 구조입니다.
 2026-10-11 서명된 Release 1.2(6) 아카이브 업로드와 앱·Story IAP·Total Wins의
 3항목 심사 제출 기록은 `Waiting for Review`, 수동 출시(`MANUAL`)입니다.
-[제출 영수증](AppStoreMetadata/1.2-submission.json)과
-[출시 체크리스트](RELEASE_READINESS_CHECKLIST.md)를 따르며 오늘 새 조회·빌드 결과가 아닙니다.
+[제출 영수증](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json)과
+[출시 체크리스트](../release/RELEASE_READINESS_CHECKLIST.md)를 따르며 오늘 새 조회·빌드 결과가 아닙니다.
 날짜가 붙은 검증 결과는 당시 기록입니다. 이번 갱신은 문서 검사만 수행하며
 앱 빌드·테스트·실기기·시뮬레이터·배포 조회를 새로 수행하지 않습니다.
 
@@ -336,7 +336,7 @@ open RIVAL.xcodeproj
 
 그다음 아래 순서로 설치합니다.
 
-실제 Xcode 프로젝트를 기준으로 사용합니다. [project.yml](project.yml)은 유지 중인 명세이며
+실제 Xcode 프로젝트를 기준으로 사용합니다. [project.yml](../../ios-pixel-boxing/project.yml)은 유지 중인 명세이며
 재생성이 필요한 변경에서는 실제 프로젝트와 리소스·서명 설정을 먼저 대조합니다.
 
 1. iPhone 또는 iPad를 Mac에 연결하고 기기에서 개발자 모드를 활성화합니다.
@@ -379,7 +379,7 @@ RIVAL 모바일 버전은 iPhone·iPad 네이티브 앱이며 Android APK를 제
 
 - **YouTube:** [https://youtu.be/01h8Lo5UIJc?si=z4azF3XPkZuc9WOX](https://youtu.be/01h8Lo5UIJc?si=z4azF3XPkZuc9WOX)
 - 참가신청서의 플레이 영상 항목에는 위 URL을 입력합니다.
-- 2026-10-12 홍보 영상의 제작·게시 범위는 [PromotionVideos/README.md](PromotionVideos/README.md)를 따릅니다. 기존 플레이 영상은 당시 화면 기록입니다.
+- 2026-10-12 홍보 영상의 제작·게시 범위는 [PromotionVideos/README.md](../../ios-pixel-boxing/PromotionVideos/README.md)를 따릅니다. 기존 플레이 영상은 당시 화면 기록입니다.
 
 영상에서 확인할 주요 기능은 다음과 같습니다.
 
@@ -429,17 +429,17 @@ RIVAL 모바일 버전은 iPhone·iPad 네이티브 앱이며 Android APK를 제
 발열·프레임 안정성, 실제 사용자의 햅틱·음향 체감은 별도 플레이 검증이 필요합니다.
 
 2026-09-09·2026-09-10의 AI 봇·모션·위빙 수치 검사와 iPhone SDK 컴파일 기록은
-[README의 과거 실행 검증 기록](README.md#과거-실행-검증-기록)을 따릅니다.
+[README의 과거 실행 검증 기록](../../ios-pixel-boxing/README.md#과거-실행-검증-기록)을 따릅니다.
 2026-10-10 문서 정리는 소스·설정 대조만 수행했으며 새 실행 통과를 주장하지 않습니다.
 
 2026-10-11 Release 로컬 StoreKitTest UI 캡처는 6개 통과·실패 0개·첨부 30개입니다.
 이는 iPhone·iPad의 제한된 심사 화면 캡처이며 실계정 구매·복원·권한 취소·기존 유료 고객 이행·Game Center 검증은 아닙니다.
 2026-10-12의 이번 문서 검사는 앱 실행 검증이나 심사 상태 새 조회를 대신하지 않습니다.
 
-이 문서의 현재 수치·동작 근거는 [CombatCore.swift](PixelBoxingIOS/CombatCore.swift),
-[Weaving.swift](PixelBoxingIOS/Weaving.swift), [Arena3DScene.swift](PixelBoxingIOS/Arena3DScene.swift),
-[BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift), [DefensiveMotion.swift](PixelBoxingIOS/DefensiveMotion.swift),
-[RivalAI.swift](PixelBoxingIOS/RivalAI.swift), [StoryMode.swift](PixelBoxingIOS/StoryMode.swift),
-[StoryPurchaseStore.swift](PixelBoxingIOS/StoryPurchaseStore.swift), [GameView.swift](PixelBoxingIOS/GameView.swift),
-[실제 프로젝트](RIVAL.xcodeproj/project.pbxproj)입니다. 개발 사례의 과거 기록은
-[DEVELOPMENT_ISSUES_AND_SOLUTIONS.md](DEVELOPMENT_ISSUES_AND_SOLUTIONS.md)를 따릅니다.
+이 문서의 현재 수치·동작 근거는 [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift),
+[Weaving.swift](../../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift), [Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift),
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift), [DefensiveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
+[RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift), [StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift),
+[StoryPurchaseStore.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryPurchaseStore.swift), [GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift),
+[실제 프로젝트](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj)입니다. 개발 사례의 과거 기록은
+[DEVELOPMENT_ISSUES_AND_SOLUTIONS.md](../engineering/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md)를 따릅니다.

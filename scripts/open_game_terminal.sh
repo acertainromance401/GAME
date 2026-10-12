@@ -13,10 +13,13 @@ if [[ ! -x "$GAME_BIN" ]]; then
   exit 1
 fi
 
-osascript <<EOF
- tell application "Terminal"
-     activate
-   do script "cd '$ROOT_DIR' && '$GAME_BIN'"
-   set bounds of front window to {40, 40, 1620, 1120}
- end tell
-EOF
+osascript - "$ROOT_DIR" "$GAME_BIN" <<'APPLESCRIPT'
+on run arguments
+  set commandText to "cd " & quoted form of (item 1 of arguments) & " && " & quoted form of (item 2 of arguments)
+  tell application "Terminal"
+    activate
+    do script commandText
+    set bounds of front window to {40, 40, 1620, 1120}
+  end tell
+end run
+APPLESCRIPT

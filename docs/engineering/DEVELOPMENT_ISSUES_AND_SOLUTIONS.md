@@ -53,7 +53,7 @@
 
 ### 문서 간 기준 차이
 
-[README](README.md), [게임 가이드](GAME_GUIDE.md), [AI 활용 문서](AI_USAGE.md),
+[README](../../ios-pixel-boxing/README.md), [게임 가이드](../product/GAME_GUIDE.md), [AI 활용 문서](AI_USAGE.md),
 [강화학습 감사](RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)는 2026-10-12에 현재
 1.2(6)의 회피·사거리·라운드 종료 학습·스토리 기준으로 최신화했다. 날짜가 붙은
 과거 검증과 제출 PDF는 당시 기록으로 보존하며 현재 변경 전체의 검증으로 취급하지 않는다.
@@ -135,9 +135,9 @@ KO 타격은 결과를 먼저 라운드 수집본에 기록한 다음 종료 학
 사용자 확인은 별도로 확보되지 않았다. 일부 기존 테스트는 라운드 중 전술 읽기를
 기대하는 오래된 단언을 포함하므로 현재 학습 정책의 검증 증거로 삼을 수 없다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `startRound`, `enemyActionWeights`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `startRound`, `enemyActionWeights`,
 `finishRound`, `commitStoryRoundLearning`, `saveHabits`;
-[RivalAI.swift](PixelBoxingIOS/RivalAI.swift)의 `RivalAttackMemory`, `RivalLearningProfile`.
+[RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift)의 `RivalAttackMemory`, `RivalLearningProfile`.
 
 ## 3. 크로스가 거의 맞지 않는 문제
 
@@ -183,9 +183,9 @@ KO 타격은 결과를 먼저 라운드 수집본에 기록한 다음 종료 학
 당시 성공한 수정 이력과 후속 고정 조준 설계는 분리해 기록한다. 현재 경로에서 같은
 체감 문제가 다시 나타나는지는 이번 문서 작성으로 확인하지 않았다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `executeAttack`, `updateFacing`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `executeAttack`, `updateFacing`,
 `FighterModel.isAligningCross`;
-[BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift)의 `begin`, `aim`, `alignCrossWindup`.
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift)의 `begin`, `aim`, `alignCrossWindup`.
 
 ## 4. Blender로 바꿀 것인가, 현재 모션의 원리를 개선할 것인가
 
@@ -231,10 +231,10 @@ KO 타격은 결과를 먼저 라운드 수집본에 기록한 다음 종료 학
 현재 코드에 전신 회전과 고정 길이 IK가 있다는 점은 확인된다. 모든 공격이 복싱
 전문가 기준으로 정확하거나 실기기에서 모두 자연스럽다는 결론은 별도 검증이 필요하다.
 
-근거: [BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift)의 `PunchMotion`, `CurvedPunchMotion`,
+근거: [BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift)의 `PunchMotion`, `CurvedPunchMotion`,
 `BodyShovelMotion`, `applyPowerPunch`, `TwoBoneLimb`, `resolveStraightPunch`;
-[FighterPose.swift](PixelBoxingIOS/FighterPose.swift);
-[DefensiveMotion.swift](PixelBoxingIOS/DefensiveMotion.swift)의 `pivotedFoot`.
+[FighterPose.swift](../../ios-pixel-boxing/PixelBoxingIOS/FighterPose.swift);
+[DefensiveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift)의 `pivotedFoot`.
 
 ## 5. 보이는 동작과 실제 타격·회피 판정의 책임을 맞추기
 
@@ -295,11 +295,11 @@ KO 타격은 결과를 먼저 라운드 수집본에 기록한 다음 종료 학
 다시 확인한 발언은 확보하지 못했다. 3절의 더 이른 크로스 체감 확인을 이 접촉
 구간 변경의 성공 증거로 재사용하지 않는다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `AttackSpec`, `updateFighter`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `AttackSpec`, `updateFighter`,
 `prepareContact`, `evaluateContact`;
-[BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift)의 `PunchContactGeometry`, `sweptContact`,
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift)의 `PunchContactGeometry`, `sweptContact`,
 `PunchRecoveryMotion`;
-[FighterPose.swift](PixelBoxingIOS/FighterPose.swift)의 `FighterPoseTransition`.
+[FighterPose.swift](../../ios-pixel-boxing/PixelBoxingIOS/FighterPose.swift)의 `FighterPoseTransition`.
 
 ## 6. 회피해도 카운터 타이밍이 거의 나타나지 않는 문제
 
@@ -351,9 +351,9 @@ KO 타격은 결과를 먼저 라운드 수집본에 기록한 다음 종료 학
 앞의 실기기 확인 발언은 당시 회피 판정 개선의 근거다. 모든 공격군에서 성공률이
 동일하거나 두 기술의 난도가 수치상 같다는 실험 결과는 없다.
 
-근거: [DefensiveMotion.swift](PixelBoxingIOS/DefensiveMotion.swift)의 `DuckMotion`;
-[Weaving.swift](PixelBoxingIOS/Weaving.swift)의 `WeaveState`;
-[CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `playerDodgeGrade`, `rewardDodge`, `DodgeGrade`.
+근거: [DefensiveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift)의 `DuckMotion`;
+[Weaving.swift](../../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift)의 `WeaveState`;
+[CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `playerDodgeGrade`, `rewardDodge`, `DodgeGrade`.
 
 ## 7. 모션 개선 후 랙이 심해졌다는 체감
 
@@ -392,10 +392,10 @@ SceneKit 노드를 매 프레임 새로 만드는 구조가 아니더라도, 캡
 주장을 뒷받침하는 측정은 없다. 이후 스토리·접촉 검사 변경으로 프레임 작업량도
 바뀌었으므로 당시 확인을 현재 전체 앱 성능 보장으로 확대하지 않는다.
 
-근거: [Arena3DScene.swift](PixelBoxingIOS/Arena3DScene.swift)의 `BoneNode`, `BoxerRig.update`;
-[FighterPose.swift](PixelBoxingIOS/FighterPose.swift)의 `baseStances`, `styledStances`;
-[BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift)의 `StraightPunchAnatomy`, `direction`;
-[CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `enemyActionWeights`.
+근거: [Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift)의 `BoneNode`, `BoxerRig.update`;
+[FighterPose.swift](../../ios-pixel-boxing/PixelBoxingIOS/FighterPose.swift)의 `baseStances`, `styledStances`;
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift)의 `StraightPunchAnatomy`, `direction`;
+[CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `enemyActionWeights`.
 
 ## 8. 스태미나 회복과 전체 공격 사거리의 체감 조정
 
@@ -440,9 +440,9 @@ sceneScale = 0.025
 당시 구문·에디터 확인은 했지만, 사거리 확대 후 모든 스타일·펀치의 실제 적중 한계나
 밸런스에 대한 사용자 확인은 기록되지 않았다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `staminaRecoveryPerSecond`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `staminaRecoveryPerSecond`,
 `punchReachExtension`, `hitRange`, `advanceFighter`;
-[BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift)의 `contactReach`, `aim`, `extendChestForPunch`.
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift)의 `contactReach`, `aim`, `extendChestForPunch`.
 
 ## 9. 공격을 자주 쓰는 것과 잘 맞히는 것은 다르다
 
@@ -475,9 +475,9 @@ sceneScale = 0.025
 미리 작성한 대응 규칙의 입력을 공격 횟수에서 실제 결과까지 확장한 통계 기반
 적응이다. 내부 신뢰도를 실제 학습 정확도로 표시하거나 검증된 확률로 주장하지 않는다.
 
-근거: [RivalAI.swift](PixelBoxingIOS/RivalAI.swift)의 `RivalAttackOutcome`, `RivalAttackMemory`,
+근거: [RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift)의 `RivalAttackOutcome`, `RivalAttackMemory`,
 `adjustWeights`, `recoveryChoice`;
-[CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `updateFighter`, `planEnemyRecovery`.
+[CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `updateFighter`, `planEnemyRecovery`.
 
 ## 10. 누적 수정 뒤 필요 없는 코드를 안전하게 정리하기
 
@@ -514,9 +514,9 @@ sceneScale = 0.025
 현재 크로스 보조 함수처럼 후속 수정으로 다시 미사용 상태가 된 코드도 있다.
 따라서 한 번의 삭제 정리를 “앞으로 불필요한 코드가 전혀 없다”는 보증으로 삼지 않는다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift), [BoxingMotion.swift](PixelBoxingIOS/BoxingMotion.swift),
-[Arena3DScene.swift](PixelBoxingIOS/Arena3DScene.swift), [SoundManager.swift](PixelBoxingIOS/SoundManager.swift),
-[PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift).
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift), [BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
+[Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift), [SoundManager.swift](../../ios-pixel-boxing/PixelBoxingIOS/SoundManager.swift),
+[PlaceholderTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/PlaceholderTests.swift).
 
 ## 11. 상대별 난도를 숫자보다 전술로 구분하기
 
@@ -572,10 +572,10 @@ sceneScale = 0.025
 카운터형 외의 모든 최종 조정에 대한 사용자 난도 확인은 확보하지 않았다. 조건·상한·
 공유 비용을 지키는 구현과 실제로 재미있고 공정한 난도라는 평가는 별도다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `updateStoryCounter`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `updateStoryCounter`,
 `advanceStoryOutboxerMovement`, `updateStoryOutboxer`, `updateStoryPressure`, `updateEnemy`;
-[RivalAI.swift](PixelBoxingIOS/RivalAI.swift)의 `RivalDifficulty`;
-[StoryMode.swift](PixelBoxingIOS/StoryMode.swift)의 `StoryOpponent`.
+[RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift)의 `RivalDifficulty`;
+[StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift)의 `StoryOpponent`.
 
 ## 12. 강타형이 무한 가드 루프에 빠진 문제
 
@@ -628,7 +628,7 @@ sceneScale = 0.025
 시간을 분리해야 한다는 사례다. 다른 상대나 일반 플레이어의 가드 회복까지 함께
 바꾸지 않고 강타형의 소유 정책에 국한했다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `updateStorySlugger`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `updateStorySlugger`,
 `advanceFighter`, `enemyGuardTime`, 가드 피격 처리.
 
 ## 13. 새 도전인데 인트로가 요약되는 문제
@@ -658,9 +658,9 @@ sceneScale = 0.025
 현재 전달 경로는 소스로 확인했지만, 모든 버튼 조합의 실기기 재생 결과는 이번
 문서 작성에서 새로 확인하지 않았다.
 
-근거: [StoryViews.swift](PixelBoxingIOS/StoryViews.swift)의 스토리 선택·준비 흐름;
-[PixelBoxingApp.swift](PixelBoxingIOS/PixelBoxingApp.swift)의 스토리 시작 콜백;
-[GameController.swift](PixelBoxingIOS/GameController.swift)의 `start`, `retryStoryBout`.
+근거: [StoryViews.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryViews.swift)의 스토리 선택·준비 흐름;
+[PixelBoxingApp.swift](../../ios-pixel-boxing/PixelBoxingIOS/PixelBoxingApp.swift)의 스토리 시작 콜백;
+[GameController.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameController.swift)의 `start`, `retryStoryBout`.
 
 ## 14. 이어하기·다운 복귀·라운드 전환의 연결을 자연스럽게 만들기
 
@@ -697,10 +697,10 @@ sceneScale = 0.025
 매 프레임 어느 시점에 종료해도 완전히 동일한 화면으로 복귀한다는 보장은 없다.
 현재 코드의 복원 경로와 모든 체크포인트의 실기기 성공은 구분해야 한다.
 
-근거: [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `storyCheckpoint`, `restoreStory`,
+근거: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `storyCheckpoint`, `restoreStory`,
 `commitStoryRoundLearning`;
-[StoryMode.swift](PixelBoxingIOS/StoryMode.swift)의 `StoryBoutState`;
-[GameController.swift](PixelBoxingIOS/GameController.swift)의 스토리 저장·전환 흐름.
+[StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift)의 `StoryBoutState`;
+[GameController.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameController.swift)의 스토리 저장·전환 흐름.
 
 ## 15. 무료 전환과 스토리 인앱결제: 권한·기록·보상은 별개
 
@@ -792,13 +792,13 @@ sceneScale = 0.025
 Apple 승인·공개 출시·무료 가격 적용의 확인은 아니다. 이번 문서 보강에서는
 App Store Connect를 다시 조회하지 않았다.
 
-근거: [StoryPurchaseStore.swift](PixelBoxingIOS/StoryPurchaseStore.swift)의 `readVerifiedAccess`,
+근거: [StoryPurchaseStore.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryPurchaseStore.swift)의 `readVerifiedAccess`,
 `isLegacyPaidBuild`, `purchase`, `restore`, `receive`;
-[GameController.swift](PixelBoxingIOS/GameController.swift)의 보상 판정과 `refreshPurchaseEquipment`;
-[StoryMode.swift](PixelBoxingIOS/StoryMode.swift)의 `StoryProgressStore`;
-[CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `OutfitID.unlockRequirement`;
-[AppStoreMetadata/1.2-submission.json](AppStoreMetadata/1.2-submission.json),
-[RELEASE_READINESS_CHECKLIST.md](RELEASE_READINESS_CHECKLIST.md).
+[GameController.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameController.swift)의 보상 판정과 `refreshPurchaseEquipment`;
+[StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift)의 `StoryProgressStore`;
+[CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `OutfitID.unlockRequirement`;
+[AppStoreMetadata/1.2-submission.json](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json),
+[RELEASE_READINESS_CHECKLIST.md](../release/RELEASE_READINESS_CHECKLIST.md).
 
 ## 16. 전체 스토리 테스트를 위해 실제 구매·진행을 훼손하지 않기
 
@@ -831,9 +831,9 @@ App Store Connect를 다시 조회하지 않았다.
 UI 테스트 번들의 리소스이며 앱 번들에는 넣지 않았다. 다만 이 결과를 설치된 모든
 버전·모든 구매 경로에서 우회가 없다는 전수 검증으로 확대하지 않는다.
 
-근거: [StoryMode.swift](PixelBoxingIOS/StoryMode.swift)의 `temporarilyUnlockStory`;
-[PixelBoxingApp.swift](PixelBoxingIOS/PixelBoxingApp.swift)의 Root 초기화·`startStory`·알림 추적;
-[RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj#L389)의 UI 테스트 리소스 등록;
+근거: [StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift)의 `temporarilyUnlockStory`;
+[PixelBoxingApp.swift](../../ios-pixel-boxing/PixelBoxingIOS/PixelBoxingApp.swift)의 Root 초기화·`startStory`·알림 추적;
+[RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj#L389)의 UI 테스트 리소스 등록;
 21절의 보존된 Release 캡처 기록.
 
 ## 17. 버전·현재 구현·검증 기록을 혼동하지 않기
@@ -848,14 +848,14 @@ UI 테스트 번들의 리소스이며 앱 번들에는 넣지 않았다. 다만
 
 문서 대상에 작업 트리 버전과 기준일을 명시하고, 날짜별 실행 결과를 당시 범위로
 제한했다. 현재 빌드·아카이브에 사용한 프로젝트는
-[RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj)이며,
-[project.yml](project.yml)은 XcodeGen 생성 사양으로 함께 유지한다. 현재 프로젝트에는
+[RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj)이며,
+[project.yml](../../ios-pixel-boxing/project.yml)은 XcodeGen 생성 사양으로 함께 유지한다. 현재 프로젝트에는
 스토리 JSON과 UI 테스트 전용 StoreKit 설정을 직접 등록한 리소스 단계가 있다.
 생성 사양과 현재 프로젝트의 리소스·설정이 모두 같다고 확인하지 않고 재생성하면
 등록된 배포·검사 구성을 잃을 위험이 있으므로, 예전 문서의 재생성 명령을 현재
 배포 정본 확인 없이 그대로 적용하지 않는다.
 
-앱의 [PixelBoxingIOS/Info.plist](PixelBoxingIOS/Info.plist)는
+앱의 [PixelBoxingIOS/Info.plist](../../ios-pixel-boxing/PixelBoxingIOS/Info.plist)는
 `$(MARKETING_VERSION)`·`$(CURRENT_PROJECT_VERSION)`을 참조한다. 숫자를 설명
 문서에 적는 것과 실제 빌드 산출물의 버전 확인은 다르다.
 
@@ -876,8 +876,8 @@ UI 테스트 번들의 리소스이며 앱 번들에는 넣지 않았다. 다만
 추적할 수 있게 하는 개발 책임이다. 과거 테스트 수를 현재 소스의 새 검증으로
 재사용하지 않고, 관측 근거·변경 범위·미확인 항목을 함께 남겼다.
 
-근거: [project.yml](project.yml), [Info.plist](PixelBoxingIOS/Info.plist),
-[README](README.md), [RELEASE_READINESS_CHECKLIST.md](RELEASE_READINESS_CHECKLIST.md).
+근거: [project.yml](../../ios-pixel-boxing/project.yml), [Info.plist](../../ios-pixel-boxing/PixelBoxingIOS/Info.plist),
+[README](../../ios-pixel-boxing/README.md), [RELEASE_READINESS_CHECKLIST.md](../release/RELEASE_READINESS_CHECKLIST.md).
 
 ## 18. 강화학습 여부보다 제품 목표를 먼저 설명하기
 
@@ -909,7 +909,7 @@ RIVAL의 초기 기획과 구현 이력에는 강화학습이 포함된다. 그�
 않은 당시 동기를 만들어내지 않는다.
 
 근거: [RIVAL_REINFORCEMENT_LEARNING_AUDIT.md](RIVAL_REINFORCEMENT_LEARNING_AUDIT.md),
-[AI_USAGE.md](AI_USAGE.md), [RivalAI.swift](PixelBoxingIOS/RivalAI.swift).
+[AI_USAGE.md](AI_USAGE.md), [RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift).
 
 ## 19. 이 과정에서 반복해서 드러난 문제 해결 방식
 
@@ -977,8 +977,8 @@ RIVAL의 초기 기획과 구현 이력에는 강화학습이 포함된다. 그�
 - 로컬 Release 캡처에서 확인한 경로 밖의 구매·저장·임시 해금 격리 검증.
 - 오래된 기대값이 남은 기존 테스트의 현재 구현 정합성. 이번 문서 정리에서 테스트 코드를 수정하거나 실행하지 않았다.
 
-최신 심사·홍보 기록은 [릴리스 체크리스트](RELEASE_READINESS_CHECKLIST.md)와
-[홍보 영상 기록](PromotionVideos/README.md)에 보관한다. 10월 12일 캡처·영상 검사는
+최신 심사·홍보 기록은 [릴리스 체크리스트](../release/RELEASE_READINESS_CHECKLIST.md)와
+[홍보 영상 기록](../../ios-pixel-boxing/PromotionVideos/README.md)에 보관한다. 10월 12일 캡처·영상 검사는
 앱 전체 회귀 검사나 광고의 실제 게재·성과 검증이 아니다.
 
 위 항목은 이번 문서 작성에서 실행할 검증 목록이 아니라, **현재 무엇을 성공으로
@@ -1034,11 +1034,11 @@ GitHub Copilot이 실행 결과와 화면 상태를 대조하며 발견한 사�
 결제·복원·환불 처리나 모든 기기의 터치 동작을 확인했다는 뜻은 아니다.
 이번 문서 보강에서는 이 캡처를 다시 실행하지 않고 보존된 결과만 대조했다.
 
-근거: [StoryViews.swift](PixelBoxingIOS/StoryViews.swift#L171)의 `opponentRow`;
-[심사 제출 기록](AppStoreMetadata/1.2-submission.json);
-[영문 iPhone 결과](AppStoreScreenshots/1.2/capture-manifests/iphone-en-summary.json),
-[한국어·일본어 iPhone 결과](AppStoreScreenshots/1.2/capture-manifests/iphone-ko-ja-summary.json),
-[세 언어 iPad 결과](AppStoreScreenshots/1.2/capture-manifests/ipad-en-ko-ja-summary.json).
+근거: [StoryViews.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryViews.swift#L171)의 `opponentRow`;
+[심사 제출 기록](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json);
+[영문 iPhone 결과](../../ios-pixel-boxing/AppStoreScreenshots/1.2/capture-manifests/iphone-en-summary.json),
+[한국어·일본어 iPhone 결과](../../ios-pixel-boxing/AppStoreScreenshots/1.2/capture-manifests/iphone-ko-ja-summary.json),
+[세 언어 iPad 결과](../../ios-pixel-boxing/AppStoreScreenshots/1.2/capture-manifests/ipad-en-ko-ja-summary.json).
 
 ## 22. 벨트 글자 돌출: 배치 보정이 실패하면 표현 방식을 바꾸기
 
@@ -1077,7 +1077,7 @@ GitHub Copilot이 실행 결과와 화면 상태를 대조하며 발견한 사�
 최종 벨트 외형을 승인했다는 발언은 확보하지 못했다. 모든 거리에서 글자가 선명한지,
 다른 카메라 각도에서 판과 겹치지 않는지는 별도 시각 확인이 필요하다.
 
-근거: [PixelBoxingIOS/Arena3DScene.swift](PixelBoxingIOS/Arena3DScene.swift#L1801)의
+근거: [PixelBoxingIOS/Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift#L1801)의
 `ChampionshipBeltDesign.lettering`, `makeCenterPlate`, 전시·착용 벨트 제작 경로;
 20절의 `55ea3afd…` T92·T96 기록.
 
@@ -1129,7 +1129,7 @@ GitHub Copilot이 실행 결과와 화면 상태를 대조하며 발견한 사�
 이후 2절의 수정으로 대체됐다. 풋워크를 실행하는 구조가 남아 있다는 사실과
 당시 학습 정책 전체가 그대로 유지된다는 주장은 분리한다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift#L2327)의
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift#L2327)의
 `updateEnemy`, `enemyActionWeights`, `performEnemyDecision`, `applyEnemyFootwork`,
 `HabitSnapshot.enemyWeights`; 20절의 `5f155106…` T28~T31 기록.
 
@@ -1190,9 +1190,9 @@ iOS에서 습관은 별도 소스 파일을 수정하거나 앱 번들 안에 JS
 호환 의도와 실제 모든 출시 버전의 저장 보존 성공을 구분한다. 또한 일반 습관은
 완료 라운드에 저장하므로 경기 중 앱이 종료돼도 미확정 관측이 항상 남는 구조는 아니다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift#L3429)의
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift#L3429)의
 `saveHabits`, 초기화·`persistProgress`;
-[PixelBoxingIOS/GameController.swift](PixelBoxingIOS/GameController.swift#L47)의
+[PixelBoxingIOS/GameController.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameController.swift#L47)의
 `PlayerStats.init(from:)`;
-[PixelBoxingIOS/StoryMode.swift](PixelBoxingIOS/StoryMode.swift#L633)의
+[PixelBoxingIOS/StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift#L633)의
 `StoryProgress.init(from:)`, `StoryProgressStore`; 20절의 `9e3d8d7d…` T17 기록.

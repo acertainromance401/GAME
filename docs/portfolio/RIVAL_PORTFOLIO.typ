@@ -56,7 +56,7 @@
 // 1. Cover
 #set page(margin: 0mm, fill: rgb("#05070b"))
 #block(width: 100%, height: 112mm, clip: true)[
-  #image("../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/LoadingScreenArt.imageset/LoadingScreenArt@3x.png", width: 100%, height: 112mm, fit: "cover")
+  #image("../../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/LoadingScreenArt.imageset/LoadingScreenArt@3x.png", width: 100%, height: 112mm, fit: "cover")
 ]
 #block(inset: (x: 20mm, y: 14mm), width: 100%)[
   #text(size: 9pt, weight: "bold", fill: rgb("#db3656"))[PROJECT PORTFOLIO · iOS GAME]
@@ -165,7 +165,7 @@
   ],
   [
     #block(height: 88mm, clip: true, radius: 4pt)[
-      #image("../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/LoadingScreenArt.imageset/LoadingScreenArt@3x.png", width: 100%, height: 88mm, fit: "cover")
+      #image("../../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/LoadingScreenArt.imageset/LoadingScreenArt@3x.png", width: 100%, height: 88mm, fit: "cover")
     ]
     #text(size: 7.5pt, fill: muted)[RIVAL 로딩 아트 · 현재 경기 캡처와 구분]
   ],
@@ -511,7 +511,7 @@
 #page-title("07 · LINKS", "직접 확인하기", subtitle: "코드, 플레이 영상, 실행 가능한 웹 빌드와 상세 기술 문서를 함께 제공합니다.")
 
 #grid(columns: (38mm, 1fr), gutter: 10pt,
-  [#image("../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/AppIcon.appiconset/AppIcon.png", width: 38mm)],
+  [#image("../../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/AppIcon.appiconset/AppIcon.png", width: 38mm)],
   [
     #text(size: 24pt, weight: "bold", fill: navy)[RIVAL]
     #v(4pt)
@@ -534,9 +534,9 @@
   [TestFlight], [#link("https://testflight.apple.com/join/btSgA8uT")[RIVAL 베타 테스트]],
   [게임 설명서], [`ios-pixel-boxing/GAME_GUIDE.md`],
   [AI 기술 문서], [`ios-pixel-boxing/AI_USAGE.md`],
-  [현재 iOS 기준], [#link("../ios-pixel-boxing/README.md")[ios-pixel-boxing/README.md]],
-  [홍보 기록], [#link("../ios-pixel-boxing/PromotionVideos/README.md")[ios-pixel-boxing/PromotionVideos/README.md]],
-  [문제 해결 기록], [#link("../ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md")[ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md]],
+  [현재 iOS 기준], [#link("../../ios-pixel-boxing/README.md")[ios-pixel-boxing/README.md]],
+  [홍보 기록], [#link("../../ios-pixel-boxing/PromotionVideos/README.md")[ios-pixel-boxing/PromotionVideos/README.md]],
+  [문제 해결 기록], [#link("../engineering/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md")[ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md]],
 )
 
 #v(14pt)

@@ -10,12 +10,30 @@ game_save.txt
 __pycache__/
 *.pyc
 .venv/
-godot-pixel-boxing/.godot/
+legacy/godot/.godot/
 .DS_Store
 ios-pixel-boxing/build/
 ios-pixel-boxing/*.xcodeproj/
 *.xcuserstate
 .vscode/
+
+# Credentials and signing material are local-only; examples may be shared.
+.env
+.env.*
+!.env.example
+!.env.template
+secrets/
+credentials/
+*.p8
+*.p12
+*.pfx
+*.key
+*.pem
+*.mobileprovision
+*.provisionprofile
+id_rsa*
+id_ed25519*
+*service-account*.json
 
 # Preserve the release project without personal Xcode state.
 !ios-pixel-boxing/RIVAL.xcodeproj/

@@ -13,13 +13,13 @@
 ## 문서 범위
 
 `1.2(6)`는 마케팅 버전 `1.2`, 빌드 번호 `6`입니다. 실제 기준은
-[RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj)이며
-[project.yml](project.yml)도 일치합니다. 문서 갱신을 위해 프로젝트를 재생성하지 않습니다.
+[RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj)이며
+[project.yml](../../ios-pixel-boxing/project.yml)도 일치합니다. 문서 갱신을 위해 프로젝트를 재생성하지 않습니다.
 2026-10-12 확인 당시 공개 App Store는 유료 1.1(USD 1.99 / KRW 3,300)이며 무료 전환·1.2 출시는 미완료입니다.
 2026-10-11 서명된 Release 1.2(6) 아카이브 업로드와 앱·Story IAP·Total Wins 순위표의
 3항목 동반 심사 제출 기록은 `Waiting for Review`, 수동 출시(`MANUAL`)입니다.
-근거는 [제출 영수증](AppStoreMetadata/1.2-submission.json)과
-[출시 체크리스트](RELEASE_READINESS_CHECKLIST.md)이며 오늘 새 조회·빌드 결과가 아닙니다.
+근거는 [제출 영수증](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json)과
+[출시 체크리스트](../release/RELEASE_READINESS_CHECKLIST.md)이며 오늘 새 조회·빌드 결과가 아닙니다.
 당시 로컬 Release StoreKitTest UI 캡처는 6개 통과·첨부 30개인 제한된 화면 검증입니다.
 실계정 구매·복원·권한 취소·기존 유료 고객 이행·Game Center는 미검증입니다.
 날짜별 실험 기록은 당시 범위를 유지하며, 이번 작업은 문서 검사만 수행합니다.
@@ -56,8 +56,8 @@ flowchart LR
    G --> B
 ```
 
-핵심 구현은 [CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitMemory`, `HabitSnapshot`,
-`CombatEngine`과 [RivalAI.swift](PixelBoxingIOS/RivalAI.swift)의 `RivalAttackMemory`입니다.
+핵심 구현은 [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `HabitMemory`, `HabitSnapshot`,
+`CombatEngine`과 [RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift)의 `RivalAttackMemory`입니다.
 `roundHabits`·`roundPlayerAttackResults`·`roundRivalAttackResults`는 관측 버퍼일 뿐입니다.
 일반 RIVAL은 `finishRound`에서 승패와 무관하게 병합·저장하며 다음 라운드·재도전부터 반영합니다.
 `tacticalRead`는 라운드 시작에 확정 장기 습관으로 결정합니다. 종료 시 다음 보고용 값을 갱신해도
@@ -77,11 +77,11 @@ flowchart LR
 | `weightedChoice` | 가중치에 따른 행동 선택 | 행동별 0 이상의 가중치 | 하나의 행동 문자열 |
 | `UserDefaults` | 세션 간 습관 보존 | `Codable` JSON 데이터 | 다음 앱 실행 시 복원할 메모리 |
 
-화면 표현은 [Arena3DScene.swift](PixelBoxingIOS/Arena3DScene.swift), 입력은
-[GameView.swift](PixelBoxingIOS/GameView.swift), 엔진 연결은
-[GameController.swift](PixelBoxingIOS/GameController.swift)가 담당합니다. 습관 대응·행동 선택은 3D 렌더링과 분리된
-[CombatCore.swift](PixelBoxingIOS/CombatCore.swift), 실행 숙련도·연계·난수는
-[RivalAI.swift](PixelBoxingIOS/RivalAI.swift)에 있습니다.
+화면 표현은 [Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift), 입력은
+[GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift), 엔진 연결은
+[GameController.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameController.swift)가 담당합니다. 습관 대응·행동 선택은 3D 렌더링과 분리된
+[CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift), 실행 숙련도·연계·난수는
+[RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift)에 있습니다.
 
 ### 1. 플레이 습관 수집
 
@@ -256,7 +256,7 @@ reactionDelay = 0.24 - 0.18 × experience
 
 공격 비용 배율은 인파이터 0.88, 아웃복싱 1.0, 슬러거 0.85입니다. 실제 사거리는
 `기본 사거리 × 스타일 리치 배율 + 14 + 0.34 / 0.025`로 계산하며 사거리 밖 공격을 제외합니다.
-플레이어 위빙은 [Weaving.swift](PixelBoxingIOS/Weaving.swift)의 별도 입력·회피 경로입니다.
+플레이어 위빙은 [Weaving.swift](../../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift)의 별도 입력·회피 경로입니다.
 RIVAL도 위빙과 후속 훅을 실행할 수 있습니다. 스토리의 위빙 방향은 기존 좌우 회피 표본에 합산하고,
 공격의 위빙 회피 결과는 양 모드의 결과 메모리로 수집하지만 독립 위빙 저장 키·전술 분류는 없습니다.
 당해 라운드의 관측으로 학습 가중치를 실시간 변경하지 않습니다. 실제 타격은 공유
@@ -267,7 +267,7 @@ RIVAL도 위빙과 후속 훅을 실행할 수 있습니다. 스토리의 위빙
 스토리는 압박형→견제형→카운터형→강타형→RIVAL의 별도 상대 정책입니다.
 마지막 RIVAL의 championship 실행 기준도 라운드 시작에 고정하며 중간 학습 적응은 하지 않습니다.
 스토리 학습·진행은 별도 `StoryLearningState`로 보존합니다. 일반 RIVAL의 기본 수치와
-강타형만의 강화 수치를 혼동하지 않습니다. 전투·구매 규칙은 [GAME_GUIDE.md](GAME_GUIDE.md)를 따릅니다.
+강타형만의 강화 수치를 혼동하지 않습니다. 전투·구매 규칙은 [GAME_GUIDE.md](../product/GAME_GUIDE.md)를 따릅니다.
 
 선택적 스토리 이용권 `com.acertainromance401.pixelboxing.story`는 비소모성 상품입니다.
 퍼스트 벨(`First Bell`)은 검증된 이용권으로 제공하고, 상대 복장·챔피언 보상은 이용권과 해당 승리가 모두 필요합니다.
@@ -312,7 +312,7 @@ RIVAL도 위빙과 후속 훅을 실행할 수 있습니다. 스토리의 위빙
 
 2026-09-09 검증은 실제 코어의 고정 난수 봇 대전과 수치 검사, iPhone SDK 컴파일입니다.
 사람 상대 난이도·승률·손맛과 전체 iOS XCTest 실행을 검증한 것으로 해석하지 않습니다.
-[실행기](scripts/check_ai_behavior.sh)와 [정본의 결과·한계](../docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)를 따릅니다.
+[실행기](../../ios-pixel-boxing/scripts/check_ai_behavior.sh)와 [정본의 결과·한계](../product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)를 따릅니다.
 
 ## 생성형 AI 개발 보조
 
@@ -406,9 +406,9 @@ RIVAL도 위빙과 후속 훅을 실행할 수 있습니다. 스토리의 위빙
 
 2026-09-07 iPhone 12 mini에서 전투·연출·저장 호환성 단위 테스트 61개와 메뉴·조작부·KO·
 동작 줄이기 UI 시나리오 4개가 통과했습니다. 자동화 통과와 실제 사용자의 타격감·난이도
-만족도는 다른 검증입니다. [정본 설계 문서](../docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)의
+만족도는 다른 검증입니다. [정본 설계 문서](../product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)의
 후속 과제·실행 기록과 현재 구현 설명을 구분합니다. 2026-09-09·2026-09-10의 모션·위빙·
-AI 봇 검사와 iPhone SDK 컴파일 기록은 [README](README.md#과거-실행-검증-기록)를 따릅니다.
+AI 봇 검사와 iPhone SDK 컴파일 기록은 [README](../../ios-pixel-boxing/README.md#과거-실행-검증-기록)를 따릅니다.
 이번 문서 대조는 현재 작업 트리에 대한 새 테스트·실기기 검증을 대신하지 않습니다.
 
 ## 외부 에셋 및 오픈소스 출처
@@ -429,7 +429,7 @@ RIVAL iOS 앱에는 외부에서 내려받은 이미지, 3D 모델, 애니메이
 
 | 구성요소 | 용도 | 출처·라이선스 |
 | --- | --- | --- |
-| RIVAL 소스 코드 | 앱, 전투 엔진, 테스트와 문서 | 저장소의 [MIT License](../LICENSE) |
+| RIVAL 소스 코드 | 앱, 전투 엔진, 테스트와 문서 | 저장소의 [MIT License](../../LICENSE) |
 | XcodeGen | `project.yml`에서 Xcode 프로젝트 생성 | [yonaskolb/XcodeGen](https://github.com/yonaskolb/XcodeGen), MIT License |
 | SwiftUI, SceneKit, UIKit, Foundation, QuartzCore | UI, 3D 렌더링, 햅틱, 저장과 프레임 갱신 | Apple SDK 기본 프레임워크, Apple SDK 사용 조건 적용 |
 | CoreGraphics, CoreText, ImageIO | 앱 아이콘 생성 스크립트 | Apple SDK 기본 프레임워크, Apple SDK 사용 조건 적용 |

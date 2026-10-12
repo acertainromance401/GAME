@@ -14,7 +14,7 @@
 > **현재 기준:** 2026-10-12 · RIVAL 1.2(6) iOS 작업 트리 · iPhone·iPad 가로 전용 · iOS 17 이상.
 > 실제 `RIVAL.xcodeproj`가 프로젝트 기준이며 `project.yml` 명세도 버전·지원 기기 설정을 맞춰 유지한다.
 > 현재 기능과 날짜가 붙은 과거 검증을 분리한다. 이번 정리에서 앱 빌드·테스트·실행이나 배포 상태 조회를 새로 하지 않았다.
-> [현재 iOS README](../ios-pixel-boxing/README.md)와 아래 현재 사양을 우선하며 과거 PDF는 자동 재생성하지 않는다.
+> [현재 iOS README](../../ios-pixel-boxing/README.md)와 아래 현재 사양을 우선하며 과거 PDF는 자동 재생성하지 않는다.
 
 ## 1. 한 문장 정의
 
@@ -82,7 +82,7 @@ RIVAL은 모든 플레이어에게 같은 방식으로 행동하는 일반 NPC�
   짧은 연계 빈도를 점진적으로 높인다. 라운드 숙련도를 학습 정확도나 새로운 관측으로
   취급하지 않으며 일반 RIVAL의 체력·피해·공격 사거리는 올리지 않는다. 스토리 강타형의 명시적 상대 수치는 아래 별도 기준을 따른다.
 
-근거 코드: [CombatCore.swift](../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)
+근거 코드: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)
 
 ### 표현의 경계
 
@@ -191,7 +191,7 @@ RIVAL은 공격 버튼을 빠르게 많이 누르는 사람이 이기기보다, 
 모두 탈진 시간 동안 제한되고, 노출 상태가 된다. 따라서 위의 "이동과 회피로 회복"은
 현재 코드의 사실이 아니라 **의도와 구현의 차이**다.
 
-근거 코드: [CombatCore.swift](../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의
+근거 코드: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의
 `updatePlayerMovement`, `setGuarding`, `setDuck`, `backstep`, `exhaust`.
 
 일반 스태미나 회복은 초당 11이며 탈진·공격·가드·더킹·위빙 중에는 회복하지 않는다.
@@ -235,9 +235,9 @@ RIVAL은 공격 버튼을 빠르게 많이 누르는 사람이 이기기보다, 
 가드·더킹·위빙·백스텝·무적 상태를 적용한다. 양측 후보를 먼저 계산한 뒤 공통 프레임 시작 대비 접촉 시간순으로 처리한다.
 이 구현 설명은 모든 자세의 메시 접촉·사용자 손맛을 새로 검증했다는 뜻이 아니다.
 
-근거: [Weaving.swift](../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift),
-[DefensiveMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
-[BoxingMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift).
+근거: [Weaving.swift](../../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift),
+[DefensiveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift).
 
 #### RIVAL MOMENT: 회피로 배우는 카운터 타이밍
 
@@ -358,8 +358,8 @@ RIVAL은 기본적으로 `JAB`, `CROSS` 두 공격 버튼을 제공하지만, �
 보너스 피해량을 숫자로 포함할 수 있다. 따라서 "실전 피해 수치 완전 비노출"이 아니라
 "일반 타격 수치는 비노출, 카운터 보너스는 제한적으로 수치 노출"이 현재 사실에 맞다.
 
-근거 코드: [CombatCore.swift](../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의
-`CombatCommentary.counter`, [GameView.swift](../ios-pixel-boxing/PixelBoxingIOS/GameView.swift).
+근거 코드: [CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의
+`CombatCommentary.counter`, [GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift).
 
 실전 경기에서는 회피 성공과 카운터에 다른 행동과 구분되는 소리와 진동을 부여해,
 플레이어가 수치 계산보다 "지금 잘 피했다"와 "지금 반격 기회를 만들었다"를 감각적으로
@@ -402,9 +402,9 @@ RIVAL의 UI는 AI 도구나 데이터 대시보드처럼 보여서는 안 된다
 향후 컷신은 길이를 늘리는 것보다, RIVAL이 이번 라운드에 어떤 전술을 준비하는지 자세와
 카메라 구도로 암시해야 한다. 사이버 연출이나 "AI가 학습했다"는 직접 표현은 피한다.
 
-근거 코드: [VSSplashView.swift](../ios-pixel-boxing/PixelBoxingIOS/VSSplashView.swift),
-[LoadingScreenView.swift](../ios-pixel-boxing/PixelBoxingIOS/LoadingScreenView.swift),
-[Arena3DScene.swift](../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift).
+근거 코드: [VSSplashView.swift](../../ios-pixel-boxing/PixelBoxingIOS/VSSplashView.swift),
+[LoadingScreenView.swift](../../ios-pixel-boxing/PixelBoxingIOS/LoadingScreenView.swift),
+[Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift).
 
 ## 11. 적응형 AI의 구현 경로와 기술 경계
 
@@ -416,7 +416,7 @@ RIVAL의 UI는 AI 도구나 데이터 대시보드처럼 보여서는 안 된다
 3. **최종 iOS 앱:** 플레이어 행동 통계를 `HabitMemory`에 누적하고, 사전에 정의한 규칙과
    가중치로 RIVAL의 행동 선택 확률과 판단 빈도를 조정하는 설명 가능한 적응형 AI를 구현했다.
 
-상세한 사실 검증은 [RIVAL 강화학습 구현 및 최종 적응형 AI 검증 기록](../ios-pixel-boxing/RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)을 따른다.
+상세한 사실 검증은 [RIVAL 강화학습 구현 및 최종 적응형 AI 검증 기록](../engineering/RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)을 따른다.
 
 ### 강화학습을 다시 검토할 조건
 
@@ -461,9 +461,9 @@ RIVAL의 UI는 AI 도구나 데이터 대시보드처럼 보여서는 안 된다
 
 스토리 강타형의 별도 수치는 상대 컨셉으로 명시된 예외이며, 일반 RIVAL의 라운드 숙련으로 숨은 능력치를 올리는 정책이 아니다.
 위 구현의 사용자 난도·시각 품질과 전체 구매 흐름은 개별 검증 범위를 넘어 확정하지 않는다.
-근거: [StoryMode.swift](../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift),
-[StoryPurchaseStore.swift](../ios-pixel-boxing/PixelBoxingIOS/StoryPurchaseStore.swift),
-[Arena3DScene.swift](../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift).
+근거: [StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift),
+[StoryPurchaseStore.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryPurchaseStore.swift),
+[Arena3DScene.swift](../../ios-pixel-boxing/PixelBoxingIOS/Arena3DScene.swift).
 
 ### 제출 기록과 미해결 경계
 
@@ -473,8 +473,8 @@ RIVAL의 UI는 AI 도구나 데이터 대시보드처럼 보여서는 안 된다
 기존 유료 구매자 권한은 검증된 Production 원본 빌드 `1...4`에 한정한다. 무료 전환·버전 배포 시차의 자격 경계는 미해결이다.
 Release 캡처 6개·이미지 30장은 로컬 StoreKitTest의 제한된 결과이며 전체 회귀나 실계정 구매·복원·권한 취소·기존 구매자 이행·Game Center 제출/재조회 검증이 아니다.
 실제 프로젝트 `RIVAL.xcodeproj`와 `project.yml` 명세를 함께 보존하며 무조건 재생성하지 않는다. 재생성 전 11개 JSON·개인정보 매니페스트·UI-test-only StoreKit fixture와 스킴을 대조한다.
-근거: [제출 기록](../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json),
-[출시 체크리스트](../ios-pixel-boxing/RELEASE_READINESS_CHECKLIST.md).
+근거: [제출 기록](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json),
+[출시 체크리스트](../release/RELEASE_READINESS_CHECKLIST.md).
 
 ### 홍보와 자산의 경계
 
@@ -484,9 +484,9 @@ Release 캡처 6개·이미지 30장은 로컬 StoreKitTest의 제한된 결과�
 Reddit·Instagram 게시와 Meta 유료 광고 심사 요청은 구분하며 실제 광고 승인·게재·성과는 미확인이다.
 MIT는 소스 코드에 적용하며 별도 라이선스 음악·서드파티 자산은 제외한다. Mixkit 상업용 온라인 영상·광고 허용을 인게임 음악·원본 음원 재배포 권한으로 해석하지 않는다.
 과거 PDF는 당시 산출물로 보존하고 현재 Markdown과 같다고 주장하지 않는다.
-근거: [홍보 영상·게시 기록](../ios-pixel-boxing/PromotionVideos/README.md),
-[개발 문제·해결 기록](../ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md),
-[음악 사용 기록](../ios-pixel-boxing/PromotionAssets/Audio/README.md).
+근거: [홍보 영상·게시 기록](../../ios-pixel-boxing/PromotionVideos/README.md),
+[개발 문제·해결 기록](../engineering/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md),
+[음악 사용 기록](../../ios-pixel-boxing/PromotionAssets/Audio/README.md).
 
 ## 13. 2026-09 iOS 고도화 현황
 
@@ -532,10 +532,10 @@ Xcode 빌드가 프로젝트 읽기 중 `NSFileCoordinator` 응답을 기다려,
 임시 로컬 복사본에서 서명 없이 빌드했다. 전체 iOS XCTest 실행·기기 설치·플레이 검증·
 App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 다음 범위를 판단한다.
 
-근거: [Weaving.swift](../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift),
-[WeaveMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/WeaveMotion.swift),
-[MapDressing.swift](../ios-pixel-boxing/PixelBoxingIOS/MapDressing.swift),
-[위빙 검사](../ios-pixel-boxing/scripts/check_weaving.sh).
+근거: [Weaving.swift](../../ios-pixel-boxing/PixelBoxingIOS/Weaving.swift),
+[WeaveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/WeaveMotion.swift),
+[MapDressing.swift](../../ios-pixel-boxing/PixelBoxingIOS/MapDressing.swift),
+[위빙 검사](../../ios-pixel-boxing/scripts/check_weaving.sh).
 
 ### 2026-09-09 자세·모션 전반 개선 — 사용자 일괄 승인
 
@@ -576,11 +576,11 @@ App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 �
 전체 iOS XCTest 실행, 실기기 설치·시각/조작/햅틱 체감, 장시간 발열·FPS와 App Store
 업로드는 하지 않았다. 실제 모션의 자연스러움은 사용자 플레이 피드백으로 확인해야 한다.
 
-근거: [FighterPose.swift](../ios-pixel-boxing/PixelBoxingIOS/FighterPose.swift),
-[BoxingMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
-[DefensiveMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
-[CombatPresentation.swift](../ios-pixel-boxing/PixelBoxingIOS/CombatPresentation.swift),
-[모션 회귀 검사](../ios-pixel-boxing/scripts/check_motion.sh).
+근거: [FighterPose.swift](../../ios-pixel-boxing/PixelBoxingIOS/FighterPose.swift),
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
+[DefensiveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
+[CombatPresentation.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatPresentation.swift),
+[모션 회귀 검사](../../ios-pixel-boxing/scripts/check_motion.sh).
 
 ### 이번 변경의 구현 사실
 
@@ -621,9 +621,9 @@ App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 �
 카운터 입력 창이나 영속화는 이 객체가 변경하지 않는다. HUD는 계속 저빈도로 갱신하되
 중요 피드백은 HUD 주기에 묶지 않는다. 새 파티클·블러·실시간 조명을 추가하지 않았다.
 
-근거: [CombatPresentation.swift](../ios-pixel-boxing/PixelBoxingIOS/CombatPresentation.swift),
-[GameController.swift](../ios-pixel-boxing/PixelBoxingIOS/GameController.swift),
-[CombatPresentationTests.swift](../ios-pixel-boxing/PixelBoxingIOSTests/CombatPresentationTests.swift).
+근거: [CombatPresentation.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatPresentation.swift),
+[GameController.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameController.swift),
+[CombatPresentationTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/CombatPresentationTests.swift).
 
 ### 2026-09-07 메인 메뉴 아트디렉션 — 2차 적용
 
@@ -650,9 +650,9 @@ App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 �
 더 작은 화면은 레이아웃 수치로 검사했지만 다른 실기기에서는 확인하지 않았다. 30fps 요청은
 성능 측정 결과가 아니며, 장시간 발열·배터리와 ‘고급스러움’의 체감은 사용자 확인이 필요하다.
 
-근거: [MainMenuView.swift](../ios-pixel-boxing/PixelBoxingIOS/MainMenuView.swift),
-[MainMenuDesign.swift](../ios-pixel-boxing/PixelBoxingIOS/MainMenuDesign.swift),
-[MainMenuPresentationTests.swift](../ios-pixel-boxing/PixelBoxingIOSTests/MainMenuPresentationTests.swift).
+근거: [MainMenuView.swift](../../ios-pixel-boxing/PixelBoxingIOS/MainMenuView.swift),
+[MainMenuDesign.swift](../../ios-pixel-boxing/PixelBoxingIOS/MainMenuDesign.swift),
+[MainMenuPresentationTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/MainMenuPresentationTests.swift).
 
 다음 시각 개선 후보는 대기실·설정·기록 화면의 글꼴·색·여백 통일이다. 전투 모션은
 별도 단계에서 발→골반→어깨의 힘 전달과 시각 접촉·실제 판정 시점을 정렬한다. 메인 화면
@@ -709,9 +709,9 @@ App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 �
   장시간 발열·프레임·음향·햅틱 체감 검증은 아직 진행하지 않았다. 다음 확대는 플레이
   피드백을 받은 뒤 별도 범위로 진행한다. App Store 업로드는 하지 않았다.
 
-근거: [RivalMenuComponents.swift](../ios-pixel-boxing/PixelBoxingIOS/RivalMenuComponents.swift),
-[BoxingMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
-[BoxingMotionTests.swift](../ios-pixel-boxing/PixelBoxingIOSTests/BoxingMotionTests.swift).
+근거: [RivalMenuComponents.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalMenuComponents.swift),
+[BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
+[BoxingMotionTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/BoxingMotionTests.swift).
 
 ### 2026-09-09 플레이 피드백 — 피격 반동·햅틱 소폭 조정
 
@@ -735,9 +735,9 @@ App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 �
 추가하고 iPhone SDK `build-for-testing` 컴파일을 통과했다. 이번에는 테스트 실행,
 실기기 설치·플레이·햅틱 체감 확인을 하지 않았다. 손맛 개선 여부는 사용자 확인이 필요하다.
 
-근거: [BoxingMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
-[ImpactFeedback.swift](../ios-pixel-boxing/PixelBoxingIOS/ImpactFeedback.swift),
-[ImpactFeedbackTests.swift](../ios-pixel-boxing/PixelBoxingIOSTests/ImpactFeedbackTests.swift).
+근거: [BoxingMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/BoxingMotion.swift),
+[ImpactFeedback.swift](../../ios-pixel-boxing/PixelBoxingIOS/ImpactFeedback.swift),
+[ImpactFeedbackTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/ImpactFeedbackTests.swift).
 
 ### 2026-09-09 후속 승인 — 후반 AI·조합 입력·공격/회피 모션
 
@@ -797,12 +797,12 @@ App Store 업로드는 하지 않았다. 실제 기기 플레이 피드백 뒤 �
 - iPhone SDK 테스트 코드 컴파일을 확인했다. 실기기 설치·터치/햅틱/모션 확인, 전체
   iOS XCTest 실행, 장시간 발열·프레임 검증과 App Store 업로드는 이번에 하지 않았다.
 
-근거: [RivalAI.swift](../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift),
-[CombatInput.swift](../ios-pixel-boxing/PixelBoxingIOS/CombatInput.swift),
-[DefensiveMotion.swift](../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
-[코어 검사 실행기](../ios-pixel-boxing/scripts/check_ai_behavior.sh),
-[RivalAITests.swift](../ios-pixel-boxing/PixelBoxingIOSTests/RivalAITests.swift),
-[ControlAndDefenseTests.swift](../ios-pixel-boxing/PixelBoxingIOSTests/ControlAndDefenseTests.swift).
+근거: [RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift),
+[CombatInput.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatInput.swift),
+[DefensiveMotion.swift](../../ios-pixel-boxing/PixelBoxingIOS/DefensiveMotion.swift),
+[코어 검사 실행기](../../ios-pixel-boxing/scripts/check_ai_behavior.sh),
+[RivalAITests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/RivalAITests.swift),
+[ControlAndDefenseTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/ControlAndDefenseTests.swift).
 
 ### 종합 제안서의 채택·예외 기준
 
@@ -895,7 +895,7 @@ RIVAL은 플레이어를 수치적으로 강하게 만드는 게임이 아니라
 ## 참고 근거
 
 - [RIVAL GitHub 저장소](https://github.com/acertainromance401/GAME)
-- [메인 README](../README.md)
-- [RIVAL AI 활용 기술 문서](../ios-pixel-boxing/AI_USAGE.md)
-- [RIVAL 강화학습 구현 및 최종 적응형 AI 검증 기록](../ios-pixel-boxing/RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)
-- [RIVAL 포트폴리오 원본](RIVAL_PORTFOLIO.typ)
+- [메인 README](../../README.md)
+- [RIVAL AI 활용 기술 문서](../engineering/AI_USAGE.md)
+- [RIVAL 강화학습 구현 및 최종 적응형 AI 검증 기록](../engineering/RIVAL_REINFORCEMENT_LEARNING_AUDIT.md)
+- [RIVAL 포트폴리오 원본](../portfolio/RIVAL_PORTFOLIO.typ)

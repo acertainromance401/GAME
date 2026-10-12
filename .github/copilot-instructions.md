@@ -4,7 +4,7 @@
 
 Before proposing or changing RIVAL's combat, AI, UI/UX, onboarding, rewards,
 cinematics, progression, or player feedback, read
-[docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md](../docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md).
+[docs/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md](../docs/product/RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md).
 
 - Preserve the core loop: RIVAL reads repeated player habits, and the player can
   respond by changing strategy.

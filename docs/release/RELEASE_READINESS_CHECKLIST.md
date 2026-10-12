@@ -4,7 +4,7 @@
 
 - **대상:** RIVAL 1.2(6) 심사 제출본 · 마케팅 버전 `1.2`, 빌드 번호 `6`
 - **문서 기준일:** 2026-10-12 · 제출 상태의 마지막 확인은 2026-10-11
-- **설정 기준:** [RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj), [project.yml](project.yml), [PixelBoxingIOS/Info.plist](PixelBoxingIOS/Info.plist)
+- **설정 기준:** [RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj), [project.yml](../../ios-pixel-boxing/project.yml), [PixelBoxingIOS/Info.plist](../../ios-pixel-boxing/PixelBoxingIOS/Info.plist)
 - **상태:** 사용자가 아카이브·시뮬레이터 캡처·업로드·심사 제출을 추가로 요청해 실행했다. `1.2(6)` Release 아카이브를 업로드하고 앱·Story 상품·Total Wins 순위표 3개 항목을 2026-10-11 06:31 GMT+9에 함께 제출했다. 당시 확인한 상태는 `Waiting for Review`이며 승인·스토어 출시 완료가 아니다. 앱 가격은 변경하지 않았고 수동 출시를 유지했다. 실기기 설치와 Production/Sandbox 계정 결제는 수행하지 않았다. 이번 문서 정리에서는 새 배포 조회·빌드·제출을 하지 않았다.
 
 ## 현재 준비 상태
@@ -13,9 +13,9 @@
 - [x] 실제 Release 설정의 버전·빌드 번호, iPhone·iPad 지원 `1,2`, `DEBUG` 조건 없음 확인.
 - [x] Archive 스킴이 Release를 사용함을 확인. 임시 Story 해금은 Debug에만 남아 있고 Release에서는 비활성화됨.
 - [x] 배포용 스토리는 압박형 → 견제형 → 카운터형 → 강타형 → RIVAL 순서로 앞선 상대들을 이겨야 다음 도전을 해금함. 상대전의 최종 승리만 진행에 반영하고, 인트로 다시보기는 관람 후, 승리 후 컷씬·엔딩은 해당 상대 승리 후 해금하는 코드 경로 확인. 구매만으로 전부 해금하지 않음.
-- [x] [PixelBoxingIOS/PrivacyInfo.xcprivacy](PixelBoxingIOS/PrivacyInfo.xcprivacy)에 앱 내부 UserDefaults 저장 사유 `CA92.1` 선언. 실제 앱 Resources에 1회 등록 및 plist 문법 확인.
+- [x] [PixelBoxingIOS/PrivacyInfo.xcprivacy](../../ios-pixel-boxing/PixelBoxingIOS/PrivacyInfo.xcprivacy)에 앱 내부 UserDefaults 저장 사유 `CA92.1` 선언. 실제 앱 Resources에 1회 등록 및 plist 문법 확인.
 - [x] Connect에 iOS `1.2` 초안을 생성하고 수동 출시 설정 유지.
-- [x] 영어·한국어·일본어 홍보 문구, 설명, 업데이트 내용과 공통 심사 메모를 저장하고 새로고침 후 유지 확인. 원문은 [AppStoreMetadata/1.2.json](AppStoreMetadata/1.2.json)에 보관.
+- [x] 영어·한국어·일본어 홍보 문구, 설명, 업데이트 내용과 공통 심사 메모를 저장하고 새로고침 후 유지 확인. 원문은 [AppStoreMetadata/1.2.json](../../ios-pixel-boxing/AppStoreMetadata/1.2.json)에 보관.
 - [x] 스토리 상품의 현재 저장된 한국 기준 가격 `KRW 4,400`, 자동 환산 가격 미국 `USD 2.99`·일본 `JPY 500` 확인. 요청한 4천원대 가격으로 이미 설정되어 있어 중복 가격 일정은 만들지 않음. 지원 175개 국가·지역 전체 판매 설정 유지.
 - [x] 순위표 코드의 인증·대기 점수 제출·일반 RIVAL 승리 집계·갱신·상위 항목 밖 내 기록 표시 경로 확인. 스토리 승리는 순위표 집계에서 제외됨. 관련 에디터 오류 없음. 실제 계정의 제출 성공을 확인한 것은 아님.
 - [x] 실제 프로젝트의 GameKit 연결·Game Center 엔타이틀먼트, 최종 `1.2(6)` 아카이브의 서명 권한·앱 ID와 strict codesign 검증 확인.
@@ -23,7 +23,7 @@
 - [x] 가격·활성 구매 버튼·Restore Purchases가 보이는 최신 영문 구매 화면을 상품의 필수 심사 스크린샷으로 등록하고 재접속 확인. 선택 사항인 1024×1024 홍보 이미지는 등록하지 않음.
 - [x] 영어·한국어·일본어의 iPhone 6.9인치 및 iPad 13인치 실제 화면 각 5장, 총 30장을 `1.2`에 연결. 전투 → 체육관 → 메인 메뉴 → 스토리 진행 → 구매 화면 순서. 기존 승인 이미지는 Asset Library에 보존하고 이번 버전의 이전 연결만 제거함.
 - [x] Release 캡처 테스트 총 6개 통과, 실패 0개와 첨부 30장의 이름·언어별 개수 확인. Apple 로컬 StoreKitTest에서 구매 후 첫 상대 도전 가능·두 번째 상대 잠금·미해금 다시보기 부재 확인. 실제 Production 결제 검증은 아님.
-- [x] 캡처 중 발견한 상대 목록 중앙 터치 실패를 [PixelBoxingIOS/StoryViews.swift](PixelBoxingIOS/StoryViews.swift)의 전체 사각형 hit area로 수정하고 동일 캡처로 확인. 먼저 업로드한 빌드 `5` 대신 수정된 `6`을 심사에 선택함.
+- [x] 캡처 중 발견한 상대 목록 중앙 터치 실패를 [PixelBoxingIOS/StoryViews.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryViews.swift)의 전체 사각형 hit area로 수정하고 동일 캡처로 확인. 먼저 업로드한 빌드 `5` 대신 수정된 `6`을 심사에 선택함.
 - [ ] 실제 Sandbox/TestFlight 상품 조회·구매·취소·보류·복원·권한 취소 확인. Debug 임시 해금으로 통과를 판단하지 않음.
 - [ ] 기존 유료 구매자의 권한·진행 기록 유지와 신규 무료 구매자의 스토리 잠금을 실제 계정에서 확인.
 - [x] 첫 Story 상품과 첫 Game Center 순위표를 `1.2(6)` 앱 버전과 함께 심사 제출. 기존 단독 제출 차단은 해소됐으며 세 항목 모두 `Waiting for Review`를 확인함. 심사 승인은 아직 아님.
@@ -38,9 +38,9 @@
 
 - 제출 ID: `f6f6275f-bf74-4531-acca-f309d091960f`
 - [App Store Connect 제출 상세](https://appstoreconnect.apple.com/apps/6799909429/distribution/reviewsubmissions/details/f6f6275f-bf74-4531-acca-f309d091960f)
-- 제출 내역·캡처 범위: [AppStoreMetadata/1.2-submission.json](AppStoreMetadata/1.2-submission.json)
-- 보존 아카이브: [build/RIVAL-1.2-6-20261011-review.xcarchive/Info.plist](build/RIVAL-1.2-6-20261011-review.xcarchive/Info.plist)
-- 보존 구매 화면: [AppStoreScreenshots/1.2/iphone-6.9/en-US/02-story-purchase.png](AppStoreScreenshots/1.2/iphone-6.9/en-US/02-story-purchase.png), [AppStoreScreenshots/1.2/ipad-13/en-US/02-story-purchase.png](AppStoreScreenshots/1.2/ipad-13/en-US/02-story-purchase.png)
+- 제출 내역·캡처 범위: [AppStoreMetadata/1.2-submission.json](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json)
+- 보존 아카이브(로컬 전용, Git 제외): `ios-pixel-boxing/build/RIVAL-1.2-6-20261011-review.xcarchive`. 공개 저장소에는 아카이브 다운로드 링크를 제공하지 않는다.
+- 보존 구매 화면: [AppStoreScreenshots/1.2/iphone-6.9/en-US/02-story-purchase.png](../../ios-pixel-boxing/AppStoreScreenshots/1.2/iphone-6.9/en-US/02-story-purchase.png), [AppStoreScreenshots/1.2/ipad-13/en-US/02-story-purchase.png](../../ios-pixel-boxing/AppStoreScreenshots/1.2/ipad-13/en-US/02-story-purchase.png)
 
 ## 1. 기존 전체 자동 점검 (미실행)
 
@@ -108,14 +108,14 @@ chmod +x scripts/pre_release_check.sh
 ## 4. 아직 완료되지 않은 범위
 
 - Apple의 심사 승인과 실제 스토어 출시, 무료 가격 전환은 아직 완료되지 않았다.
-- 2026-10-12 공개 App Store 확인 당시 유료 `1.1`이었다. [홍보 영상](PromotionVideos/README.md)의 스토리 장면은 출시 예정 1.2 미리보기이며 광고 요청의 심사 상태와 앱 심사·출시 상태를 구분한다.
+- 2026-10-12 공개 App Store 확인 당시 유료 `1.1`이었다. [홍보 영상](../../ios-pixel-boxing/PromotionVideos/README.md)의 스토리 장면은 출시 예정 1.2 미리보기이며 광고 요청의 심사 상태와 앱 심사·출시 상태를 구분한다.
 - 로컬 StoreKitTest 캡처는 실계정 Sandbox/Production 구매·복원·권한 취소 또는 기존 유료 구매자 전환 검증을 대체하지 않는다.
 - 실제 계정 Game Center 점수 제출·재접속 갱신과 장시간 실기기 플레이는 수행하지 않았다. 지원·개인정보 로컬 원본은 갱신했지만 Pages 배포 성공·실제 공개 페이지 반영과 Connect 응답 대조는 별도 확인 사항이다.
 
 ## 5. 공개 지원 문서 원본
 
-2026-10-12 [지원 원본](../pixel-boxing/support/index.html)과
-[개인정보 원본](../pixel-boxing/privacy/index.html)을 갱신했다. 예전 방향 버튼 안내와
+2026-10-12 [지원 원본](../../pixel-boxing/support/index.html)과
+[개인정보 원본](../../pixel-boxing/privacy/index.html)을 갱신했다. 예전 방향 버튼 안내와
 앱 전체 오프라인·Game Center 정보는 점수 제출만 사용한다는 설명을 교정하고,
 출시 전 Story 구매·복원과 지원 이메일 처리도 구분했다. 기존 Pages workflow는
 `main`의 `pixel-boxing/**` 변경을 배포하지만 푸시만으로 배포 완료를 보장하지 않는다.

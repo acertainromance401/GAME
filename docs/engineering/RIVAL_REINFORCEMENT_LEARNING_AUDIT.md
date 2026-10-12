@@ -5,14 +5,14 @@
 > 범위: 현재 iOS 코드·문서와 기존 감사의 Git 이력·VS Code 로컬 작업 기록
 > 원칙: 확인되지 않은 개발 동기, 성능 결과, 사용자 체감 결과는 사실로 단정하지 않는다.
 
-`1.2(6)`는 실제 [RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj)의
-마케팅 버전 `1.2`, 빌드 번호 `6`이며 [project.yml](project.yml)도 일치한다.
+`1.2(6)`는 실제 [RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj)의
+마케팅 버전 `1.2`, 빌드 번호 `6`이며 [project.yml](../../ios-pixel-boxing/project.yml)도 일치한다.
 실제 프로젝트를 기준으로 하며 문서 갱신을 위해 함부로 재생성하지 않는다. iPhone·iPad 가로 전용, iOS 17 이상이다.
 2026-10-12 확인 당시 공개 App Store는 유료 1.1(USD 1.99 / KRW 3,300)이며 무료 전환·1.2 출시는 미완료다.
 2026-10-11 서명된 Release 1.2(6) 아카이브 업로드와 앱·Story IAP·Total Wins 순위표의
 3항목 동반 심사 제출 기록은 `Waiting for Review`, 수동 출시(`MANUAL`)다.
-[제출 영수증](AppStoreMetadata/1.2-submission.json)과
-[출시 체크리스트](RELEASE_READINESS_CHECKLIST.md)를 따르며 오늘 새 조회·빌드 결과가 아니다.
+[제출 영수증](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json)과
+[출시 체크리스트](../release/RELEASE_READINESS_CHECKLIST.md)를 따르며 오늘 새 조회·빌드 결과가 아니다.
 당시 로컬 Release StoreKitTest UI 캡처 6개 통과·첨부 30개는 제한된 화면 검증이다.
 실계정 구매·복원·권한 취소·기존 유료 고객 이행·Game Center는 미검증이다.
 현재 작업 트리와 기존 아카이브·App Store·TestFlight 배포본이 동일하다고 가정하지 않는다.
@@ -42,9 +42,9 @@ RIVAL의 강화학습은 한 단계의 단일 구현이 아니었다.
 
 ### 주요 근거
 
-- 초기 C++ Q-learning: [../include/game/ai_agent.hpp](../include/game/ai_agent.hpp), [../src/game/ai_agent.cpp](../src/game/ai_agent.cpp), [../src/game/game_session.cpp](../src/game/game_session.cpp), [../src/game/save_game.cpp](../src/game/save_game.cpp)
-- Python RL 준비 환경: [../desktop-pixel-boxing/pixel_boxing/boxing_core.py](../desktop-pixel-boxing/pixel_boxing/boxing_core.py), [../tests/test_pixel_boxing_core.py](../tests/test_pixel_boxing_core.py), [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)
-- 현재 iOS AI: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOS/RivalAI.swift](PixelBoxingIOS/RivalAI.swift), [PixelBoxingIOS/StoryMode.swift](PixelBoxingIOS/StoryMode.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift), [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)
+- 초기 C++ Q-learning: [../include/game/ai_agent.hpp](../../legacy/terminal-cpp/include/game/ai_agent.hpp), [../src/game/ai_agent.cpp](../../legacy/terminal-cpp/src/game/ai_agent.cpp), [../src/game/game_session.cpp](../../legacy/terminal-cpp/src/game/game_session.cpp), [../src/game/save_game.cpp](../../legacy/terminal-cpp/src/game/save_game.cpp)
+- Python RL 준비 환경: [../legacy/python/pixel_boxing/boxing_core.py](../../legacy/python/pixel_boxing/boxing_core.py), [../tests/test_pixel_boxing_core.py](../../legacy/python/tests/test_pixel_boxing_core.py), [../docs/legacy/PIXEL_BOXING_GAME_DESIGN.md](../legacy/PIXEL_BOXING_GAME_DESIGN.md)
+- 현재 iOS AI: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOS/RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift), [PixelBoxingIOS/StoryMode.swift](../../ios-pixel-boxing/PixelBoxingIOS/StoryMode.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/PlaceholderTests.swift), [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift)
 - 과거 대화 기록: 로컬 VS Code 세션 `02474283-4175-4bb7-9854-ed8a560cc96f`, `47210cd2-1316-4043-8a54-a4d919d25571`
 
 ---
@@ -77,11 +77,11 @@ distance_bucket(state) : hp_bucket(state.player) : hp_bucket(state.enemy) : roun
 - 양측 HP: 20% 단위 버킷
 - 라운드: `1...3`, `4...6`, `7+`의 세 구간
 
-근거: [../src/game/ai_agent.cpp](../src/game/ai_agent.cpp)의 `distance_bucket`, `hp_bucket`, `round_bucket`, `AIAgent::encode_state`.
+근거: [../src/game/ai_agent.cpp](../../legacy/terminal-cpp/src/game/ai_agent.cpp)의 `distance_bucket`, `hp_bucket`, `round_bucket`, `AIAgent::encode_state`.
 
 플레이어 행동 패턴은 Q-table 상태 키에는 포함되지 않고, `PatternModel`이 별도로 행동 빈도와 행동 전이 횟수를 기록해 다음 행동을 예측한다. 즉 당시 구조는 순수 Q-learning 하나가 아니라 Q-table과 규칙 기반 패턴 예측을 결합한 하이브리드다.
 
-근거: [../include/game/pattern_model.hpp](../include/game/pattern_model.hpp), [../src/game/pattern_model.cpp](../src/game/pattern_model.cpp), [../src/game/ai_agent.cpp](../src/game/ai_agent.cpp)의 `choose_exploratory_action`.
+근거: [../include/game/pattern_model.hpp](../../legacy/terminal-cpp/include/game/pattern_model.hpp), [../src/game/pattern_model.cpp](../../legacy/terminal-cpp/src/game/pattern_model.cpp), [../src/game/ai_agent.cpp](../../legacy/terminal-cpp/src/game/ai_agent.cpp)의 `choose_exploratory_action`.
 
 #### 행동(action)
 
@@ -92,7 +92,7 @@ distance_bucket(state) : hp_bucket(state.player) : hp_bucket(state.enemy) : roun
 - 풋워크: `StepBack`, `StepForward`
 - 대기: `Wait`
 
-근거: [../include/game/action.hpp](../include/game/action.hpp).
+근거: [../include/game/action.hpp](../../legacy/terminal-cpp/include/game/action.hpp).
 
 #### 보상(reward)
 
@@ -112,7 +112,7 @@ reward = 2.5 * playerDamage
 - 행동 스태미나 비용: 비용당 `-0.05`
 - 플레이어 KO: `+18`, 적 KO: `-18`
 
-근거: [../src/game/game_session.cpp](../src/game/game_session.cpp)의 `compute_enemy_reward`.
+근거: [../src/game/game_session.cpp](../../legacy/terminal-cpp/src/game/game_session.cpp)의 `compute_enemy_reward`.
 
 #### 실제 학습 코드와 실행 흔적
 
@@ -129,9 +129,9 @@ current_row[action_index] = current_value + kLearningRate * (target - current_va
 
 적이 행동할 때 이전 상태와 행동을 보관하고, 공격 결과가 정리된 뒤 `record_transition()`으로 보상을 전달한다. Q-table은 `AI_RL` 섹션으로 저장·복원된다.
 
-근거: [../src/game/ai_agent.cpp](../src/game/ai_agent.cpp)의 `apply_q_update`, `record_transition`; [../src/game/game_session.cpp](../src/game/game_session.cpp)의 `apply_enemy_action`, `commit_enemy_learning_if_ready`; [../src/game/save_game.cpp](../src/game/save_game.cpp)의 `write_q_table`, `read_q_table`.
+근거: [../src/game/ai_agent.cpp](../../legacy/terminal-cpp/src/game/ai_agent.cpp)의 `apply_q_update`, `record_transition`; [../src/game/game_session.cpp](../../legacy/terminal-cpp/src/game/game_session.cpp)의 `apply_enemy_action`, `commit_enemy_learning_if_ready`; [../src/game/save_game.cpp](../../legacy/terminal-cpp/src/game/save_game.cpp)의 `write_q_table`, `read_q_table`.
 
-현재 로컬의 [../game_save.txt](../game_save.txt)에는 다음 헤더가 존재한다.
+현재 로컬의 [../game_save.txt](../../game_save.txt)에는 다음 헤더가 존재한다.
 
 ```text
 AI_RL
@@ -159,7 +159,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 - 로프/코너/중앙 구간
 - 남은 시간 구간
 
-근거: [../desktop-pixel-boxing/pixel_boxing/boxing_core.py](../desktop-pixel-boxing/pixel_boxing/boxing_core.py)의 `CombatObservation`, `HeadlessCombatSimulator.observe`.
+근거: [../legacy/python/pixel_boxing/boxing_core.py](../../legacy/python/pixel_boxing/boxing_core.py)의 `CombatObservation`, `HeadlessCombatSimulator.observe`.
 
 #### Python 행동(action)
 
@@ -172,7 +172,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 스태미나 부족, 경직, 탈진 등으로 실행할 수 없는 행동은 `valid_actions()`가 마스킹한다.
 
-근거: [../desktop-pixel-boxing/pixel_boxing/boxing_core.py](../desktop-pixel-boxing/pixel_boxing/boxing_core.py)의 `RL_ACTIONS`, `HeadlessCombatSimulator.valid_actions`.
+근거: [../legacy/python/pixel_boxing/boxing_core.py](../../legacy/python/pixel_boxing/boxing_core.py)의 `RL_ACTIONS`, `HeadlessCombatSimulator.valid_actions`.
 
 #### Python 보상(reward)
 
@@ -194,22 +194,22 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 | 불가능한 행동 | `-1` |
 | 코너 고립 / 무의미한 대기 | `-0.1` / `-0.05` |
 
-근거: [../desktop-pixel-boxing/pixel_boxing/boxing_core.py](../desktop-pixel-boxing/pixel_boxing/boxing_core.py)의 `REWARD_VALUES`, `RewardEvent`, `_attempt_hit`, `_finish_episode`.
+근거: [../legacy/python/pixel_boxing/boxing_core.py](../../legacy/python/pixel_boxing/boxing_core.py)의 `REWARD_VALUES`, `RewardEvent`, `_attempt_hit`, `_finish_episode`.
 
 #### 실제로 실행된 것과 실행되지 않은 것
 
 `HeadlessCombatSimulator`는 렌더링 없이 `reset()`, `valid_actions()`, `observe()`, `step()`, `run_episode()`를 실행할 수 있다. 즉 RL 환경의 상태 전이, 행동 마스킹, 보상 이벤트, 에피소드 실행은 코드로 존재한다.
 
-2026-09-06에 [../tests/test_pixel_boxing_core.py](../tests/test_pixel_boxing_core.py)를 실행해 35개 테스트가 통과했다. 이 중에는 17개 행동 마스킹, 보상 이벤트, 렌더링 없는 에피소드 실행 테스트가 포함된다.
+2026-09-06에 [../tests/test_pixel_boxing_core.py](../../legacy/python/tests/test_pixel_boxing_core.py)를 실행해 35개 테스트가 통과했다. 이 중에는 17개 행동 마스킹, 보상 이벤트, 렌더링 없는 에피소드 실행 테스트가 포함된다.
 
-반면 현재 `desktop-pixel-boxing/pixel_boxing/`과 해당 테스트에서 Q-table, DQN, 정책 훈련, 정책 저장/로드를 검색했을 때 구현은 발견되지 않았다. `run_episode()`는 학습을 수행하지 않고, 호출자가 전달한 `player_policy`와 `enemy_policy`를 실행할 뿐이다.
+반면 현재 `legacy/python/pixel_boxing/`과 해당 테스트에서 Q-table, DQN, 정책 훈련, 정책 저장/로드를 검색했을 때 구현은 발견되지 않았다. `run_episode()`는 학습을 수행하지 않고, 호출자가 전달한 `player_policy`와 `enemy_policy`를 실행할 뿐이다.
 
 따라서 Python 단계는 학습 가능한 환경을 구현한 단계이지, 훈련된 RL 정책을 만든 단계는 아니다. 이 구분은 문서에도 남아 있다.
 
 - "강화학습 정책 훈련, 저장, 로드, 평가"는 3단계의 남은 항목으로 열거돼 있다.
 - "훈련된 강화학습 정책 저장·배포는 아직 보류 상태"라고 명시돼 있다.
 
-근거: [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)의 10.1~10.5절 및 18절 3단계, [../docs/PROJECT_OVERVIEW.md](../docs/PROJECT_OVERVIEW.md)의 `Legacy Python Constraints`.
+근거: [../docs/legacy/PIXEL_BOXING_GAME_DESIGN.md](../legacy/PIXEL_BOXING_GAME_DESIGN.md)의 10.1~10.5절 및 18절 3단계, [../docs/PROJECT_OVERVIEW.md](../legacy/PROJECT_OVERVIEW.md)의 `Legacy Python Constraints`.
 
 ### 1-4. 최종 iOS 앱: 강화학습이 아닌 규칙·통계 기반 적응
 
@@ -233,17 +233,17 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 코드와 동시대 작업 기록만으로 "강화학습을 쓰지 않게 된 단 하나의 가장 직접적인 이유"를 확정할 수는 없다.
 
-다만 현재 문서에는 선택 기준과 온라인 학습의 위험이 명시돼 있다. [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ)는 2026-09-02에 만든 뒤 갱신한 포트폴리오 원본이므로, 과거 결정 당시의 불변 기록이 아니라 사후에 문서화한 제품 선택 기준으로 취급한다.
+다만 현재 문서에는 선택 기준과 온라인 학습의 위험이 명시돼 있다. [../docs/RIVAL_PORTFOLIO.typ](../portfolio/RIVAL_PORTFOLIO.typ)는 2026-09-02에 만든 뒤 갱신한 포트폴리오 원본이므로, 과거 결정 당시의 불변 기록이 아니라 사후에 문서화한 제품 선택 기준으로 취급한다.
 
 | 후보 이유 | 판정 | 확인된 사실 | 근거 |
 | --- | --- | --- | --- |
 | 학습 데이터 부족 | 미확인 | 데이터가 부족했다는 직접 진술이나 측정 기록을 찾지 못했다. | 코드·문서·검색한 과거 기록 |
-| 행동 결과의 예측 어려움 | 제한적으로 확인 | 설계 문서는 플레이 중 온라인 학습을 정책 붕괴와 난이도 불안정을 막기 위해 기본 비활성화한다고 명시한다. 이것만으로 iOS 미채택의 단일 원인이라고 단정할 수는 없다. | [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)의 10.5절 |
-| 디버깅 어려움 | 부분 확인 | 포트폴리오 원본은 "디버깅 가능성"을 우선했다고 적는다. 실제로 "어려워서 포기했다"는 동시대 기록은 찾지 못했다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ) |
-| 밸런스 조정 어려움 | 미확인 | "플레이 감각의 직접 조정"은 우선순위로 적혀 있으나, 밸런스 조정이 불가능하거나 어려웠다는 직접 근거는 없다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ) |
+| 행동 결과의 예측 어려움 | 제한적으로 확인 | 설계 문서는 플레이 중 온라인 학습을 정책 붕괴와 난이도 불안정을 막기 위해 기본 비활성화한다고 명시한다. 이것만으로 iOS 미채택의 단일 원인이라고 단정할 수는 없다. | [../docs/legacy/PIXEL_BOXING_GAME_DESIGN.md](../legacy/PIXEL_BOXING_GAME_DESIGN.md)의 10.5절 |
+| 디버깅 어려움 | 부분 확인 | 포트폴리오 원본은 "디버깅 가능성"을 우선했다고 적는다. 실제로 "어려워서 포기했다"는 동시대 기록은 찾지 못했다. | [../docs/RIVAL_PORTFOLIO.typ](../portfolio/RIVAL_PORTFOLIO.typ) |
+| 밸런스 조정 어려움 | 미확인 | "플레이 감각의 직접 조정"은 우선순위로 적혀 있으나, 밸런스 조정이 불가능하거나 어려웠다는 직접 근거는 없다. | [../docs/RIVAL_PORTFOLIO.typ](../portfolio/RIVAL_PORTFOLIO.typ) |
 | iPhone 성능 | 미확인 | 성능 제약이 RL 미채택 원인이라는 코드·문서·세션 근거를 찾지 못했다. | 코드·문서·검색한 과거 기록 |
-| 앱 크기 | 선택 기준으로 확인 | 작은 앱 크기를 초기 제품의 우선순위로 문서화했다. 그러나 이것만으로 결정적 원인이라고는 단정할 수 없다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ) |
-| 오프라인 제약 | 선택 기준으로 확인 | 핵심 전투·습관 학습은 외부 AI API·서버 동기화 없이 동작한다. 선택적 Game Center 인증·랭킹 조회·기록 제출은 네트워크를 사용한다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ), [AI_USAGE.md](AI_USAGE.md), [GameCenterManager.swift](PixelBoxingIOS/GameCenterManager.swift) |
+| 앱 크기 | 선택 기준으로 확인 | 작은 앱 크기를 초기 제품의 우선순위로 문서화했다. 그러나 이것만으로 결정적 원인이라고는 단정할 수 없다. | [../docs/RIVAL_PORTFOLIO.typ](../portfolio/RIVAL_PORTFOLIO.typ) |
+| 오프라인 제약 | 선택 기준으로 확인 | 핵심 전투·습관 학습은 외부 AI API·서버 동기화 없이 동작한다. 선택적 Game Center 인증·랭킹 조회·기록 제출은 네트워크를 사용한다. | [../docs/RIVAL_PORTFOLIO.typ](../portfolio/RIVAL_PORTFOLIO.typ), [AI_USAGE.md](AI_USAGE.md), [GameCenterManager.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameCenterManager.swift) |
 | 개발 일정 | 미확인 | 일정 때문에 전환했다는 직접 발언이나 일정 문서를 찾지 못했다. | 코드·문서·검색한 과거 기록 |
 | 구현 복잡도 | 미확인 | 복잡도 때문에 포기했다는 직접 근거를 찾지 못했다. | 코드·문서·검색한 과거 기록 |
 
@@ -264,7 +264,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 - 정책 훈련, 저장, 로드, 버전 관리, 기존 정책·무작위 AI와의 승률 평가 파이프라인
 - 여러 사용자의 데이터를 합쳐 서버에서 재훈련하는 구조
 
-근거: [AI_USAGE.md](AI_USAGE.md)의 "현재 방식의 범위와 한계", [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)의 10.5절 및 3단계 잔여 항목.
+근거: [AI_USAGE.md](AI_USAGE.md)의 "현재 방식의 범위와 한계", [../docs/legacy/PIXEL_BOXING_GAME_DESIGN.md](../legacy/PIXEL_BOXING_GAME_DESIGN.md)의 10.5절 및 3단계 잔여 항목.
 
 ### 얻은 것
 
@@ -276,7 +276,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 - 작은 런타임 의존성: iOS 앱에는 훈련된 외부 모델 파일이나 외부 AI API가 없다.
 - 회귀 테스트 가능성: 가드 비율에 따른 바디샷 가중치와 승패에 관계없는 완료 라운드 습관 병합을 테스트할 수 있다.
 
-근거: [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift).
+근거: [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/PlaceholderTests.swift).
 
 "얻은 것"은 기능과 문서화된 선택 기준을 뜻한다. 실제 사용자 만족도나 난이도 품질이 더 좋아졌다는 비교 실험 결과는 확인하지 못했다.
 
@@ -310,7 +310,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 `pixelBoxingRivalResults`의 두 개다. 학습 초기화는 두 키를 모두 삭제하며 최고 라운드·누적 승수·보상은 보존한다.
 스토리는 별도 `StoryLearningState`와 진행 저장을 사용한다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitMemory.noteAttack`, `HabitMemory.sample`, `CombatEngine.startAttack`, `CombatEngine.sampleHabits`; [AI_USAGE.md](AI_USAGE.md)의 "플레이 습관 수집".
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `HabitMemory.noteAttack`, `HabitMemory.sample`, `CombatEngine.startAttack`, `CombatEngine.sampleHabits`; [AI_USAGE.md](AI_USAGE.md)의 "플레이 습관 수집".
 
 ### 4-2. 적응도
 
@@ -332,7 +332,7 @@ adaptation = clamp(
     이 감쇠는 기록 순서에 대한 증거 가중치이지 실시간 표본의 반감기가 아니다.
 - 내부 적응 계수나 규칙 기반 confidence를 ‘학습 정확도 %’로 해석하지 않는다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.adaptation`, `CombatEngine.updateEnemy`.
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.adaptation`, `CombatEngine.updateEnemy`.
 
 ### 4-3. RIVAL이 선택하는 행동
 
@@ -354,7 +354,7 @@ adaptation = clamp(
 방향 회피 시작은 `DuckMotion.entryDuration × minimumEvadeAmount`(약 0.063초), 끝은 0.27초다.
 플레이어 위빙 성공도 더킹과 같은 등급·카운터 창을 사용하며 상위 등급은 RIVAL MOMENT로 이어질 수 있다. 위빙 전용 피해 배율은 없다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.enemyWeights`, `CombatEngine.updateEnemy`, `CombatEngine.performEnemyDecision`.
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.enemyWeights`, `CombatEngine.updateEnemy`, `CombatEngine.performEnemyDecision`.
 
 ### 4-4. 거리와 습관이 바꾸는 가중치
 
@@ -388,7 +388,7 @@ adaptation = clamp(
 대한 방어와 직전 결과의 후속 행동은 고정 상황 규칙이다. 반복 공격의 피해 감쇠는
 이 AI 가중치 분기와 별개의 전투 규칙이다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.enemyWeights`.
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.enemyWeights`.
 
 ### 4-5. 가중치 외에 실제로 달라지는 적 행동
 
@@ -424,11 +424,11 @@ learningWeight = 0.45 + 1.85 * experience
 무료 전환의 날짜 경계·배포 시차는 미확정이다. DEBUG 전체 프리뷰 `true`/Release `false`는
 `rival.story.preview.v1` 별도 defaults suite를 사용하며 실제 통계·장비·Game Center 저장을 비활성화한다.
 프리뷰·로컬 StoreKitTest 캡처를 실계정 구매·복원·권한 취소·기존 유료 권한 검증으로 해석하지 않는다.
-세부 전투·권한 규칙은 [GAME_GUIDE.md](GAME_GUIDE.md), 개발 사례의 날짜별 기록은
+세부 전투·권한 규칙은 [GAME_GUIDE.md](../product/GAME_GUIDE.md), 개발 사례의 날짜별 기록은
 [DEVELOPMENT_ISSUES_AND_SOLUTIONS.md](DEVELOPMENT_ISSUES_AND_SOLUTIONS.md)를 따른다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `CombatEngine.updateEnemy`,
-[PixelBoxingIOS/RivalAI.swift](PixelBoxingIOS/RivalAI.swift).
+근거: [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `CombatEngine.updateEnemy`,
+[PixelBoxingIOS/RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift).
 
 ---
 
@@ -438,21 +438,21 @@ learningWeight = 0.45 + 1.85 * experience
 
 | 장치 | 실제 동작 | 근거 |
 | --- | --- | --- |
-| 표본 기반 적응도와 상한 | 확정된 표본량에 따라 `0.18...0.75`로 제한, 라운드 번호만으로 증가하지 않음 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `adaptation` |
-| 분리된 라운드 숙련도 | 관측 사실은 유지하고 라운드별 판단·이동·습관 대응·연계 활용을 점진적으로 증가 | [PixelBoxingIOS/RivalAI.swift](PixelBoxingIOS/RivalAI.swift)의 `RivalDifficulty` |
-| 가중 무작위 선택 | 가장 높은 행동만 고정 실행하지 않고 가중치 합에서 난수를 뽑아 선택 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `weightedChoice` |
-| 동일 전투 제약 | RIVAL의 펀치는 `startAttack`을 사용하며 스태미나, 경직, 탈진 규칙을 적용; 회피도 스태미나를 소비 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `startAttack`, `performEnemyDecision` |
-| 완료 라운드 습관 확정 | 승패와 무관하게 기존 표본의 82%와 완료 라운드 표본을 병합 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `incorporateRound`, `finishRound` |
-| 패배 시 진행 정지 | 라운드는 플레이어 승리일 때만 증가하며, 패배·무승부 후에는 현재 라운드를 다시 시작 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `advancesRoundAfterBreak`, `requestNextRound` |
-| 코너 리포트 | 확정 습관의 전술 읽기를 짧은 복싱 언어로 표시하며 학습도 %는 표시하지 않음 | [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `roundResultOverlay` |
-| 라운드 통계 표시 | 양측의 회피 성공 횟수와 주요 공격을 표시 | [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `roundStatColumn` 호출 |
-| 학습 초기화 | 확인 후 습관·양측 공격 결과의 두 저장 키와 현재 점수를 지우고 ROUND 1부터 시작; 최고 라운드·승수·보상은 유지 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `resetLearning`, [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `LearningResetConfirmView` |
+| 표본 기반 적응도와 상한 | 확정된 표본량에 따라 `0.18...0.75`로 제한, 라운드 번호만으로 증가하지 않음 | [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `adaptation` |
+| 분리된 라운드 숙련도 | 관측 사실은 유지하고 라운드별 판단·이동·습관 대응·연계 활용을 점진적으로 증가 | [PixelBoxingIOS/RivalAI.swift](../../ios-pixel-boxing/PixelBoxingIOS/RivalAI.swift)의 `RivalDifficulty` |
+| 가중 무작위 선택 | 가장 높은 행동만 고정 실행하지 않고 가중치 합에서 난수를 뽑아 선택 | [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `weightedChoice` |
+| 동일 전투 제약 | RIVAL의 펀치는 `startAttack`을 사용하며 스태미나, 경직, 탈진 규칙을 적용; 회피도 스태미나를 소비 | [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `startAttack`, `performEnemyDecision` |
+| 완료 라운드 습관 확정 | 승패와 무관하게 기존 표본의 82%와 완료 라운드 표본을 병합 | [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `incorporateRound`, `finishRound` |
+| 패배 시 진행 정지 | 라운드는 플레이어 승리일 때만 증가하며, 패배·무승부 후에는 현재 라운드를 다시 시작 | [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `advancesRoundAfterBreak`, `requestNextRound` |
+| 코너 리포트 | 확정 습관의 전술 읽기를 짧은 복싱 언어로 표시하며 학습도 %는 표시하지 않음 | [PixelBoxingIOS/GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift)의 `roundResultOverlay` |
+| 라운드 통계 표시 | 양측의 회피 성공 횟수와 주요 공격을 표시 | [PixelBoxingIOS/GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift)의 `roundStatColumn` 호출 |
+| 학습 초기화 | 확인 후 습관·양측 공격 결과의 두 저장 키와 현재 점수를 지우고 ROUND 1부터 시작; 최고 라운드·승수·보상은 유지 | [PixelBoxingIOS/CombatCore.swift](../../ios-pixel-boxing/PixelBoxingIOS/CombatCore.swift)의 `resetLearning`, [PixelBoxingIOS/GameView.swift](../../ios-pixel-boxing/PixelBoxingIOS/GameView.swift)의 `LearningResetConfirmView` |
 
 완료 라운드 확정의 회귀 테스트가 소스에 존재한다. 이번 문서 대조에서 이를 새로 실행한
 것은 아니다. 과거의 패배 롤백 설명과 해당 테스트 이름은
 현재 구현에서 유효하지 않으므로 현행 근거로 사용하지 않는다.
 
-근거: [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift)의
+근거: [PixelBoxingIOSTests/PlaceholderTests.swift](../../ios-pixel-boxing/PixelBoxingIOSTests/PlaceholderTests.swift)의
 `testPlayerLossPromotesRoundHabitLearning`, `testEveryCompletedRoundPromotesPersistentHabits`,
 기존 테스트의 이름만으로 현재 라운드 시작의 전술 읽기가 비워진다고 주장하지 않는다.
 
@@ -486,6 +486,6 @@ learningWeight = 0.45 + 1.85 * experience
 - 아래 Python/C++ 항목은 기존 날짜의 기록이다. 이번 iOS 연출 변경의 성능 근거로 전용하지 않는다.
 - 2026-09-06 실행: `.venv/bin/python -m unittest tests.test_pixel_boxing_core -q`
 - 결과: `Ran 35 tests ... OK`
-- 이후 2026-09-09·2026-09-10 iOS AI 봇·모션·위빙 수치 검사와 iPhone SDK 컴파일 기록은 [README](README.md#과거-실행-검증-기록)를 따른다. 해당 기록을 현재 사거리·선수 간격·위빙 변경의 새 검증 근거로 사용하지 않는다.
+- 이후 2026-09-09·2026-09-10 iOS AI 봇·모션·위빙 수치 검사와 iPhone SDK 컴파일 기록은 [README](../../ios-pixel-boxing/README.md#과거-실행-검증-기록)를 따른다. 해당 기록을 현재 사거리·선수 간격·위빙 변경의 새 검증 근거로 사용하지 않는다.
 - 확인 범위: Python의 17개 행동 마스킹, 보상 이벤트, 렌더링 없는 에피소드 실행을 포함한 전투 코어 회귀 테스트
 - 2026-09-06 감사의 제한: 당시 VS Code CMake Tools의 테스트 검색에서는 실행 가능한 CTest 이름이 발견되지 않았다. 초기 C++ Q-learning은 당시 코드, Git 이력, 로컬 `game_save.txt` 산출물, 과거 세션 기록을 근거로 삼았으며, 역사적 커밋을 새로 빌드해 당시 런타임을 재현하지는 않았다.
