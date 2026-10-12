@@ -1,5 +1,10 @@
 # Orthodox 복싱 공격 동작 모션 설명 프롬프트
 
+> 범위 정리: 2026-10-12. 아래는 모션 설계의 참고 프롬프트이며 현재 앱의
+> 구현 명세나 정확성 검증 결과가 아니다. 현재 절차적 포즈·고정 길이 IK·
+> 접촉 판정 설명은 [설계 철학](RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)과
+> [개발 사례](../ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md)를 따른다.
+
 오소독스(Orthodox) 스탠스를 기준으로 실제 복싱에서 사용되는 공격 동작의 **신체 움직임과 모션을 매우 디테일하게 설명하라.**
 
 대상 공격은 다음 8가지로 제한한다.

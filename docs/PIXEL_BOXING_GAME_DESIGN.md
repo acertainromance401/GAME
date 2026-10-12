@@ -1,10 +1,15 @@
 # Pixel Boxing Top-Down 게임 설계 문서
 
+> 범위 정리: 2026-10-12. 이 문서는 Python/Tkinter 단계의 설계와 후속 계획을
+> 보존한 과거 기록이며 현재 iOS의 구현·검증 명세가 아니다. 현재 제품은
+> [iOS RIVAL 1.2(6)](../ios-pixel-boxing/README.md) 작업 트리다. 라운드 종료 학습·스토리·
+> 고정 조준·활성 구간 접촉은 [현재 설계 철학](RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md)을 따른다.
+
 ## 1. 문서 목적
 
-이 문서는 `desktop-pixel-boxing/pixel_boxing_topdown.py`를 기준으로 현재 게임이 어떤 작품인지, 실제로 구현된 기능은 무엇인지, 다른 복싱 게임과 구분되는 핵심은 무엇인지 정리한다.
+이 문서는 `desktop-pixel-boxing/pixel_boxing_topdown.py`를 기준으로 당시 게임이 어떤 작품인지, 실제로 구현된 기능은 무엇인지, 다른 복싱 게임과 구분되는 핵심은 무엇인지 정리한다.
 
-Godot 이식 실험이나 C++ TUI 버전은 이 문서의 대상이 아니다. 앞으로의 본 개발과 판단 기준은 Python/Tkinter 기반의 **Pixel Boxing Top-Down**이다.
+Godot 이식 실험이나 C++ TUI 버전은 이 문서의 대상이 아니다. 당시 본 개발과 판단 기준은 Python/Tkinter 기반의 **Pixel Boxing Top-Down**이었다.
 
 이 문서는 다음 개발 단계에 들어가기 전 확인용 기준 문서다. 아래에 정의한 방향이 승인된 뒤에만 1단계부터 순차적으로 진행하며, 각 단계가 끝날 때마다 플레이 확인을 받은 뒤 다음 단계로 이동한다.
 

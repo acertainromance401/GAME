@@ -1,0 +1,34 @@
+{
+  "identifier": "9D4E0522-1E5C-4C8F-9A7E-1E2047812E05",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "6821357632",
+      "localizations": [
+        {
+          "description": "Story campaign and First Bell starter outfit. Other rewards require victories.",
+          "displayName": "Story Mode",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.acertainromance401.pixelboxing.story",
+      "referenceName": "Story Mode",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "6799909429",
+    "_developerTeamID": "6S5ZH3ZJ93",
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "appId": "6799909429",
+  "bundleId": "com.acertainromance401.pixelboxing",
+  "version": "1.2",
+  "build": "6",
+  "buildId": "0ed36afe-8224-40cb-9716-e6e691c7a830",
+  "submissionId": "f6f6275f-bf74-4531-acca-f309d091960f",
+  "submissionUrl": "https://appstoreconnect.apple.com/apps/6799909429/distribution/reviewsubmissions/details/f6f6275f-bf74-4531-acca-f309d091960f",
+  "submittedAtConnectDisplay": "Oct 11, 2026 at 6:31 AM GMT+9",
+  "status": "Waiting for Review",
+  "releaseType": "MANUAL",
+  "appPriceChanged": false,
+  "items": [
+    {
+      "type": "App Version",
+      "name": "iOS App 1.2",
+      "versionId": "12e45477-f2b4-4d98-8206-5c156193dcc1",
+      "build": "6",
+      "status": "Waiting for Review"
+    },
+    {
+      "type": "In-App Purchase",
+      "name": "Story Mode",
+      "appleId": "6821357632",
+      "productId": "com.acertainromance401.pixelboxing.story",
+      "status": "Waiting for Review"
+    },
+    {
+      "type": "Game Center Leaderboard",
+      "name": "Total Wins",
+      "objectId": "b17e4a61-d933-4a43-aaa1-c8d3b912d2da",
+      "leaderboardId": "com.acertainromance401.pixelboxing.totalWins",
+      "status": "Waiting for Review"
+    }
+  ],
+  "archivePath": "build/RIVAL-1.2-6-20261011-review.xcarchive",
+  "screenshots": {
+    "localizations": ["en-US", "ko-KR", "ja"],
+    "iphone": { "path": "AppStoreScreenshots/1.2/iphone-6.9", "width": 2868, "height": 1320, "count": 15 },
+    "ipad": { "path": "AppStoreScreenshots/1.2/ipad-13", "width": 2752, "height": 2064, "count": 15 },
+    "order": ["05-rival-fight.png", "04-gym.png", "01-main-menu.png", "03-story-progression.png", "02-story-purchase.png"],
+    "iapReviewImage": "AppStoreScreenshots/1.2/iphone-6.9/en-US/02-story-purchase.png",
+    "configuration": "Release with UI-test-only ENABLE_TESTABILITY=YES",
+    "storeKitEnvironment": "Apple local StoreKitTest, US storefront USD 2.99",
+    "storeKitFixtureIncludedInShippingApp": false,
+    "captureTestsPassed": 6,
+    "captureTestsFailed": 0
+  },
+  "remainingBeforeRelease": [
+    "Apple review approval",
+    "Coordinate free app pricing with manual version release and paid-owner eligibility",
+    "Real-account Sandbox or Production purchase, restore and legacy-owner verification",
+    "Real-account Game Center score submission and reload verification",
+    "Update public support and privacy pages for current controls, StoreKit and leaderboard data"
+  ],
+  "cleanup": {
+    "status": "Completed",
+    "temporarySimulatorIds": ["AA6B1A02-0543-4463-BD29-2E57B2BFCF2A", "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6"],
+    "temporarySimulatorsDeleted": true,
+    "runtimeInstalledForThisTask": false,
+    "preexistingRuntimePreserved": "com.apple.CoreSimulator.SimRuntime.iOS-26-1",
+    "dfAvailableKiBBefore": 21773596,
+    "dfAvailableKiBAfter": 25987236,
+    "dfAvailableKiBIncrease": 4213640,
+    "removed": [
+      "build/DerivedDataReviewRelease",
+      "build/DerivedDataReviewCapture",
+      "Task-generated RIVAL-ReviewCapture-1.2 xcresult bundles",
+      "build/RIVAL-1.2-5-20261011-review.xcarchive",
+      "Task-generated failed captures and duplicate raw screenshots"
+    ],
+    "preserved": [
+      "build/RIVAL-1.2-6-20261011-review.xcarchive with dSYMs",
+      "Final 30 localized iPhone and iPad screenshots",
+      "AppStoreScreenshots/1.2/capture-manifests",
+      "Metadata and submission receipt",
+      "Preexisting simulator runtime, devices and build artifacts"
+    ]
+  }
+}

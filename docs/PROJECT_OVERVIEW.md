@@ -1,8 +1,14 @@
 # Project Overview
 
+> 문서 범위 정리: 2026-10-12. 현재 제품 본선은 네이티브 iOS RIVAL 1.2(6)
+> 작업 트리이며 공개 유료 1.1과 구분한다. 아래 Python·웹·C++의 구조와 검증은
+> 이전 구현의 기록이다. 현재 기능·학습·스토리·배포 기준은
+> [iOS README](../ios-pixel-boxing/README.md), [설계 철학](RIVAL_GAME_INTENT_AND_DESIGN_PHILOSOPHY.md),
+> [릴리스 체크리스트](../ios-pixel-boxing/RELEASE_READINESS_CHECKLIST.md)를 따른다.
+
 ## Summary
 
-이 저장소는 하나의 복싱 게임을 C++ 터미널 TUI, 브라우저 및 Tkinter 횡 액션, Python/Tkinter 의사 3D 탑다운으로 발전시킨 기록을 함께 보관합니다. 현재 제품 본선은 `desktop-pixel-boxing/pixel_boxing/pixel_boxing_topdown.py`이며, 나머지 구현은 아이디어와 기술 선택을 검증한 이전 단계 또는 이식 실험입니다.
+이 저장소는 하나의 복싱 게임을 C++ 터미널 TUI, 브라우저 및 Tkinter 횡 액션, Python/Tkinter 의사 3D 탑다운, SwiftUI·SceneKit iOS로 발전시킨 기록을 함께 보관합니다. 현재 제품 본선은 [ios-pixel-boxing](../ios-pixel-boxing/)이며, 아래 Python 구조는 규칙 검증과 iOS 이식의 기준이 된 이전 단계입니다.
 
 ## Development Line
 
@@ -14,7 +20,7 @@
 
 자세한 의사결정 배경과 단계별 개선 내용은 저장소 [메인 README](../README.md)의 프로젝트 발전 과정에 정리되어 있습니다.
 
-## Current Mainline
+## Legacy Python Runtime
 
 ### Runtime flow
 
@@ -24,7 +30,7 @@
 4. `pixel_boxing/game_settings.py`와 `pixel_boxing/audio_feedback.py`가 영구 설정과 오디오 피드백을 담당합니다.
 5. `tests/test_pixel_boxing_core.py`와 `tests/test_pixel_boxing_phase2.py`가 전투 및 라이브 연결을 회귀 검증합니다.
 
-### Current capabilities
+### Recorded Python Capabilities
 
 - 역할과 생체역학이 구분된 8종 펀치
 - 좌우 방향 더킹, 가드, 백스텝과 카운터
@@ -38,7 +44,7 @@
 
 ## Repository Map
 
-### Current Python game
+### Legacy Python Game
 
 - `desktop-pixel-boxing/pixel_boxing/`: canonical Python 패키지
 - `desktop-pixel-boxing/pixel_boxing_topdown.py`: 기존 실행 경로를 유지하는 호환 진입점
@@ -87,7 +93,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-## Current Constraints
+## Legacy Python Constraints
 
 - 배포용 `.app` 또는 Steam 패키지는 아직 생성·서명되지 않았습니다.
 - 실제 주먹 스윕과 머리·몸통 허트박스 인터페이스는 코어에 있지만, 라이브 표시와 판정의 완전한 통합은 후속 작업입니다.

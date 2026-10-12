@@ -71,15 +71,15 @@
     개인 프로젝트 · 기획 / 게임 시스템 / iOS 개발 / 테스트 / App Store 출시
   ]
   #v(4pt)
-  #text(size: 9pt, fill: rgb("#7f8ba0"))[Swift 6 · SwiftUI · SceneKit · GameKit · XCTest]
+  #text(size: 9pt, fill: rgb("#7f8ba0"))[Swift 6 · SwiftUI · SceneKit · StoreKit · GameKit · XCTest]
   #v(20pt)
-  #text(size: 8pt, fill: rgb("#778196"))[acertainromance401 · 2026]
+  #text(size: 8pt, fill: rgb("#778196"))[acertainromance401 · 2026-10-12 · Current source 1.2(6)]
 ]
 
 // 2. Project overview
 #pagebreak()
 #set page(margin: (x: 18mm, y: 16mm), fill: paper)
-#page-title("01 · OVERVIEW", "단순히 강해지는 AI가 아니라, 나를 읽는 상대", subtitle: "App Store 정식 출시 · 2026-08-27 · iPhone · iOS 17+")
+#page-title("01 · OVERVIEW", "단순히 강해지는 AI가 아니라, 나를 읽는 상대", subtitle: "현재 소스 1.2(6) · iPhone·iPad 가로 전용 · iOS 17+ · 2026-10-12")
 
 #panel(fill: navy, stroke: navy, inset: 13pt)[
   #text(size: 15pt, weight: "bold", fill: white)[핵심 질문]
@@ -91,9 +91,9 @@
 
 #v(8pt)
 #panel(fill: pale-red, stroke: red, inset: 9pt)[
-  #text(weight: "bold", fill: red)[App Store 출시 완료]
+  #text(weight: "bold", fill: red)[출시 이력과 현재 상태]
   #h(6pt)
-  한국 App Store에 유료 앱으로 정식 출시했습니다. · 출시 버전 1.0 · 게임/스포츠/액션 · ₩4,400
+  2026-08-27 최초 출시 기록: 1.0 · ₩4,400. 2026-10-12 공개 앱 기록은 유료 1.1 · US\$1.99 / KRW 3,300입니다. 1.2(6)은 심사 제출된 업데이트이며 승인·출시·무료 전환 완료가 아닙니다.
 ]
 
 #v(8pt)
@@ -106,15 +106,15 @@
   panel[
     #text(weight: "bold", fill: red)[해결]
     #v(4pt)
-    공격, 가드, 더킹, 전후 이동 비율을 기기 안에서 누적하고 라운드와 표본 신뢰도에 따라 RIVAL의 행동 가중치를 조정했습니다.
+    라운드 중에는 관측만 수집하고 정책을 고정합니다. 종료 뒤 습관·공격 결과를 저장해 다음 라운드의 행동 가중치와 전술 읽기에 반영합니다.
   ],
 )
 
 #heading(level: 2)[프로젝트 한눈에 보기]
 #grid(columns: (1fr, 1fr, 1fr, 1fr), gutter: 7pt,
   panel(metric("8", "서로 다른 공격", accent: red), inset: 8pt),
-  panel(metric("3", "전투 스타일", accent: blue), inset: 8pt),
-  panel(metric("10", "해금 의상", accent: gold), inset: 8pt),
+  panel(metric("5", "스토리 상대", accent: blue), inset: 8pt),
+  panel(metric("11", "스토리 JSON 모션", accent: gold), inset: 8pt),
   panel(metric("3", "지원 언어", accent: navy), inset: 8pt),
 )
 
@@ -127,7 +127,8 @@
   [기획], [핵심 루프, 공격 체계, 방향 더킹, 난이도 곡선, 보상 구조],
   [게임 로직], [프레임 기반 전투 엔진, 적중·가드·카운터·탈진·라운드 판정],
   [클라이언트], [SwiftUI 터치 HUD, SceneKit 3D 링·복서·카메라·연출],
-  [AI], [행동 통계, 적응도, 상황별 가중치, 로컬 영속화와 패배 롤백],
+  [AI], [라운드 내 고정 정책, 관측 수집, 종료 시 습관·공격 결과 병합],
+  [스토리], [5명 상대·관장·컷씬, 체크포인트·다시 보기, StoreKit 이용권·보상],
   [품질], [XCTest/UI 테스트, 다국어, VoiceOver, 햅틱, 실기기·App Store 배포],
 )
 
@@ -166,7 +167,7 @@
     #block(height: 88mm, clip: true, radius: 4pt)[
       #image("../ios-pixel-boxing/PixelBoxingIOS/Assets.xcassets/LoadingScreenArt.imageset/LoadingScreenArt@3x.png", width: 100%, height: 88mm, fit: "cover")
     ]
-    #text(size: 7.5pt, fill: muted)[SceneKit으로 생성한 실제 인게임 복서와 링]
+    #text(size: 7.5pt, fill: muted)[RIVAL 로딩 아트 · 현재 경기 캡처와 구분]
   ],
 )
 
@@ -180,7 +181,7 @@
   panel[
     #bullet-item("가드 파괴", [체력 피해를 줄이는 대신 스태미나를 소모하고, 0이 되면 탈진합니다.])
     #bullet-item("카운터", [정확한 회피 뒤 제한 시간 안에 바디·훅을 연결하면 추가 피해가 발생합니다.])
-    #bullet-item("승리 기반 진행", [플레이어가 이긴 경우에만 라운드와 AI 적응 단계가 올라갑니다.])
+    #bullet-item("승리 기반 진행", [승리 시 다음 라운드로 진행하되, RIVAL은 승패와 무관하게 완료 라운드를 기억합니다.])
   ],
 )
 
@@ -194,6 +195,31 @@
   [아웃복싱], [리치·풋워크], [빠르고 길지만 공격력이 낮음],
   [슬러거], [한 방·가드], [강한 공격력과 가드 효율 대신 짧은 리치와 느린 이동],
 )
+
+#pagebreak()
+#page-title("STORY · COMBAT", "같은 전투 규칙 위에 만든 다섯 상대", subtitle: "압박형 → 견제형 → 카운터형 → 강타형 → RIVAL")
+
+#heading(level: 2)[진행과 연출]
+#bullet-item("콘텐츠", [관장 공략·인트로·승리 컷씬·엔딩, 진행 저장·체크포인트 이어하기·해금된 장면 다시 보기])
+#bullet-item("모션", [Blender에서 생성한 JSON 모션 11개를 로드해 공용 절차적 복서·관장 리그에 적용합니다. Blender 런타임이나 미리 렌더링된 영상 재생은 아닙니다.])
+#bullet-item("이용권과 보상", [1회 구매 비소모성 Story IAP. 퍼스트 벨(First Bell)은 구매 권한으로 즉시 해금하고, 상대 외형·챔피언 복장·벨트는 검증된 이용권과 해당 클리어가 모두 필요합니다.])
+#bullet-item("미리보기 격리", [현재 Debug 전체 체험은 `rival.story.preview.v1` 저장소와 비영속 경기로 실제 통계·장비·랭킹 저장을 막습니다. Release 우회는 `false`이며 실제 구매 검증에는 체험을 꺼야 합니다.])
+
+#heading(level: 2)[공유 판정과 이동]
+#table(
+  columns: (28mm, 1fr), inset: 6pt, stroke: 0.55pt + border,
+  [항목], [현재 소스의 조건],
+  [위빙], [비용 9 · 동작 0.36초 · 훅 시작 0.23초 · 회피 종료 0.27초 미만 · 입력 유예 0.12초 · 재시작 대기 0.48초],
+  [회피 진입], [방향 일치·더킹량 0.70 이상. `0.09 × 0.70 ≈ 0.063초` 진입 뒤 유효. 위빙은 최대 12 측면 이동, 체육관은 무료],
+  [백스텝], [기본 비용 31에 스타일 배율, 0.18초 동안 최대 34 이동. 회피는 0.035초 이상·0.18초 미만이며 순간이동·전체 무적 아님],
+  [기본 이동·회복], [전진·횡이동 속도 210에 스타일 배율, 후퇴는 보너스 없이 0.5배. 일반 회복 11/초, 공격·가드·더킹·위빙·탈진 중 회복 없음],
+  [공격 접촉], [`activeStart`~`activeEnd`의 공통 포즈·장갑 궤적 swept 접촉. 실제 접촉 시각 방어를 적용하고 양측 후보는 공통 프레임 시작 대비 시간순 처리],
+  [조준], [공격 시작 조준·방향 고정, 공격 중 상대 이동 추적 없음],
+)
+
+#heading(level: 2)[일반 RIVAL과 스토리 상대의 구분]
+#bullet-item("강타형만의 수치", [스토리 HP 120·리치 +4 게임 단위·피해 1.15배. 비용·사거리·도달 조건이 맞으면 연타, 비용 부족 시 45까지 회복. 진입 때만 최대 2초 가드·6/초, 이후 재가드 없이 16.5/초 회복.])
+#bullet-item("챔피언", [상한 있는 숙련 정책·짧은 스텝·최대 3타·회복 틈을 사용합니다. 이전 완료 라운드만 학습에 반영하며 일반 RIVAL·챔피언의 HP·리치·공격력은 올리지 않습니다.])
 
 // 4. Adaptive AI
 #pagebreak()
@@ -209,20 +235,20 @@
   panel[
     #text(weight: "bold", fill: blue)[02 · 해석]
     #v(3pt)
-    행동 비율과 표본 강도, 현재 라운드로 적응도 계산
+    종료 시 습관·공격 결과 병합, 다음 라운드 시작에 해석 확정
   ],
   align(center + horizon)[#text(size: 18pt, fill: muted)[→]],
   panel[
     #text(weight: "bold", fill: red)[03 · 대응]
     #v(3pt)
-    거리·상태·습관을 반영한 가중 확률로 다음 행동 선택
+    고정 정책으로 거리·스태미나·보이는 공격에 상황 반응
   ],
 )
 
 #heading(level: 2)[적응도 모델]
 #panel(fill: navy, stroke: navy)[
   #align(center)[
-    #text(size: 12pt, fill: white)[adaptation = clamp(0.18 + 0.16 × (round - 1) + 0.58 × sampleStrength, 0.18, 1.0)]
+    #text(size: 12pt, fill: white)[adaptation = clamp(0.18 + 0.57 × sampleStrength, 0.18, 0.75)]
   ]
 ]
 
@@ -239,20 +265,26 @@
       [오른쪽 더킹 반복], [오른손 공격 증가],
       [잽 반복], [크로스·훅·회피 증가],
       [후퇴·백스텝], [잽·크로스 추격 증가],
-      [같은 공격 3회+], [좌우 더킹 증가],
+      [확정된 공격·회피 결과], [다음 라운드 공격·방어 가중치 보정],
     )
   ],
   [
     #heading(level: 2)[데이터 원칙]
     #panel[
       #bullet-item("Local-first", [`UserDefaults`에 `Codable` JSON으로 저장])
+      #bullet-item("저장 키", [`pixelBoxingHabitMemory`·`pixelBoxingRivalResults`])
       #bullet-item("Privacy", [이름·연락처·위치·광고 식별자 수집 없음])
       #bullet-item("Resilience", [저장값이 없거나 손상되면 빈 메모리로 시작])
-      #bullet-item("Fairness", [패배 라운드의 신규 습관은 시작 시점으로 롤백])
+      #bullet-item("Continuity", [승패와 무관하게 종료 시 습관·양측 공격 결과 병합])
       #bullet-item("Explainability", [신경망이 아닌 명시적 규칙과 임계값으로 동작])
     ]
   ],
 )
+
+#v(6pt)
+#text(size: 8pt, fill: muted)[
+  `tacticalRead`는 시작 때 이전 완료 라운드의 확정 프로필에서 정합니다. 경기 중에는 관측만 수집하며 `RecentHabitMemory`·시간 감쇠 기반 실시간 학습은 제거됐습니다. 상황 반응은 학습 갱신과 다릅니다. 습관 원본은 전송하지 않지만 StoreKit·Game Center는 선택적 네트워크 기능입니다.
+]
 
 #v(10pt)
 #panel(fill: pale-blue, stroke: blue)[
@@ -294,33 +326,37 @@
   [SceneKit], [3D 링·복서·조명·카메라], [외부 모델 없이 코드 기반 지오메트리 생성],
   [GameKit], [리더보드], [별도 서버 없이 Apple 플랫폼 기능 연동],
   [XCTest], [전투·AI·회귀 테스트], [렌더러와 분리된 결정 로직 직접 검증],
-  [XcodeGen], [프로젝트 정의], [생성 프로젝트 대신 `project.yml`을 단일 원본으로 유지],
+  [StoreKit], [Story 비소모성 이용권], [구매·복원·권한과 획득 보상을 분리],
+  [Xcode 프로젝트], [실제 프로젝트·유지 명세], [`RIVAL.xcodeproj`가 기준, `project.yml`도 1.2(6) 설정과 맞춰 유지],
 )
 
 #heading(level: 2)[제품 기능으로 확장된 구조]
 #grid(columns: (1fr, 1fr), gutter: 8pt,
   panel[
     #bullet-item("체육관", [고정 샌드백, 타격 반응, 코치 팁, 무제한 콤보 연습])
-    #bullet-item("보상", [승수·연승·무피격·스타일 숙련·체육관 시간으로 10개 의상 해금])
+    #bullet-item("보상", [일반 기록 의상과 Story 구매·클리어 보상 분리, 전투 능력치 보상 없음])
   ],
   panel[
-    #bullet-item("랭킹", [Game Center 총 승수와 최고 라운드 표시])
+    #bullet-item("랭킹", [Total Wins 순위표 연결, 실제 계정 제출·재조회와 승인 여부는 별도])
     #bullet-item("현지화", [한국어·영어·일본어 UI와 코치 메시지])
   ],
 )
+
+#v(6pt)
+#text(size: 8pt, fill: muted)[실제 프로젝트를 함께 보존하며 무조건 재생성하지 않습니다. XcodeGen 재생성 전 JSON 11개·개인정보 매니페스트·UI-test-only StoreKit fixture·스킴 등록을 대조합니다.]
 
 #v(9pt)
 #panel(fill: navy, stroke: navy)[
   #text(weight: "bold", fill: white)[앱 크기]
   #h(8pt)
-  #text(size: 16pt, weight: "bold", fill: rgb("#79a9ff"))[약 5.2 MB]
+  #text(size: 16pt, weight: "bold", fill: rgb("#79a9ff"))[약 5.5 MiB]
   #h(8pt)
-  #text(fill: rgb("#cdd5e3"))[Release 기준 · 외부 3D 모델/텍스처/오디오 파일 없이 지오메트리와 효과음을 코드로 생성]
+  #text(fill: rgb("#cdd5e3"))[2026-09-07 로컬 Release 번들 · 다운로드 크기 아님 · 지오메트리와 효과음을 코드로 생성]
 ]
 
 // 6. Problem solving
 #pagebreak()
-#page-title("05 · PROBLEM SOLVING", "느낌의 문제를 구조와 수치의 문제로 바꾸기", subtitle: "플레이 피드백을 재현 가능한 조건으로 바꾸고, 가장 가까운 원인을 수정했습니다.")
+#page-title("05 · PROBLEM SOLVING", "느낌의 문제를 구조와 수치의 문제로 바꾸기", subtitle: "2026-09-07 당시 문제 해결 이력 · 아래 수치를 현재 전투 사양으로 사용하지 않습니다.")
 
 #grid(columns: (1fr, 1fr), gutter: 8pt,
   panel[
@@ -407,11 +443,11 @@
   [05], [App Store], [심사·가격 설정·스토어 메타데이터를 거쳐 실제 사용자에게 배포할 수 있는가],
 )
 
-#heading(level: 2)[검증 결과]
+#heading(level: 2)[과거 검증 결과 · 2026-09-07]
 #grid(columns: (1fr, 1fr, 1fr), gutter: 8pt,
-  panel(metric("30", "iOS 단위 회귀 테스트", accent: blue), inset: 9pt),
-  panel(metric("1", "가로형 UI 시나리오", accent: red), inset: 9pt),
-  panel(metric("57", "Python 회귀 테스트", accent: gold), inset: 9pt),
+  panel(metric("61", "실기기 단위 회귀 통과", accent: blue), inset: 9pt),
+  panel(metric("4", "실기기 UI 시나리오 통과", accent: red), inset: 9pt),
+  panel(metric("57", "과거 Python 검증 기록", accent: gold), inset: 9pt),
 )
 
 #v(8pt)
@@ -423,14 +459,14 @@
     · 방향 더킹과 카운터 보너스\
     · 가드·스태미나·탈진·백스텝\
     · 적응도와 습관별 행동 가중치\
-    · 라운드 승패·학습 롤백·초기화\
-    · 카메라 회전 안정성과 복서 구조
+    · 라운드 승패·습관 확정·초기화\
+    · 연출 우선순위·KO 전환·기록 호환성
   ],
   panel[
     #text(weight: "bold", fill: navy)[출시·운영]
     #v(5pt)
     · Generic iOS / 실기기 빌드 검증\
-    · XcodeGen 기반 재현 가능한 프로젝트\
+    · 실제 Xcode 프로젝트와 XcodeGen 명세\
     · TestFlight 외부 테스트와 심사 대응\
     · App Store 유료 앱 정식 출시\
     · 개인정보 비수집·오프라인 우선\
@@ -440,11 +476,35 @@
 
 #heading(level: 2)[성능과 운영 판단]
 #panel(fill: pale-blue, stroke: blue)[
-  외부 유료 에셋과 서버를 사용하지 않아 배포 복잡도와 유지 비용을 낮췄습니다. SceneKit 노드는 최초 생성 후 재사용하고 매 프레임 자세와 카메라만 갱신합니다. 앱은 네트워크 없이 핵심 게임 전체를 실행하며, Game Center만 선택적 온라인 기능으로 분리했습니다.
+  3D 지오메트리는 코드로 생성하고 SceneKit 노드는 재사용하며 자세와 카메라를 갱신합니다. 핵심 전투는 오프라인으로 동작하고, StoreKit 권한 확인·구매·복원과 Game Center는 네트워크 기능입니다. 노드 재사용과 홍보 캡처 fps는 기기 성능 측정 결과가 아닙니다.
 ]
 
 #v(10pt)
-#text(size: 8pt, fill: muted)[테스트 수는 저장소 현재 소스 기준입니다. RIVAL 1.0은 2026년 8월 27일 한국 App Store에 정식 출시됐습니다.]
+#text(size: 8pt, fill: muted)[iOS 검증은 2026-09-07 iPhone 12 mini 기준입니다. Python 수치는 과거 검증 기록입니다. 작업 트리 개선은 아직 스토어 업데이트 배포를 의미하지 않습니다.]
+
+#pagebreak()
+#page-title("RELEASE · PROMOTION", "제출·검증·공개 상태를 구분하는 운영", subtitle: "보존된 2026-10-11 제출 기록과 2026-10-12 홍보 기록 · 이번에 새 조회·앱 빌드 없음")
+
+#heading(level: 2)[1.2(6) 심사 제출]
+#bullet-item("서명과 제출", [서명 아카이브·업로드 1.2(6), 2026-10-11 06:31 GMT+9에 앱·첫 Story IAP·첫 Total Wins 순위표를 함께 제출했습니다.])
+#bullet-item("마지막 확인 상태", [세 항목 모두 `Waiting for Review`, 수동 출시 `MANUAL`. 승인·출시·무료 가격 전환 완료가 아닙니다.])
+#bullet-item("공개 앱과 상품", [2026-10-12 공개 앱 기록은 유료 1.1(4), US\$1.99 / KRW 3,300. Story IAP 등록 가격은 KRW 4,400 / USD 2.99 / JPY 500입니다.])
+#bullet-item("기존 구매자", [검증된 Production 원본 빌드 `1...4`만 기존 유료 권한 대상으로 판정합니다. 무료 가격 전환·버전 배포 시차의 자격 경계는 미해결입니다.])
+#bullet-item("제한된 캡처 검증", [Release 로컬 StoreKitTest 캡처 테스트 6개·이미지 30장. 전체 회귀나 실계정 구매·복원·권한 취소·기존 구매자 이행·Game Center 제출/재조회 검증은 아닙니다.])
+
+#heading(level: 2)[홍보 제작과 게시]
+#bullet-item("영상", [HQ 24초 4K/60fps 가로 영상과 24초 1080×1920/30fps 세로 영상. 전투 컷은 격리된 Debug 실제 엔진의 연출용 캡처이며 일반 터치 플레이가 아닙니다. 원본 스토리 녹화는 확대 사용해 모든 컷이 네이티브 4K인 것은 아닙니다.])
+#bullet-item("파일 확인", [전체 디코딩·24초 PCM 샘플 검사는 파일 무결성 근거이며 장시간 성능·발열 측정이나 완전한 사람 청취 검증이 아닙니다.])
+#bullet-item("게시와 광고", [Reddit·Instagram 게시와 Meta 유료 광고 심사 요청은 별개입니다. 광고 승인·실제 게재·성과는 미확인입니다.])
+#bullet-item("라이선스", [MIT는 소스 코드에 적용하며 별도 라이선스 음악·서드파티 자산은 제외합니다. Mixkit의 상업용 온라인 영상·광고 허용은 인게임 사용·원본 음원 재배포 허용이 아닙니다.])
+
+#heading(level: 2)[기록을 읽는 기준]
+현재 작업 트리와 같은 버전의 아카이브·스토어 배포본은 동일함을 보장하지 않습니다. 날짜별 테스트는 당시 실행 범위에 한정합니다. 과거 제출 PDF는 자동 재생성하지 않으며 현재 Markdown과 별도 산출물입니다.
+
+#v(8pt)
+#text(size: 8pt, fill: muted)[
+  근거: `ios-pixel-boxing/AppStoreMetadata/1.2-submission.json`, `ios-pixel-boxing/RELEASE_READINESS_CHECKLIST.md`, `ios-pixel-boxing/PromotionVideos/README.md`, `ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md`
+]
 
 // 8. Links
 #pagebreak()
@@ -455,9 +515,9 @@
   [
     #text(size: 24pt, weight: "bold", fill: navy)[RIVAL]
     #v(4pt)
-    #text(size: 11pt, fill: muted)[적응형 AI와 맞서는 iPhone 3D 복싱 게임]
+    #text(size: 11pt, fill: muted)[적응형 AI와 맞서는 iPhone·iPad 가로형 3D 복싱 게임]
     #v(10pt)
-    #text(weight: "bold")[App Store 1.0 · Current source 1.1 (Build 3) · iOS 17+]
+    #text(weight: "bold")[공개 앱 1.1 · Current source 1.2(6) · iOS 17+]
   ],
 )
 
@@ -470,10 +530,13 @@
   [App Store], [#link("https://apps.apple.com/kr/app/rival/id6799909429")[App Store에서 RIVAL 보기]],
   [GitHub], [#link("https://github.com/acertainromance401/GAME")[github.com/acertainromance401/GAME]],
   [플레이 영상], [#link("https://youtu.be/01h8Lo5UIJc")[YouTube에서 RIVAL 플레이 보기]],
-  [웹 버전], [#link("https://acertainromance401.github.io/GAME/")[GitHub Pages에서 바로 실행]],
+  [과거 웹 구현], [#link("https://acertainromance401.github.io/GAME/")[GitHub Pages 프로토타입 · 현재 iOS와 구분]],
   [TestFlight], [#link("https://testflight.apple.com/join/btSgA8uT")[RIVAL 베타 테스트]],
   [게임 설명서], [`ios-pixel-boxing/GAME_GUIDE.md`],
   [AI 기술 문서], [`ios-pixel-boxing/AI_USAGE.md`],
+  [현재 iOS 기준], [#link("../ios-pixel-boxing/README.md")[ios-pixel-boxing/README.md]],
+  [홍보 기록], [#link("../ios-pixel-boxing/PromotionVideos/README.md")[ios-pixel-boxing/PromotionVideos/README.md]],
+  [문제 해결 기록], [#link("../ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md")[ios-pixel-boxing/DEVELOPMENT_ISSUES_AND_SOLUTIONS.md]],
 )
 
 #v(14pt)
@@ -489,5 +552,5 @@
 #line(length: 100%, stroke: 0.8pt + border)
 #v(8pt)
 #text(size: 8pt, fill: muted)[
-  Portfolio generated from the repository source and documentation · 2026-09-02
+  Portfolio source updated from current iOS source and dated records · 2026-10-12 · 과거 PDF 보존, 이번 문서 정리에서 앱 빌드·테스트·실행·스토어 조회 없음
 ]

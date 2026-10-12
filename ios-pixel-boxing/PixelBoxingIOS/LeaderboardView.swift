@@ -1,54 +1,64 @@
+/*
+ LeaderboardView.swift
+
+ 파일 설명:
+ - 리더보드 및 경기 기록을 표시하는 전체 화면 뷰입니다. Game Center와 연동된 경우 원격 순위를, 아니면
+     로컬 기록을 보여줍니다.
+
+ 사용 영향 및 주의사항:
+ - Game Center 연동 유무에 따른 데이터 소스 차이를 처리해야 합니다.
+ - UI 변경은 사용자의 점수 조회 흐름에 영향을 미칩니다.
+*/
 import SwiftUI
 
-/// Full-screen modal overlay showing the optional Game Center "total wins" leaderboard. Styled to match
-/// the other overlays (`WaitingRoomView`, `SettingsMenuView`): a `glowPanel` card over the same dark
-/// backdrop. Entirely optional/best-effort -- if the player isn't signed into Game Center, or the
-/// leaderboard hasn't been configured in App Store Connect yet, this shows a friendly prompt/empty-state
-/// instead of an error, and the core offline game is completely unaffected either way.
+/// Full-screen sports record sheet. Game Center remains optional; no invented rows or ratings.
 struct LeaderboardView: View {
+    @ObservedObject var controller: GameController
     @ObservedObject private var loc = LocalizationManager.shared
     @ObservedObject private var gameCenter = GameCenterManager.shared
+    @Environment(\.scenePhase) private var scenePhase
     let onClose: () -> Void
 
     @State private var rows: [GameCenterManager.Row] = []
     @State private var loadError: GameCenterManager.LoadError?
     @State private var isLoading = false
+    @State private var loadRequestID = UUID()
+    @ScaledMetric(relativeTo: .subheadline) private var labelSize: CGFloat = 14
+    @ScaledMetric(relativeTo: .caption) private var detailSize: CGFloat = 12
 
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                Color.black.opacity(0.55)
-                    .ignoresSafeArea()
-                    .onTapGesture { onClose() }
-
-                VStack(spacing: 16) {
-                    HStack {
-                        Text(loc.t(.leaderboardTitle))
-                            .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Button(loc.t(.close), action: onClose)
-                            .buttonStyle(ModalButtonStyle(accent: .white.opacity(0.26)))
+        ZStack {
+            MainMenuPalette.background.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 14) {
+                RivalScreenHeader(kicker: loc.t(.leaderboardKicker), title: loc.t(.leaderboardTitle),
+                                  closeTitle: loc.t(.close), closeID: "leaderboardClose", onClose: onClose)
+                HStack(spacing: 12) {
+                    Text(loc.t(.leaderboardSubtitle))
+                        .font(.system(size: detailSize, weight: .medium))
+                        .foregroundStyle(MainMenuPalette.secondary)
+                    Spacer(minLength: 8)
+                    if gameCenter.isAuthenticated {
+                        Button { Task { await load() } } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(RivalMenuButtonStyle())
+                        .disabled(isLoading)
+                        .accessibilityLabel(loc.t(.leaderboardRefreshButton))
+                        .accessibilityIdentifier("leaderboardRefresh")
+                        .help(loc.t(.leaderboardRefreshButton))
                     }
-
-                    content
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .padding(22)
-                // Fixed 420pt height overflowed past the top/bottom of the screen on landscape iPhones
-                // (short-axis height is often well under 420pt once safe-area insets are subtracted), so
-                // the panel is now clamped to whatever vertical room is actually available.
-                .frame(width: 340, height: max(260, min(420, proxy.size.height - 24)))
-                .glowPanel(accent: Color(red: 1.0, green: 0.78, blue: 0.12))
-                .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
-        .task { await load() }
-        .onChange(of: gameCenter.isAuthenticated) { _, isAuthenticated in
-            guard isAuthenticated else { return }
-            Task { await load() }
+        .task { gameCenter.authenticate() }
+        .task(id: gameCenter.isAuthenticated) { await load() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { gameCenter.resumeAuthentication() }
         }
     }
 
@@ -57,59 +67,93 @@ struct LeaderboardView: View {
         if !gameCenter.isAuthenticated {
             signInPrompt
         } else if isLoading {
-            ProgressView().tint(.white)
+            ProgressView().tint(MainMenuPalette.paper)
         } else if let loadError {
-            Text(loadError == .notConfigured ? loc.t(.leaderboardEmptyState) : loc.t(.leaderboardLoadError))
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.67, green: 0.76, blue: 0.88))
+            Text(loadError == .notConfigured ? loc.t(.leaderboardNotConfigured) : loc.t(.leaderboardLoadError))
+                .font(.system(size: labelSize, weight: .medium))
+                .foregroundStyle(MainMenuPalette.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
         } else if rows.isEmpty {
             Text(loc.t(.leaderboardEmptyState))
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.67, green: 0.76, blue: 0.88))
+                .font(.system(size: labelSize, weight: .medium))
+                .foregroundStyle(MainMenuPalette.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
         } else {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 8) {
-                    ForEach(rows) { row in
-                        rowView(row)
+            VStack(spacing: 0) {
+                HStack {
+                    Text(loc.t(.leaderboardRankLabel)).frame(width: 54, alignment: .leading)
+                    Text(loc.t(.leaderboardFighterLabel))
+                    Spacer()
+                    Text(loc.t(.menuTotalWins))
+                }
+                .font(.system(size: detailSize, weight: .semibold))
+                .foregroundStyle(MainMenuPalette.secondary)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        ForEach(rows) { row in rowView(row) }
                     }
                 }
+                .scrollIndicators(.hidden)
             }
         }
     }
 
     private var signInPrompt: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 30))
-                .foregroundStyle(Color(red: 1.0, green: 0.78, blue: 0.12))
-            Text(loc.t(.leaderboardSignInPrompt))
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.67, green: 0.76, blue: 0.88))
-                .multilineTextAlignment(.center)
-            Button(loc.t(.leaderboardSignInButton)) {
-                gameCenter.authenticate()
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(MainMenuPalette.secondary)
+                    .accessibilityHidden(true)
+                Text(loc.t(.leaderboardSignInPrompt))
+                    .font(.system(size: labelSize, weight: .medium))
+                    .foregroundStyle(MainMenuPalette.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let error = gameCenter.authenticationError {
+                    Text(error)
+                        .font(.system(size: detailSize, weight: .medium))
+                        .foregroundStyle(MainMenuPalette.rival)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button { gameCenter.authenticate() } label: {
+                    HStack(spacing: 8) {
+                        if gameCenter.isAuthenticating {
+                            ProgressView().tint(MainMenuPalette.background).frame(width: 16, height: 16)
+                        } else {
+                            Image(systemName: "person.crop.circle.badge.checkmark").frame(width: 16, height: 16)
+                        }
+                        Text(loc.t(.leaderboardSignInButton))
+                    }
+                }
+                .buttonStyle(RivalMenuButtonStyle(primary: true))
+                .accessibilityIdentifier("leaderboardSignIn")
             }
-            .buttonStyle(ModalButtonStyle(accent: Color(red: 1.0, green: 0.78, blue: 0.12)))
+            .padding(.top, 16)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 12)
+        .scrollIndicators(.hidden)
     }
 
     private func rowView(_ row: GameCenterManager.Row) -> some View {
         HStack(spacing: 10) {
             Text("#\(row.rank)")
-                .font(.system(size: 13, weight: .black, design: .rounded))
-                .foregroundStyle(Color(red: 1.0, green: 0.78, blue: 0.12))
-                .frame(width: 34, alignment: .leading)
+                .font(.system(size: 23, weight: .bold))
+                .fontWidth(.condensed)
+                .monospacedDigit()
+                .foregroundStyle(MainMenuPalette.paper)
+                .frame(width: 54, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.isLocalPlayer ? "\(row.displayName) (\(loc.t(.leaderboardYouLabel)))" : row.displayName)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+                    .font(.system(size: labelSize, weight: .semibold))
+                    .foregroundStyle(MainMenuPalette.paper)
+                    .lineLimit(2)
                 HStack(spacing: 4) {
                     if let style = row.style {
                         Text(style.label(for: loc.language))
@@ -118,32 +162,46 @@ struct LeaderboardView: View {
                         Text("· ROUND \(row.highestRound)")
                     }
                 }
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.67, green: 0.76, blue: 0.88))
+                .font(.system(size: detailSize, weight: .regular))
+                .foregroundStyle(MainMenuPalette.secondary)
             }
 
             Spacer(minLength: 4)
 
             Text("\(row.wins) \(loc.t(.leaderboardWinsLabel))")
-                .font(.system(size: 12, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: labelSize, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(MainMenuPalette.paper)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .selectableChip(isSelected: row.isLocalPlayer, accent: Color(red: 1.0, green: 0.78, blue: 0.12))
+        .background(row.isLocalPlayer ? MainMenuPalette.surface : .clear)
+        .overlay(alignment: .bottom) { Rectangle().fill(MainMenuPalette.rule).frame(height: 1) }
     }
 
-    private func load() async {
-        guard gameCenter.isAuthenticated else { return }
+    @MainActor private func load() async {
+        let requestID = UUID()
+        loadRequestID = requestID
+        guard gameCenter.isAuthenticated else {
+            rows = []
+            loadError = nil
+            isLoading = false
+            return
+        }
         isLoading = true
         loadError = nil
-        switch await gameCenter.loadTopEntries() {
+        defer {
+            if loadRequestID == requestID { isLoading = false }
+        }
+        controller.synchronizeGameCenterScore()
+        let result = await gameCenter.loadTopEntries()
+        guard !Task.isCancelled, loadRequestID == requestID else { return }
+        switch result {
         case .success(let loaded):
             rows = loaded
         case .failure(let error):
             loadError = error
         }
-        isLoading = false
     }
 }

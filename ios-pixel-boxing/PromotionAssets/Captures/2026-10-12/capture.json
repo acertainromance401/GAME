@@ -1,0 +1,20 @@
+[
+  {
+    "fps" : 60,
+    "frames" : 480,
+    "height" : 2160,
+    "perfectCounterCount" : 1,
+    "perfectCounterFrame" : 34,
+    "scenario" : "counter",
+    "width" : 3840
+  },
+  {
+    "fps" : 60,
+    "frames" : 360,
+    "height" : 2160,
+    "perfectCounterCount" : 0,
+    "perfectCounterFrame" : -1,
+    "scenario" : "exchange",
+    "width" : 3840
+  }
+]

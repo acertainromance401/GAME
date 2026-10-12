@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AA6B1A02-0543-4463-BD29-2E57B2BFCF2A",
+        "deviceName" : "RIVAL-Review-1.2-iPhone",
+        "exportedFileName" : "48665584-F41C-49EA-98E0-FD3199647738.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-05-rival-fight_0_FDF94B41-E059-4C0A-9799-2703A2385F0C.png",
+        "timestamp" : 1791663269.383
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AA6B1A02-0543-4463-BD29-2E57B2BFCF2A",
+        "deviceName" : "RIVAL-Review-1.2-iPhone",
+        "exportedFileName" : "200CE824-5072-4BBB-AE32-91B07D5D0348.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-04-gym_0_876B5B42-8DF2-4710-9FAB-655AD9079F0A.png",
+        "timestamp" : 1791663264.468
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AA6B1A02-0543-4463-BD29-2E57B2BFCF2A",
+        "deviceName" : "RIVAL-Review-1.2-iPhone",
+        "exportedFileName" : "C57D6122-1AE0-4AC0-9EEF-5EE2AC9ABC0B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-03-story-progression_0_F5770EE7-E68C-4753-B02F-9D1B399F7D76.png",
+        "timestamp" : 1791663259.459
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AA6B1A02-0543-4463-BD29-2E57B2BFCF2A",
+        "deviceName" : "RIVAL-Review-1.2-iPhone",
+        "exportedFileName" : "13B07AD2-36EF-477E-9B12-8F5B1D4DCD31.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-02-story-purchase_0_8898704F-E278-4A4B-AA9A-56F435831624.png",
+        "timestamp" : 1791663256.381
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "AA6B1A02-0543-4463-BD29-2E57B2BFCF2A",
+        "deviceName" : "RIVAL-Review-1.2-iPhone",
+        "exportedFileName" : "B0CB0A81-2E8A-4B58-A933-E1184C2D60DB.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-01-main-menu_0_102B102E-DEFB-46B3-A145-BA878896F1FC.png",
+        "timestamp" : 1791663253.868
+      }
+    ],
+    "testIdentifier" : "RIVALUITests/testCaptureReleaseReviewScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/RIVAL/RIVALUITests/RIVALUITests/testCaptureReleaseReviewScreens"
+  }
+]

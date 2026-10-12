@@ -1,12 +1,24 @@
+/*
+ LoadingScreenView.swift
+
+ 파일 설명:
+ - 앱 시작 시 사용자에게 보여주는 로딩/진입 화면을 정의합니다.
+ - 3D 아레나/라인업 리소스를 재사용하여 일관된 비주얼을 제공하고 초기 데이터 로딩 상태를 표시합니다.
+
+ 사용 영향 및 주의사항:
+ - 네트워크/디스크 I/O 대기 시 표시되는 UI로, 성능 민감 코드와 분리되어야 합니다.
+ - 주석 추가만으로는 동작에 영향이 없습니다.
+*/
+
 import SwiftUI
 
-/// The first in-app presentation after Apple's static launch screen. It reuses the live arena and boxer
-/// rigs while cinematic mode keeps the combat engine paused, so it is a visual entrance rather than a fight.
+/// 로딩 스크린: 앱 시작 시 짧게 보여주는 연출. 전투 엔진은 cinematic 모드로 멈춘 상태에서
+/// 3D 씬을 재사용하므로 별도 스프라이트 자산이 필요 없습니다.
 struct LoadingScreenView: View {
     @ObservedObject var controller: GameController
     let onFinished: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @RivalReducedMotion private var reduceMotion
     @State private var sceneVisible = false
     @State private var markVisible = false
     @State private var hasFinished = false

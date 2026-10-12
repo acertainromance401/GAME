@@ -15,4 +15,29 @@ godot-pixel-boxing/.godot/
 ios-pixel-boxing/build/
 ios-pixel-boxing/*.xcodeproj/
 *.xcuserstate
+.vscode/
+
+# Preserve the release project without personal Xcode state.
+!ios-pixel-boxing/RIVAL.xcodeproj/
+ios-pixel-boxing/RIVAL.xcodeproj/*
+!ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj
+!ios-pixel-boxing/RIVAL.xcodeproj/xcshareddata/
+!ios-pixel-boxing/RIVAL.xcodeproj/xcshareddata/**
+!ios-pixel-boxing/RIVAL.xcodeproj/project.xcworkspace/
+ios-pixel-boxing/RIVAL.xcodeproj/project.xcworkspace/*
+!ios-pixel-boxing/RIVAL.xcodeproj/project.xcworkspace/contents.xcworkspacedata
+
+# Raw recordings and licensed stock music stay local; finished videos are tracked.
+ScreenRecording_*.MP4
+ScreenRecording_*.MOV
+RIVAL_PromotionVideo.mp4
+ios-pixel-boxing/ScreenRecording_*.MP4
+ios-pixel-boxing/ScreenRecording_*.MOV
+ios-pixel-boxing/RIVAL_PromotionVideo.mp4
+ios-pixel-boxing/PromotionAssets/Audio/*.mp3
+ios-pixel-boxing/PromotionAssets/Captures/**/file.jpe
+ios-pixel-boxing/art/Story/backups/
+*.blend1
+debug_pdf_test.pdf
+Screenshot 2026-09-18 at 11.31.16*.png
 

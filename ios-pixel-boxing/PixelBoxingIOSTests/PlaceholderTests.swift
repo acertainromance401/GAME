@@ -17,13 +17,13 @@ final class CombatCoreTests: XCTestCase {
     }
 
     func testControllerUsesHeldDefenseForComboAttack() {
-        let guardController = GameController()
+        let guardController = GameController(persistsProgress: false, feedbackEnabled: false)
         guardController.start()
         guardController.guardButton(active: true)
         guardController.comboAttack(base: .jab)
         XCTAssertEqual(guardController.engine.player.attack, .leftUppercut)
 
-        let duckController = GameController()
+        let duckController = GameController(persistsProgress: false, feedbackEnabled: false)
         duckController.start()
         duckController.duckButton(direction: -1, active: true)
         duckController.comboAttack(base: .cross)
@@ -32,12 +32,12 @@ final class CombatCoreTests: XCTestCase {
 
     func testVisualJabUsesLeftHandAndCrossUsesRightHand() {
         var jabPose = FightPose.neutral(stride: 0)
-        jabPose.applyAttack(.jab, progress: 0.54)
+        jabPose.applyAttack(.jab, progress: Float(0.08 / 0.24))
         XCTAssertGreaterThan(jabPose.leftGlove.x, 0)
         XCTAssertGreaterThan(jabPose.leftGlove.z, jabPose.rightGlove.z + 1)
 
         var crossPose = FightPose.neutral(stride: 0)
-        crossPose.applyAttack(.cross, progress: 0.54)
+        crossPose.applyAttack(.cross, progress: Float(0.14 / 0.34))
         XCTAssertLessThan(crossPose.rightGlove.x, 0)
         XCTAssertGreaterThan(crossPose.rightGlove.z, crossPose.leftGlove.z + 0.8)
     }
@@ -51,16 +51,38 @@ final class CombatCoreTests: XCTestCase {
 
         XCTAssertEqual(leftDuck.rootY, 0, accuracy: 0.001)
         XCTAssertEqual(leftDuck.rootY, rightDuck.rootY, accuracy: 0.001)
-        XCTAssertEqual(leftDuck.leftFoot.y, neutral.leftFoot.y, accuracy: 0.001)
-        XCTAssertEqual(leftDuck.rightFoot.y, neutral.rightFoot.y, accuracy: 0.001)
-        XCTAssertGreaterThan(leftDuck.bodyDrop, 0.4)
-        XCTAssertLessThan(leftDuck.torsoY, neutral.torsoY - 0.35)
-        XCTAssertLessThan(leftDuck.leftHip.y, neutral.leftHip.y - 0.25)
-        // Torso lean was deliberately eased from 0.28 to 0.14 so the arms don't visibly swing apart mid-duck
-        // (see `applyDuck`'s comment) -- assert direction/magnitude against that current tuning, not the old value.
-        XCTAssertGreaterThan(leftDuck.torsoLean, 0.1)
-        XCTAssertLessThan(rightDuck.torsoLean, -0.1)
-        XCTAssertGreaterThan(leftDuck.leftGlove.x, rightDuck.leftGlove.x)
+        var guardPose = neutral
+        guardPose.applyGuard()
+        for (direction, pose) in [(Float(-1), leftDuck), (Float(1), rightDuck)] {
+            XCTAssertEqual(pose.leftFoot, neutral.leftFoot)
+            XCTAssertEqual(pose.rightFoot, neutral.rightFoot)
+            XCTAssertEqual(pose.rootZ, neutral.rootZ)
+            XCTAssertEqual(pose.bodyDrop, 0.40, accuracy: 0.00001)
+            XCTAssertEqual(pose.defensiveCrouch, 0.40, accuracy: 0.00001)
+            XCTAssertEqual(pose.torsoY, neutral.torsoY - 0.40, accuracy: 0.00001)
+            XCTAssertEqual(pose.leftHip.y, neutral.leftHip.y - 0.288, accuracy: 0.00001)
+            XCTAssertEqual(pose.rightHip.y, neutral.rightHip.y - 0.288, accuracy: 0.00001)
+            XCTAssertEqual(pose.leftKnee.y, neutral.leftKnee.y - 0.08, accuracy: 0.00001)
+            XCTAssertEqual(pose.rightKnee.y, neutral.rightKnee.y - 0.08, accuracy: 0.00001)
+            XCTAssertEqual(pose.leftKnee.z, neutral.leftKnee.z + 0.18, accuracy: 0.00001)
+            XCTAssertEqual(pose.rightKnee.z, neutral.rightKnee.z + 0.18, accuracy: 0.00001)
+            XCTAssertEqual(pose.torsoYaw, -direction * 0.18, accuracy: 0.00001)
+            XCTAssertEqual(pose.hipYaw, -direction * 0.081, accuracy: 0.00001)
+            XCTAssertEqual(pose.torsoPitch, -0.14, accuracy: 0.00001)
+            XCTAssertEqual(pose.torsoLean, direction * 0.025, accuracy: 0.00001)
+            XCTAssertEqual(pose.rootX, -direction * 0.04, accuracy: 0.00001)
+            XCTAssertLessThan(pose.headFacingPosition.y, neutral.headFacingPosition.y - 0.39)
+            XCTAssertGreaterThan(pose.headFacingPosition.z, neutral.headFacingPosition.z)
+            // Rendered offsets follow the chin; inverse torso rotation changes authored glove.x/y.
+            let joints = [pose.leftGlove, pose.rightGlove, pose.leftElbow, pose.rightElbow]
+            let guarded = [guardPose.leftGlove, guardPose.rightGlove, guardPose.leftElbow, guardPose.rightElbow]
+            for (joint, target) in zip(joints, guarded) {
+                let offset = pose.facingPoint(joint) - pose.headFacingPosition
+                XCTAssertLessThan(simd_distance(offset, target - SIMD3<Float>(0, 2.28, 0.04)), 0.0001)
+            }
+        }
+        XCTAssertGreaterThan(leftDuck.rootX + leftDuck.headFacingPosition.x,
+                             rightDuck.rootX + rightDuck.headFacingPosition.x)
     }
 
     func testMovementUsesFighterRelativeDesktopAxes() {
@@ -82,7 +104,7 @@ final class CombatCoreTests: XCTestCase {
     }
 
     func testControllerKeepsRemainingHeldMovement() {
-        let controller = GameController()
+        let controller = GameController(persistsProgress: false, feedbackEnabled: false)
         controller.start()
         controller.move(x: 1, y: 0, active: true)
         controller.move(x: 0, y: 1, active: true)
@@ -92,7 +114,7 @@ final class CombatCoreTests: XCTestCase {
     }
 
     func testHeldGuardReturnsAfterComboAttack() {
-        let controller = GameController()
+        let controller = GameController(persistsProgress: false, feedbackEnabled: false)
         controller.start()
         controller.guardButton(active: true)
         controller.comboAttack(base: .jab)
@@ -105,7 +127,7 @@ final class CombatCoreTests: XCTestCase {
     }
 
     func testReleasedDuckClearsAfterBodyShot() {
-        let controller = GameController()
+        let controller = GameController(persistsProgress: false, feedbackEnabled: false)
         controller.start()
         controller.duckButton(direction: -1, active: true)
         controller.comboAttack(base: .jab)
@@ -426,6 +448,78 @@ final class CombatCoreTests: XCTestCase {
         XCTAssertEqual(wrong.player.hp, 94)
     }
 
+    func testKnockoutBlowStartsDedicatedKoMomentSlowMotionAndZoom() {
+        let engine = closeRangeEngine()
+        engine.enemy.hp = 5
+        XCTAssertTrue(engine.startAttack(engine.player, punch: .jab))
+        advanceToActiveFrame(engine)
+
+        XCTAssertEqual(engine.enemy.hp, 0)
+        XCTAssertTrue(engine.lastRoundWasKnockout)
+        XCTAssertEqual(engine.koMomentTime, CombatData.koMomentDuration, accuracy: 0.001)
+
+        // The KO beat decays in real seconds and forces the strongest available slow-motion scale,
+        // overriding whatever dodge-focus scale (if any) was active, so the finishing blow always reads
+        // as unmistakably dramatic. `update(deltaTime:)` clamps each call's raw delta to 0.05s, so a
+        // single 0.1s call still only advances real time by 0.05s.
+        engine.update(deltaTime: 0.1)
+        XCTAssertEqual(engine.koMomentTime, CombatData.koMomentDuration - 0.05, accuracy: 0.001)
+    }
+
+    func testRivalMomentStartsAtPerfectPlayerDodgeBeforeCounterInput() {
+        let playerDuck = closeRangeEngine()
+        XCTAssertTrue(playerDuck.startAttack(playerDuck.enemy, punch: .cross))
+        advance(playerDuck, frames: 1)
+        playerDuck.setDuck(-1, active: true)
+        advance(playerDuck, frames: 2)
+
+        XCTAssertEqual(playerDuck.lastPlayerDodgeGrade, .perfect)
+        XCTAssertEqual(playerDuck.rivalMomentGrade, .perfect)
+        XCTAssertEqual(playerDuck.rivalMomentTime, DodgeGrade.perfect.focusDuration, accuracy: 0.001)
+        XCTAssertGreaterThan(playerDuck.enemy.exposed, 0)
+        XCTAssertNil(playerDuck.player.attack)
+        playerDuck.update(deltaTime: 0.05)
+        XCTAssertEqual(
+            playerDuck.enemy.actionTime,
+            0.15 + 0.05 * DodgeGrade.perfect.timeScale,
+            accuracy: 0.001
+        )
+    }
+
+    func testEarlyPlayerDuckIsNormalAndRivalDuckCannotStartRivalMoment() {
+        let earlyDuck = closeRangeEngine()
+        earlyDuck.setDuck(1, active: true)
+        advance(earlyDuck, frames: 7)
+        XCTAssertTrue(earlyDuck.startAttack(earlyDuck.enemy, punch: .jab))
+        advanceToActiveFrame(earlyDuck)
+
+        XCTAssertEqual(earlyDuck.lastPlayerDodgeGrade, .normal)
+        XCTAssertEqual(earlyDuck.rivalMomentTime, 0, accuracy: 0.001)
+
+        let rivalDuck = closeRangeEngine()
+        XCTAssertTrue(rivalDuck.performEnemyDecision("dodge_right"))
+        XCTAssertTrue(rivalDuck.startAttack(rivalDuck.player, punch: .jab))
+        advanceToActiveFrame(rivalDuck)
+
+        XCTAssertEqual(rivalDuck.rivalMomentTime, 0, accuracy: 0.001)
+    }
+
+    func testPerfectDodgeCounterUsesAttackInputCapturedInsideWindow() {
+        let engine = closeRangeEngine()
+        XCTAssertTrue(engine.startAttack(engine.enemy, punch: .cross))
+        advance(engine, frames: 1)
+        engine.setDuck(-1, active: true)
+        advance(engine, frames: 2)
+        XCTAssertTrue(engine.startAttack(engine.player, punch: .jab))
+        // The Perfect RIVAL MOMENT beat now slows engine time much more aggressively (bolder zoom +
+        // slow-motion per design direction), so more real frames must pass before the jab's active frame
+        // is reached -- the counter input itself is still captured instantly at attack-start time either way.
+        advanceUntilPlayerAttackResolves(engine)
+
+        XCTAssertEqual(engine.perfectCounterCount, 1)
+        XCTAssertTrue(engine.message.contains("PERFECT COUNTER"))
+    }
+
     func testDuckCounterBodyAndHookBonusesAreVisibleInDamageAndCommentary() {
         let bodyEngine = closeRangeEngine()
         bodyEngine.setDuck(-1, active: true)
@@ -434,18 +528,23 @@ final class CombatCoreTests: XCTestCase {
         XCTAssertEqual(bodyEngine.player.hp, 100)
         advance(bodyEngine, frames: 2)
         XCTAssertTrue(bodyEngine.startAttack(bodyEngine.player, punch: .leftBody))
-        advance(bodyEngine, frames: 3)
+        // This setup is Accurate; wait for resolution instead of assuming a particular time scale.
+        advanceUntilPlayerAttackResolves(bodyEngine)
         XCTAssertEqual(bodyEngine.enemy.hp, 84)
         XCTAssertTrue(bodyEngine.message.contains("바디/훅 보너스 피해 16"))
 
         let hookEngine = closeRangeEngine()
         hookEngine.setDuck(1, active: true)
+        // A small extra gap before the jab starts keeps this dodge graded Accurate rather than Perfect
+        // (jab's active frame arrives very early), so this stays a plain countered-hit assertion instead
+        // of tripping the separate PERFECT COUNTER message override (covered by its own dedicated test).
+        advance(hookEngine, frames: 1)
         XCTAssertTrue(hookEngine.startAttack(hookEngine.enemy, punch: .jab))
         advanceToActiveFrame(hookEngine)
         XCTAssertEqual(hookEngine.player.hp, 100)
         advance(hookEngine, frames: 2)
         XCTAssertTrue(hookEngine.startAttack(hookEngine.player, punch: .leftHook))
-        advance(hookEngine, frames: 4)
+        advanceUntilPlayerAttackResolves(hookEngine)
         XCTAssertEqual(hookEngine.enemy.hp, 82)
         XCTAssertTrue(hookEngine.message.contains("바디/훅 보너스 피해 18"))
     }
@@ -517,6 +616,139 @@ final class CombatCoreTests: XCTestCase {
         XCTAssertEqual(engine.enemy.hp, 92)
     }
 
+    func testCounterWindowExpiresAndLateAttackIsNotCounter() {
+        let engine = closeRangeEngine()
+        XCTAssertTrue(engine.startAttack(engine.enemy, punch: .cross))
+        advance(engine, frames: 1)
+        engine.setDuck(-1, active: true)
+        advance(engine, frames: 2)
+        XCTAssertEqual(engine.lastPlayerDodgeGrade, .perfect)
+
+        // Wait past both the dodge-captured counter window and exposed time.
+        advance(engine, frames: 25)
+
+        XCTAssertTrue(engine.startAttack(engine.player, punch: .jab))
+        advanceUntilPlayerAttackResolves(engine)
+
+        XCTAssertEqual(engine.perfectCounterCount, 0)
+        XCTAssertEqual(engine.enemy.hp, 94)
+        XCTAssertFalse(engine.message.contains("PERFECT COUNTER"))
+    }
+
+    func testExhaustionLocksActionsThenRecovers() {
+        let engine = closeRangeEngine()
+        engine.player.stamina = CombatData.backstepStaminaCost
+
+        XCTAssertTrue(engine.backstep())
+        XCTAssertEqual(engine.player.stamina, 0, accuracy: 0.001)
+        XCTAssertGreaterThan(engine.player.exhausted, 0)
+
+        let lockedX = engine.player.x
+        engine.setMove(x: 1, y: 0)
+        engine.setGuarding(true)
+        engine.setDuck(1, active: true)
+
+        XCTAssertFalse(engine.startAttack(engine.player, punch: .jab))
+        XCTAssertFalse(engine.backstep())
+
+        engine.update(deltaTime: 0.05)
+        XCTAssertEqual(engine.player.x, lockedX, accuracy: 0.001)
+        XCTAssertFalse(engine.player.guarding)
+        XCTAssertEqual(engine.player.duckDirection, 0)
+
+        advance(engine, frames: 20)
+        XCTAssertEqual(engine.player.exhausted, 0, accuracy: 0.0001)
+
+        engine.setGuarding(true)
+        XCTAssertTrue(engine.player.guarding)
+    }
+
+    func testWhiffSetsExposedThenClearsByTimer() {
+        let engine = CombatEngine(persistHabits: false)
+        engine.startRound()
+
+        XCTAssertTrue(engine.startAttack(engine.player, punch: .jab))
+        advance(engine, frames: 10)
+
+        XCTAssertNil(engine.player.attack)
+        XCTAssertGreaterThan(engine.player.exposed, 0)
+        XCTAssertTrue(engine.message.contains("조심하세요"))
+
+        advance(engine, frames: 30)
+        XCTAssertEqual(engine.player.exposed, 0, accuracy: 0.0001)
+    }
+
+    func testDuckEvadeMessageMatchesWhoIsActuallyExposed() {
+        let playerDodges = closeRangeEngine()
+        XCTAssertTrue(playerDodges.startAttack(playerDodges.enemy, punch: .cross))
+        advance(playerDodges, frames: 1)
+        playerDodges.setDuck(-1, active: true)
+        advanceToActiveFrame(playerDodges)
+        XCTAssertTrue(playerDodges.message.contains("카운터 타이밍"))
+
+        let rivalDodges = closeRangeEngine()
+        XCTAssertTrue(rivalDodges.performEnemyDecision("dodge_right"))
+        XCTAssertTrue(rivalDodges.startAttack(rivalDodges.player, punch: .jab))
+        advanceToActiveFrame(rivalDodges)
+        XCTAssertTrue(rivalDodges.message.contains("당신이 노출"))
+    }
+
+    func testTwentyMinuteSessionRemainsStableAndResponsive() {
+        let engine = CombatEngine(persistHabits: false)
+        engine.startSession()
+        let frames = Int((20.0 * 60.0) / 0.05)
+
+        for frame in 0..<frames {
+            if engine.snapshot.canAdvanceRound {
+                engine.requestNextRound()
+            }
+
+            if frame % 120 == 0 {
+                switch (frame / 120) % 4 {
+                case 0: engine.setMove(x: 1, y: 0)
+                case 1: engine.setMove(x: 0, y: 1)
+                case 2: engine.setMove(x: -1, y: 0)
+                default: engine.setMove(x: 0, y: -1)
+                }
+            }
+            if frame % 90 == 0 {
+                engine.setGuarding((frame / 90) % 2 == 0)
+            }
+            if frame % 110 == 0 {
+                let direction = ((frame / 110) % 2 == 0) ? -1 : 1
+                engine.setDuck(direction, active: true)
+            }
+            if frame % 110 == 25 {
+                engine.setDuck(0, active: false)
+            }
+            if frame % 75 == 0 {
+                _ = engine.startAttack(engine.player, punch: .jab, recordsHabit: true)
+            }
+            if frame % 150 == 0 {
+                _ = engine.backstep()
+            }
+
+            engine.update(deltaTime: 0.05)
+            assertFighterStateStable(engine.player)
+            assertFighterStateStable(engine.enemy)
+
+            if frame % 300 == 0 {
+                let snapshot = engine.snapshot
+                XCTAssertTrue(snapshot.time.isFinite)
+                XCTAssertFalse(snapshot.message.isEmpty)
+            }
+        }
+
+        engine.setMove(x: 0, y: 0)
+        engine.setGuarding(false)
+        engine.setDuck(0, active: false)
+        engine.update(deltaTime: 0.05)
+
+        XCTAssertEqual(engine.moveX, 0, accuracy: 0.0001)
+        XCTAssertEqual(engine.moveY, 0, accuracy: 0.0001)
+        XCTAssertEqual(engine.player.duckDirection, 0)
+    }
+
     private func closeRangeEngine() -> CombatEngine {
         let engine = CombatEngine(persistHabits: false)
         engine.startSession()
@@ -533,5 +765,31 @@ final class CombatCoreTests: XCTestCase {
 
     private func advance(_ engine: CombatEngine, frames: Int) {
         for _ in 0..<frames { engine.update(deltaTime: 0.05) }
+    }
+
+    /// Stop at hit resolution, whiff completion or round end; do not wait through unrelated recovery.
+    private func advanceUntilPlayerAttackResolves(_ engine: CombatEngine, maxFrames: Int = 200) {
+        var frames = 0
+        while engine.phase == .fight, engine.player.attack != nil, !engine.player.acted, frames < maxFrames {
+            engine.update(deltaTime: 0.05)
+            frames += 1
+        }
+        XCTAssertLessThan(frames, maxFrames, "Player attack never resolved")
+    }
+
+    private func assertFighterStateStable(_ fighter: FighterModel, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(fighter.x.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.y.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.facingX.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.facingY.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.stamina.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.actionTime.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.exposed.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.exhausted.isFinite, file: file, line: line)
+        XCTAssertTrue(fighter.hitReaction.isFinite, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(fighter.hp, 0, file: file, line: line)
+        XCTAssertLessThanOrEqual(fighter.hp, 100, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(fighter.stamina, 0, file: file, line: line)
+        XCTAssertLessThanOrEqual(fighter.stamina, 100, file: file, line: line)
     }
 }

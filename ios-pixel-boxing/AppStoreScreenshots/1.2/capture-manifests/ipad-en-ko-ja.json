@@ -1,0 +1,155 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "8773AD55-6191-412F-B750-3D2E30C95BD6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ja-05-rival-fight_0_2B9566C0-A23E-4074-9D55-6B7A4A166977.png",
+        "timestamp" : 1791664708.914
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "4593FF1A-07AA-4585-A49B-182BD39F2406.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ja-04-gym_0_29BF59C4-BA0C-4E38-9FD6-A820F24EF613.png",
+        "timestamp" : 1791664703.18
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "EE3FFE4B-C8A6-40EA-B768-3E2D4AD51B35.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ja-03-story-progression_0_4BDC631D-2657-466E-BCC0-1B9FF155DB88.png",
+        "timestamp" : 1791664693.99
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "689C404A-E71D-4536-B31D-133B51E1A6B4.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ja-02-story-purchase_0_F4BF25EA-F1F6-4CEE-A929-E188E56AE4C5.png",
+        "timestamp" : 1791664691.47
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "1A795715-2514-4B92-9898-058415B89CDD.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ja-01-main-menu_0_1493475F-C844-46BE-8F2B-A5FF13BF7D95.png",
+        "timestamp" : 1791664688.428
+      }
+    ],
+    "testIdentifier" : "RIVALUITests/testCaptureJapaneseReleaseReviewScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/RIVAL/RIVALUITests/RIVALUITests/testCaptureJapaneseReleaseReviewScreens"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "5E28CEF7-FE13-4993-AF63-5C027941F535.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ko-05-rival-fight_0_B4FFA2D4-E294-49FC-A9B5-9A65FC648436.png",
+        "timestamp" : 1791664734.701
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "AC807101-AD0F-4D72-8438-2185B08C4AD1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ko-04-gym_0_A571C044-E14D-4389-AD0E-DB960155EC29.png",
+        "timestamp" : 1791664727.905
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "01D27CAE-068A-4009-B290-20ADE46C4C0E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ko-03-story-progression_0_D4ABD8C2-DB38-41E5-BA7A-0763BC992683.png",
+        "timestamp" : 1791664722.533
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "67AE688C-415F-40D5-B062-66C76E64E98F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ko-02-story-purchase_0_5E84A39E-DC82-4C05-ACCD-D4CB70CAF5A3.png",
+        "timestamp" : 1791664720.433
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "AC033625-F6AC-4790-AB6F-626B30C4C3A2.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-ko-01-main-menu_0_A086221D-A644-4CF5-913C-CC784D2E959D.png",
+        "timestamp" : 1791664718.119
+      }
+    ],
+    "testIdentifier" : "RIVALUITests/testCaptureKoreanReleaseReviewScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/RIVAL/RIVALUITests/RIVALUITests/testCaptureKoreanReleaseReviewScreens"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "CEF5B599-0411-4E11-90AA-2C3E0A050C37.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-05-rival-fight_0_9600CCD6-EE43-4A50-AD03-F61F88CF6BD3.png",
+        "timestamp" : 1791664762.322
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "60345233-B982-40B4-AD36-8C0AEDA0AC64.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-04-gym_0_A5737B63-AA17-47AB-A3A6-AD0EB43D7EA5.png",
+        "timestamp" : 1791664754.779
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "CFE6F871-6417-46C6-8093-686AD8DF644E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-03-story-progression_0_A42BFFD9-8193-48CD-A538-567FD141F8A1.png",
+        "timestamp" : 1791664750.114
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "7EE2E233-EF58-4BDE-902A-10411A37F621.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-02-story-purchase_0_AFF2BB3D-1A3D-434A-AD1F-10D1BEA91E9C.png",
+        "timestamp" : 1791664746.799
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "405EE8CE-163A-4DCC-B2D7-0611F4ADD7B6",
+        "deviceName" : "RIVAL-Review-1.2-iPad",
+        "exportedFileName" : "4A51B904-FA0A-40BE-AAD7-AB2081140346.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "review-en-01-main-menu_0_48CB81A2-65DF-4D16-9FF1-4A9B437546AB.png",
+        "timestamp" : 1791664743.71
+      }
+    ],
+    "testIdentifier" : "RIVALUITests/testCaptureReleaseReviewScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/RIVAL/RIVALUITests/RIVALUITests/testCaptureReleaseReviewScreens"
+  }
+]

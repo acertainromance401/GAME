@@ -1,8 +1,23 @@
 # RIVAL 강화학습 구현 및 최종 적응형 AI 검증 기록
 
-> 검증일: 2026-09-06
-> 범위: 현재 작업 트리 코드·문서, Git 이력, VS Code 로컬 작업 기록
+> 현재 iOS 기준: RIVAL 1.2(6) 작업 트리 · 2026-10-12 소스·기존 제출 기록 대조
+> 최초 감사 기록: 2026-09-06 · 날짜별 실행 검증은 당시 기록으로 보존
+> 범위: 현재 iOS 코드·문서와 기존 감사의 Git 이력·VS Code 로컬 작업 기록
 > 원칙: 확인되지 않은 개발 동기, 성능 결과, 사용자 체감 결과는 사실로 단정하지 않는다.
+
+`1.2(6)`는 실제 [RIVAL.xcodeproj/project.pbxproj](RIVAL.xcodeproj/project.pbxproj)의
+마케팅 버전 `1.2`, 빌드 번호 `6`이며 [project.yml](project.yml)도 일치한다.
+실제 프로젝트를 기준으로 하며 문서 갱신을 위해 함부로 재생성하지 않는다. iPhone·iPad 가로 전용, iOS 17 이상이다.
+2026-10-12 확인 당시 공개 App Store는 유료 1.1(USD 1.99 / KRW 3,300)이며 무료 전환·1.2 출시는 미완료다.
+2026-10-11 서명된 Release 1.2(6) 아카이브 업로드와 앱·Story IAP·Total Wins 순위표의
+3항목 동반 심사 제출 기록은 `Waiting for Review`, 수동 출시(`MANUAL`)다.
+[제출 영수증](AppStoreMetadata/1.2-submission.json)과
+[출시 체크리스트](RELEASE_READINESS_CHECKLIST.md)를 따르며 오늘 새 조회·빌드 결과가 아니다.
+당시 로컬 Release StoreKitTest UI 캡처 6개 통과·첨부 30개는 제한된 화면 검증이다.
+실계정 구매·복원·권한 취소·기존 유료 고객 이행·Game Center는 미검증이다.
+현재 작업 트리와 기존 아카이브·App Store·TestFlight 배포본이 동일하다고 가정하지 않는다.
+이번 문서 정리에서는 과거 C++/Python/iOS 실행 검증을 재실행하거나 새 빌드·테스트·
+실기기 확인·배포 조회를 수행하지 않았다. 과거 조사 결과는 그때의 범위에 한정한다.
 
 ## 결론
 
@@ -10,7 +25,7 @@ RIVAL의 강화학습은 한 단계의 단일 구현이 아니었다.
 
 1. 초기 C++ TUI에는 실제 온라인 Q-learning 코드, Q-table 저장, 전투 루프 연결이 구현됐다.
 2. 이후 Python Pixel Boxing 코어에는 17개 행동, 관측 상태, 보상 이벤트, 렌더링 없는 시뮬레이터가 구현됐지만 정책 학습기와 정책 저장/로드는 구현되지 않았다.
-3. 현재 iOS RIVAL은 Q-table, 신경망, 보상 기반 정책 갱신을 사용하지 않는다. 플레이어 행동 통계를 `HabitMemory`에 누적하고, 사전에 작성된 규칙으로 RIVAL 행동의 가중 확률을 바꾸는 적응형 AI다.
+3. 현재 iOS RIVAL은 Q-table, 신경망, 보상 기반 정책 갱신을 사용하지 않는다. `HabitMemory`와 양측 `RivalAttackMemory`를 완료 라운드에서 확정하고 다음 라운드부터 사전에 작성된 규칙의 가중 확률에 반영한다. 라운드 중 난도·학습모델은 고정한다.
 
 정확한 표현은 다음과 같다.
 
@@ -29,7 +44,7 @@ RIVAL의 강화학습은 한 단계의 단일 구현이 아니었다.
 
 - 초기 C++ Q-learning: [../include/game/ai_agent.hpp](../include/game/ai_agent.hpp), [../src/game/ai_agent.cpp](../src/game/ai_agent.cpp), [../src/game/game_session.cpp](../src/game/game_session.cpp), [../src/game/save_game.cpp](../src/game/save_game.cpp)
 - Python RL 준비 환경: [../desktop-pixel-boxing/pixel_boxing/boxing_core.py](../desktop-pixel-boxing/pixel_boxing/boxing_core.py), [../tests/test_pixel_boxing_core.py](../tests/test_pixel_boxing_core.py), [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)
-- 현재 iOS AI: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift), [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)
+- 현재 iOS AI: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOS/RivalAI.swift](PixelBoxingIOS/RivalAI.swift), [PixelBoxingIOS/StoryMode.swift](PixelBoxingIOS/StoryMode.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift), [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)
 - 과거 대화 기록: 로컬 VS Code 세션 `02474283-4175-4bb7-9854-ed8a560cc96f`, `47210cd2-1316-4043-8a54-a4d919d25571`
 
 ---
@@ -194,7 +209,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 - "강화학습 정책 훈련, 저장, 로드, 평가"는 3단계의 남은 항목으로 열거돼 있다.
 - "훈련된 강화학습 정책 저장·배포는 아직 보류 상태"라고 명시돼 있다.
 
-근거: [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)의 10.1~10.5절 및 18절 3단계, [../docs/PROJECT_OVERVIEW.md](../docs/PROJECT_OVERVIEW.md)의 `Current Constraints`.
+근거: [../docs/PIXEL_BOXING_GAME_DESIGN.md](../docs/PIXEL_BOXING_GAME_DESIGN.md)의 10.1~10.5절 및 18절 3단계, [../docs/PROJECT_OVERVIEW.md](../docs/PROJECT_OVERVIEW.md)의 `Legacy Python Constraints`.
 
 ### 1-4. 최종 iOS 앱: 강화학습이 아닌 규칙·통계 기반 적응
 
@@ -204,7 +219,11 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 > 현재 iOS 빌드는 신경망을 학습하거나 보상으로 정책을 갱신하는 강화학습 모델이 아닙니다. 행동 규칙과 가중치가 소스 코드에 명시된 설명 가능한 적응형 시스템입니다.
 
-따라서 iOS에서는 플레이 중 바뀌는 값이 Q값이나 모델 가중치가 아니라, 플레이어의 누적 행동 비율과 그 비율에 의해 계산되는 행동 선택 확률이다.
+따라서 iOS에서는 Q값이나 신경망 파라미터를 훈련하지 않는다. 일반 RIVAL은 라운드 시작의
+장기 습관·공격 결과·난도를 고정하고 `tacticalRead`도 확정 장기 습관으로 결정한다.
+전투 중 `roundHabits`·`roundPlayerAttackResults`·`roundRivalAttackResults`는 수집만 한다.
+`finishRound`에서 승패와 무관하게 병합·저장하며 다음 라운드·재도전부터 반영한다.
+현재 거리·스태미나·보이는 공격·직전 공격 결과에 대한 고정 상황 반응은 실시간 학습이 아니다.
 
 ---
 
@@ -214,7 +233,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 코드와 동시대 작업 기록만으로 "강화학습을 쓰지 않게 된 단 하나의 가장 직접적인 이유"를 확정할 수는 없다.
 
-다만 현재 문서에는 선택 기준과 온라인 학습의 위험이 명시돼 있다. [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ)는 2026-09-02에 만든 현재 미추적 포트폴리오 원본이므로, 과거 결정 당시의 불변 기록이 아니라 사후에 문서화한 제품 선택 기준으로 취급한다.
+다만 현재 문서에는 선택 기준과 온라인 학습의 위험이 명시돼 있다. [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ)는 2026-09-02에 만든 뒤 갱신한 포트폴리오 원본이므로, 과거 결정 당시의 불변 기록이 아니라 사후에 문서화한 제품 선택 기준으로 취급한다.
 
 | 후보 이유 | 판정 | 확인된 사실 | 근거 |
 | --- | --- | --- | --- |
@@ -224,7 +243,7 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 | 밸런스 조정 어려움 | 미확인 | "플레이 감각의 직접 조정"은 우선순위로 적혀 있으나, 밸런스 조정이 불가능하거나 어려웠다는 직접 근거는 없다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ) |
 | iPhone 성능 | 미확인 | 성능 제약이 RL 미채택 원인이라는 코드·문서·세션 근거를 찾지 못했다. | 코드·문서·검색한 과거 기록 |
 | 앱 크기 | 선택 기준으로 확인 | 작은 앱 크기를 초기 제품의 우선순위로 문서화했다. 그러나 이것만으로 결정적 원인이라고는 단정할 수 없다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ) |
-| 오프라인 제약 | 선택 기준으로 확인 | 오프라인 동작을 우선했고, 현재 앱은 서버·외부 AI API·클라우드 동기화 없이 동작한다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ), [AI_USAGE.md](AI_USAGE.md) |
+| 오프라인 제약 | 선택 기준으로 확인 | 핵심 전투·습관 학습은 외부 AI API·서버 동기화 없이 동작한다. 선택적 Game Center 인증·랭킹 조회·기록 제출은 네트워크를 사용한다. | [../docs/RIVAL_PORTFOLIO.typ](../docs/RIVAL_PORTFOLIO.typ), [AI_USAGE.md](AI_USAGE.md), [GameCenterManager.swift](PixelBoxingIOS/GameCenterManager.swift) |
 | 개발 일정 | 미확인 | 일정 때문에 전환했다는 직접 발언이나 일정 문서를 찾지 못했다. | 코드·문서·검색한 과거 기록 |
 | 구현 복잡도 | 미확인 | 복잡도 때문에 포기했다는 직접 근거를 찾지 못했다. | 코드·문서·검색한 과거 기록 |
 
@@ -251,9 +270,11 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 - 설명 가능성: 어떤 습관에 어떤 공격 가중치가 늘어나는지 `HabitSnapshot.enemyWeights()`의 조건문으로 확인할 수 있다.
 - 직접 조정 가능성: 임계값, 가중치, 적응도 상한이 Swift 소스에 명시돼 있다.
+- 라운드 내 정책 안정성: 관측 버퍼와 확정 학습을 분리해 당해 라운드의 행동으로 학습모델을 바꾸지 않는다.
+- 제한된 공격 결과 기억: 적중·가드·회피·헛침 증거로 미리 정의된 가중치 보정만 수행한다.
 - 온디바이스·오프라인 동작: 습관 데이터는 `UserDefaults` JSON으로 저장되며 외부 서버로 전송하지 않는다.
 - 작은 런타임 의존성: iOS 앱에는 훈련된 외부 모델 파일이나 외부 AI API가 없다.
-- 회귀 테스트 가능성: 가드 비율이 높으면 바디샷 가중치가 커지는지, 패배 라운드의 습관이 롤백되는지 테스트할 수 있다.
+- 회귀 테스트 가능성: 가드 비율에 따른 바디샷 가중치와 승패에 관계없는 완료 라운드 습관 병합을 테스트할 수 있다.
 
 근거: [AI_USAGE.md](AI_USAGE.md), [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift), [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift).
 
@@ -263,6 +284,10 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 ## 4. 최종 iOS AI가 기록하는 행동과 바꾸는 가중치
 
+이 절의 iOS 구현 설명은 2026-10-12의 RIVAL 1.2(6) 작업 트리에 맞춰 대조했다.
+과거 C++/Python/iOS 검증 기록을 다시 실행했다는 뜻이나, 이 작업 트리가 이미 App Store에
+배포됐다는 뜻은 아니다.
+
 ### 4-1. 기록하는 행동
 
 `HabitMemory`는 다음 데이터를 누적한다.
@@ -270,14 +295,20 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 | 기록 | 수집 방식 | 파생 값 |
 | --- | --- | --- |
 | 8종 공격별 횟수 | 실제 공격 시작이 성공했을 때 증가 | 최다 공격, 잽 비율, 바디 비율 |
-| 최근 공격과 연속 횟수 | 공격 시작 시 갱신 | `repeatStreak` |
+| 당해 라운드의 최근 공격과 연속 횟수 | 공격 시작 시 갱신, 장기 병합 시 연속 상태 초기화 | `repeatStreak` |
 | 가드 유지 | 프레임 시간 표본 | `guardRatio` |
 | 왼쪽·오른쪽 더킹 | 프레임 시간 표본 | `duckLeftRatio`, `duckRightRatio` |
-| 백스텝 | 무적 시간 상태를 프레임 표본화 | `backstepRatio` |
+| 백스텝 | 실제 백스텝 동작 상태를 프레임 표본화 | `backstepRatio` |
+| 스토리의 좌우 위빙 | 실행 중인 방향을 기존 좌우 회피 표본에 합산 | `duckLeftRatio`, `duckRightRatio` · 독립 위빙 카운터 없음 |
 | 전진·후퇴 | 플레이어의 전후 이동 축을 프레임 표본화 | `pressureRatio`, `retreatRatio` |
 | 전체 표본량 | 모든 프레임 표본의 누적 | `sampleStrength` |
 
 공격은 "명중했을 때"가 아니라 "실제로 공격 시작에 성공했을 때" 기록된다. 스태미나 부족이나 경직으로 시작하지 못한 입력은 기록되지 않는다.
+
+공격 결과는 별도 양측 `RivalAttackMemory`에 적중·가드·더킹/위빙·백스텝 회피·거리/각도/접촉 헛침으로 기록한다.
+실행 불가 결과는 제외한다. 일반 모드 저장 키는 습관 `pixelBoxingHabitMemory`, 양측 결과 프로필
+`pixelBoxingRivalResults`의 두 개다. 학습 초기화는 두 키를 모두 삭제하며 최고 라운드·누적 승수·보상은 보존한다.
+스토리는 별도 `StoryLearningState`와 진행 저장을 사용한다.
 
 근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitMemory.noteAttack`, `HabitMemory.sample`, `CombatEngine.startAttack`, `CombatEngine.sampleHabits`; [AI_USAGE.md](AI_USAGE.md)의 "플레이 습관 수집".
 
@@ -285,27 +316,43 @@ Python 코어는 C++보다 넓은 RL 인터페이스를 실제로 구현했다.
 
 ```text
 adaptation = clamp(
-    0.18 + 0.16 * (round - 1) + 0.58 * sampleStrength,
+    0.18 + 0.57 * sampleStrength,
     0.18,
-    1.0
+    0.75
 )
 ```
 
-- `sampleStrength = min(1, totalSamples / 18)`
-- 적응도는 `0.18` 아래로 내려가지 않고 `1.0`을 넘지 않는다.
-- 이 값은 습관 대응 가중치, 적의 접근 속도, 적의 판단 간격에 사용된다.
+- `sampleStrength = min(1, max(totalSamples, 0) / 900)`, 표본은 경과시간의 8배다.
+- 관측 적응도는 `0.18...0.75`이며 이 식에는 라운드 번호 항이 없다. 별도 `RivalDifficulty`의
+    `experience = 1 - exp(-(max(1, round) - 1) / 55)`가 습관 대응 배율·판단 간격·이동·연계를 조절한다.
+- 전술 읽기는 확정 장기 습관으로 라운드 시작에 결정한다. 최근 몇 초의 입력으로
+    만료·감쇠·주기적 재평가하는 실시간 학습 경로는 현재 없다.
+- 각 `RivalAttackMemory`는 최대 32개 결과를 보존하고 역순 증거 가중치를 기록마다 `0.94`배로 낮춘다.
+    `confidence = min(1, max(0, (samples - 2) / 6))`이며 공격별 곱셈 보정은 `0.50...1.20`이다.
+    이 감쇠는 기록 순서에 대한 증거 가중치이지 실시간 표본의 반감기가 아니다.
+- 내부 적응 계수나 규칙 기반 confidence를 ‘학습 정확도 %’로 해석하지 않는다.
 
 근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.adaptation`, `CombatEngine.updateEnemy`.
 
 ### 4-3. RIVAL이 선택하는 행동
 
-현재 가중치 선택 후보는 계획된 17개 행동과 다르다.
+가중치 추첨 후보는 아래 17개이며, 보이는 준비 동작에 반응하는 별도 방어 경로에는 가드도
+있다. 위빙과 후속 훅도 별도 실행 경로에서 가능하다. 아래 기본 추첨 목록을 전체 런타임 행동 수라고
+해석하지 않으며 Python RL 계획과 같은 상태 전이 계약이라고도 보지 않는다.
 
 - 8종 펀치
 - `dodge_left`, `dodge_right`, `dodge_back`
+- `advance`, `retreat`, `circle_left`, `circle_right`, `cut_off`
 - `wait`
 
-`approach`은 가중치 후보가 아니라, 플레이어와의 거리가 `86`보다 멀 때 별도 이동 로직으로 실행된다. 적은 가드 행동을 이 가중치 목록에서 선택하지 않는다.
+별도 풋워크 상태가 없어도 목표 거리 조절·서클링을 지속한다. 선택된 풋워크는
+0.40–0.75초 동안 유지하며, 읽기·거리·스태미나와 후속 공격에 맞춰 움직인다. 공격·경직·
+탈진·방어 동작 중 일반 풋워크는 제한된다. 스토리 견제형은 공격 중에도 횡이동하는 별도 경로다.
+반응형 가드는 기존 피해 경감·스태미나 비용을 따른다. 백스텝은 순간 이동이 아니라
+0.22초 동작 중 0.18초에 걸친 최대 34 게임 단위 이동이며 회피 구간은 0.035–0.18초다.
+위빙은 비용 9·동작 0.36초·훅 시작 0.23초·입력 유예 0.12초·재시작 대기 0.48초다.
+방향 회피 시작은 `DuckMotion.entryDuration × minimumEvadeAmount`(약 0.063초), 끝은 0.27초다.
+플레이어 위빙 성공도 더킹과 같은 등급·카운터 창을 사용하며 상위 등급은 RIVAL MOMENT로 이어질 수 있다. 위빙 전용 피해 배율은 없다.
 
 근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.enemyWeights`, `CombatEngine.updateEnemy`, `CombatEngine.performEnemyDecision`.
 
@@ -315,33 +362,73 @@ adaptation = clamp(
 
 | 관찰 조건 | RIVAL의 가중치 변화 |
 | --- | --- |
-| 거리 `> 115` | 잽 `+1.55`, 크로스 `+0.45` |
-| 거리 `78...115` | 잽·크로스·훅·좌우 더킹 증가 |
-| 거리 `<= 78` | 좌우 바디·훅·어퍼컷·백스텝 증가 |
+| 거리 `> hitRange(jab, enemy.style) + 12` | 잽 `+1.55`, 크로스 `+0.45` |
+| 원거리 조건이 아니고 거리 `> hitRange(cross, enemy.style) - 4` | 잽·크로스·훅·좌우 더킹 증가 |
+| 위 두 조건에 해당하지 않는 근거리 | 좌우 바디·훅·어퍼컷·백스텝 증가 |
 | 가드 비율 `> 0.22` | 좌·우 바디샷에 각각 `0.95a`, `1.20a` 추가 |
 | 오른쪽 더킹 비율 `> 0.16` | 크로스·오른쪽 훅·오른쪽 어퍼컷 증가 |
 | 왼쪽 더킹 비율 `> 0.16` | 잽·왼쪽 훅·왼쪽 어퍼컷 증가 |
-| 잽 비율 `> 0.34` 또는 최다 공격이 잽 | 크로스·오른쪽 훅·오른쪽 더킹 증가 |
+| 잽 비율 `> 0.34` 또는 공격 표본이 있고 최다 공격이 잽 | 크로스·오른쪽 훅·오른쪽 더킹 증가 |
 | 바디 비율 `> 0.30` | 좌·우 어퍼컷 증가 |
-| 전진 압박 비율 `> 0.20` | 백스텝·좌우 훅 증가 |
-| 백스텝 비율 `> 0.14` 또는 후퇴 비율 `> 0.18` | 잽·크로스 증가, 대기 가중치 `0.8`배 |
-| 같은 공격을 3회 이상 반복 | 좌·우 더킹에 각각 `0.35a` 추가 |
+| 전진 압박 비율 `> 0.20` | 백스텝·후퇴·좌우 서클링·훅 증가 |
+| 백스텝 비율 `> 0.14` 또는 후퇴 비율 `> 0.18` | 거리 차단·전진·잽·크로스 증가, 대기 가중치 `0.8`배 |
+| 같은 공격을 3회 이상 반복 · 정의된 분기 | 좌·우 더킹에 각각 `0.35a` 추가하도록 정의됐으나 현재 장기 프로필 입력에서는 미적용 |
 | 플레이어 노출 상태 | 크로스 `+1.8`, 오른쪽 어퍼컷 `+1.4`, 오른쪽 훅 `+0.9`, 대기 `0.05` |
 
-여기서 `a`는 위 적응도다. 플레이어 노출 상태에 대한 마지막 행은 적응도를 곱하지 않는 고정 보정이다.
+여기서 `a`는 관측 적응도에 라운드별 `learningWeight`를 곱한 값이다. 플레이어 노출 상태에
+대한 마지막 행은 기본 고정 보정이다. 최종 실행 경로는 실제 사거리·스태미나로 불가능한
+공격을 제외하고 저장된 공격 결과·숙련도·대기·반복 공격 약화 회피 보정을 적용한 뒤 추첨한다.
+
+`hitRange`는 `기본 사거리 × 스타일 리치 배율 + 14 + 0.34 / 0.025`이며,
+인파이터(`standard`)의 원거리 경계는 83.6, 중거리 하한은 61.6 게임 단위다.
+거리 경계는 스타일에 따라 달라지므로 이전의 고정 115·78을 현재 조건으로 사용하지 않는다.
+
+현재 습관 가중치 입력은 확정된 장기 프로필이다. 장기 병합 때 `repeatStreak`를 0으로
+초기화하므로 정상 수집·병합 경로에서 위 연속 3회 분기는 적용되지 않는다. 현재 공격에
+대한 방어와 직전 결과의 후속 행동은 고정 상황 규칙이다. 반복 공격의 피해 감쇠는
+이 AI 가중치 분기와 별개의 전투 규칙이다.
 
 근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `HabitSnapshot.enemyWeights`.
 
 ### 4-5. 가중치 외에 실제로 달라지는 적 행동
 
 ```text
-enemySpeed = 46 + 22 * adaptation
-decisionInterval = max(0.18, 0.68 - 0.28 * adaptation) + random(0...0.18)
+experience = 1 - exp(-(max(1, round) - 1) / 55)
+movementBudget = 210 * (0.36 + 0.57 * experience)
+decisionInterval = 1.0 - 0.80 * experience + random(0 ... (0.16 - 0.10 * experience))
+learningWeight = 0.45 + 1.85 * experience
 ```
 
-즉 현재 iOS의 적응은 단순히 공격 종류만 바꾸는 것이 아니다. 멀리 있을 때의 접근 속도와 다음 행동을 결정하는 간격도 적응도에 따라 바뀐다.
+이동 예산은 전진·횡이동에 스타일 배율을, 후퇴 성분에는 스타일 보너스 없는 공통 0.5배를
+적용한다. 공격 회수나 경직을 건너뛰지 않으며
+일반 RIVAL의 기본 HP·피해·사거리도 바꾸지 않는다. 일반 반응형 회피/가드는 보이는 공격 준비
+동작과 고정된 지연·확률을 사용해 펀치당 한 번 시도한다. 후반일수록 두 공격의 짧은 연계를
+자주 시도한다. 이는 규칙 기반 실행 숙련도이며 보상 기반 정책 학습은 아니다.
 
-근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `CombatEngine.updateEnemy`.
+실제 타격은 공유 `BoxingMotion.Contact`의 `activeStart...activeEnd` swept 접촉을 사용한다.
+방향·조준은 공격 시작에 고정하며 매 프레임 추적하지 않는다. 양측 후보를 먼저 계산한 뒤
+각 공격의 절대 actionTime이 아닌 공통 프레임 시작 대비 접촉 시간순으로 처리하고
+접촉 시점의 가드·더킹·위빙·무적을 적용한다.
+
+스토리는 압박형→견제형→카운터형→강타형→RIVAL의 별도 정책이며 60초, 최대 4·6·8·10·12라운드다.
+일반 모드는 45초·최종 엔딩 없음인 반면 스토리는 한 선수의 한 라운드 3다운 TKO·그 전 4–9초
+카운트 후 HP 60/스태미나 50 기상·최종 점수 판정·마지막 승리 엔딩을 사용한다.
+강타형만 HP 120·추가 리치 4·공격력 1.15배이며 비용을 감당하는 동안 연타하고 회복 목표 45를 사용한다.
+회복 진입에만 최대 2초 가드, 가드 회복 6/초·종료 후 비가드 16.5/초이며 같은 회복기 재가드는 없다.
+공통 기본 회복은 11/초다. 마지막 RIVAL의 championship 실행 기준(판단 최대 0.28초·반응 지연 0.025초·
+확률 최소 66%·이동 effort 최소 0.84)도 라운드 안에서는 고정하며 중간 학습 적응이 아니다.
+
+스토리 이용권 `com.acertainromance401.pixelboxing.story`는 선택적 비소모성 상품이다.
+퍼스트 벨(`First Bell`)은 검증된 이용권, 상대 복장·챔피언 보상은 검증된 이용권과 해당 승리가 필요하다.
+기존 유료 권한은 번들 ID가 일치하는 검증된 Production `AppTransaction`의 최초 빌드 `1...4`만 인정한다.
+무료 전환의 날짜 경계·배포 시차는 미확정이다. DEBUG 전체 프리뷰 `true`/Release `false`는
+`rival.story.preview.v1` 별도 defaults suite를 사용하며 실제 통계·장비·Game Center 저장을 비활성화한다.
+프리뷰·로컬 StoreKitTest 캡처를 실계정 구매·복원·권한 취소·기존 유료 권한 검증으로 해석하지 않는다.
+세부 전투·권한 규칙은 [GAME_GUIDE.md](GAME_GUIDE.md), 개발 사례의 날짜별 기록은
+[DEVELOPMENT_ISSUES_AND_SOLUTIONS.md](DEVELOPMENT_ISSUES_AND_SOLUTIONS.md)를 따른다.
+
+근거: [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `CombatEngine.updateEnemy`,
+[PixelBoxingIOS/RivalAI.swift](PixelBoxingIOS/RivalAI.swift).
 
 ---
 
@@ -351,19 +438,23 @@ decisionInterval = max(0.18, 0.68 - 0.28 * adaptation) + random(0...0.18)
 
 | 장치 | 실제 동작 | 근거 |
 | --- | --- | --- |
-| 낮은 초기 적응도와 상한 | ROUND 1과 적은 표본에서 적응도는 최소 `0.18`; 최대 `1.0`으로 제한 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `adaptation` |
+| 표본 기반 적응도와 상한 | 확정된 표본량에 따라 `0.18...0.75`로 제한, 라운드 번호만으로 증가하지 않음 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `adaptation` |
+| 분리된 라운드 숙련도 | 관측 사실은 유지하고 라운드별 판단·이동·습관 대응·연계 활용을 점진적으로 증가 | [PixelBoxingIOS/RivalAI.swift](PixelBoxingIOS/RivalAI.swift)의 `RivalDifficulty` |
 | 가중 무작위 선택 | 가장 높은 행동만 고정 실행하지 않고 가중치 합에서 난수를 뽑아 선택 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `weightedChoice` |
 | 동일 전투 제약 | RIVAL의 펀치는 `startAttack`을 사용하며 스태미나, 경직, 탈진 규칙을 적용; 회피도 스태미나를 소비 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `startAttack`, `performEnemyDecision` |
-| 패배 라운드 롤백 | 플레이어 패배 시 해당 라운드에서 새로 쌓인 `habits`를 라운드 시작 스냅샷으로 되돌림 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `roundStartHabits`, `finishRound` |
+| 완료 라운드 습관 확정 | 승패와 무관하게 기존 표본의 82%와 완료 라운드 표본을 병합 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `incorporateRound`, `finishRound` |
 | 패배 시 진행 정지 | 라운드는 플레이어 승리일 때만 증가하며, 패배·무승부 후에는 현재 라운드를 다시 시작 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `advancesRoundAfterBreak`, `requestNextRound` |
-| 학습도 표시 | 라운드 결과 화면에 `RIVAL 학습도 n%`를 표시 | [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `roundResultOverlay` |
+| 코너 리포트 | 확정 습관의 전술 읽기를 짧은 복싱 언어로 표시하며 학습도 %는 표시하지 않음 | [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `roundResultOverlay` |
 | 라운드 통계 표시 | 양측의 회피 성공 횟수와 주요 공격을 표시 | [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `roundStatColumn` 호출 |
-| 학습 초기화 | 확인 후 습관·현재 점수를 지우고 ROUND 1부터 시작 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `resetLearning`, [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `LearningResetConfirmView` |
-| 롤백 메시지 | 플레이어 패배 문구는 `ROUND LOST - RIVAL 학습 롤백`으로 현지화돼 있음 | [PixelBoxingIOS/Localization.swift](PixelBoxingIOS/Localization.swift)의 `roundLostMessage` |
+| 학습 초기화 | 확인 후 습관·양측 공격 결과의 두 저장 키와 현재 점수를 지우고 ROUND 1부터 시작; 최고 라운드·승수·보상은 유지 | [PixelBoxingIOS/CombatCore.swift](PixelBoxingIOS/CombatCore.swift)의 `resetLearning`, [PixelBoxingIOS/GameView.swift](PixelBoxingIOS/GameView.swift)의 `LearningResetConfirmView` |
 
-패배 라운드 롤백은 XCTest로도 확인된다. 테스트는 공격 습관을 기록한 뒤 패배 처리하면 해당 공격 횟수가 라운드 시작 값으로 돌아가는지 검증한다.
+완료 라운드 확정의 회귀 테스트가 소스에 존재한다. 이번 문서 대조에서 이를 새로 실행한
+것은 아니다. 과거의 패배 롤백 설명과 해당 테스트 이름은
+현재 구현에서 유효하지 않으므로 현행 근거로 사용하지 않는다.
 
-근거: [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift)의 `testPlayerLossRollsBackRoundHabitLearning`, `testLearningResetBecomesLossRollbackBaseline`.
+근거: [PixelBoxingIOSTests/PlaceholderTests.swift](PixelBoxingIOSTests/PlaceholderTests.swift)의
+`testPlayerLossPromotesRoundHabitLearning`, `testEveryCompletedRoundPromotesPersistentHabits`,
+기존 테스트의 이름만으로 현재 라운드 시작의 전술 읽기가 비워진다고 주장하지 않는다.
 
 ### 확인되지 않은 효과와 현재의 한계
 
@@ -373,17 +464,28 @@ decisionInterval = max(0.18, 0.68 - 0.28 * adaptation) + random(0...0.18)
 - 플레이어가 매번 정확히 어떤 습관 때문에 RIVAL의 특정 행동이 나왔는지 이해한다는 증거
 - 규칙·통계 방식이 강화학습 방식보다 난이도 밸런스가 우수하다는 비교 실험 결과
 
-특히 현재 UI에는 "잽 반복을 감지해 크로스를 선택했다"처럼 개별 습관과 대응 규칙의 인과관계를 실시간으로 설명하는 기능은 확인되지 않는다. 화면이 보여 주는 것은 RIVAL 학습도 비율과 라운드 결과 통계다.
+현재 코너 리포트는 감지된 습관과 대응 방향을 설명하지만, 방금 선택된 특정 행동의
+원인을 증명하는 실행 로그는 아니다. 실전에서는 AI 수치·분석 알림 대신 복싱 행동을
+보여주고, 결과 화면에서 전술 읽기와 라운드 통계를 확인한다.
 
 따라서 실제 구현이 뒷받침하는 가장 정확한 표현은 다음과 같다.
 
-> RIVAL은 공격력이나 체력을 임의로 올리는 대신, 플레이어의 반복 공격·방어·이동 습관을 기록해 대응 행동의 출현 확률과 판단 빈도를 점차 조정한다. 패배 라운드의 신규 습관은 롤백되고, 학습도와 전투 통계는 화면에 표시되지만, 개별 대응의 이유를 직접 해설하는 기능은 현재 없다.
+> 일반 RIVAL은 기본 공격력·체력 대신 확정된 반복 습관·공격 결과와 라운드별 숙련도로 대응한다.
+> 라운드 중 난도·학습모델은 고정하고 승패와 무관하게 종료 후 기억해 다음 대결부터 반영한다.
+> 코너 리포트는 확정 습관의 전술 방향을 확인하며, 스토리 상대의 별도 수치·정책은 구분한다.
 
 ---
 
-## 검증 결과 요약
+## 과거 실행 검증 결과 요약
 
+아래는 기존 감사에 기록된 날짜별 결과이며 2026-10-12의 새 실행 결과가 아니다.
+현재 1.2(6)의 모든 변경에 대한 테스트·실기기 검증 완료를 의미하지 않는다.
+
+- 2026-09-07 iOS: iPhone 12 mini 단위 테스트 61개 및 메뉴·조작부·KO·동작 줄이기 UI 테스트 4개 통과.
+- 2026-09-07 검증에는 판정 이벤트, KO 결과 공개 순서, 기존 기록 디코딩과 화면 전환 시 입력 해제를 포함한다.
+- 아래 Python/C++ 항목은 기존 날짜의 기록이다. 이번 iOS 연출 변경의 성능 근거로 전용하지 않는다.
 - 2026-09-06 실행: `.venv/bin/python -m unittest tests.test_pixel_boxing_core -q`
 - 결과: `Ran 35 tests ... OK`
+- 이후 2026-09-09·2026-09-10 iOS AI 봇·모션·위빙 수치 검사와 iPhone SDK 컴파일 기록은 [README](README.md#과거-실행-검증-기록)를 따른다. 해당 기록을 현재 사거리·선수 간격·위빙 변경의 새 검증 근거로 사용하지 않는다.
 - 확인 범위: Python의 17개 행동 마스킹, 보상 이벤트, 렌더링 없는 에피소드 실행을 포함한 전투 코어 회귀 테스트
-- 제한: 현재 VS Code CMake Tools의 테스트 검색에서는 실행 가능한 CTest 이름이 발견되지 않았다. 이 감사는 초기 C++ Q-learning에 대해 현재 코드, Git 이력, 로컬 `game_save.txt` 산출물, 과거 세션 기록을 근거로 삼으며, 역사적 커밋을 새로 빌드해 당시 런타임을 재현하지는 않았다.
+- 2026-09-06 감사의 제한: 당시 VS Code CMake Tools의 테스트 검색에서는 실행 가능한 CTest 이름이 발견되지 않았다. 초기 C++ Q-learning은 당시 코드, Git 이력, 로컬 `game_save.txt` 산출물, 과거 세션 기록을 근거로 삼았으며, 역사적 커밋을 새로 빌드해 당시 런타임을 재현하지는 않았다.

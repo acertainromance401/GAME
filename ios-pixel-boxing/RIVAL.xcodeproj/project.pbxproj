@@ -1,0 +1,782 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		52455649455753544F524501 /* StoryReview.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 52455649455753544F524502 /* StoryReview.storekit */; };
+		50524956414359494E460101 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 50524956414359494E460001 /* PrivacyInfo.xcprivacy */; };
+		53544F524550555243480101 /* StoryPurchaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53544F524550555243480001 /* StoryPurchaseStore.swift */; };
+		53544F524550555243480102 /* StoryPurchaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53544F524550555243480002 /* StoryPurchaseView.swift */; };
+		53544F524550555243480103 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 53544F524550555243480003 /* StoreKit.framework */; };
+		53544F525900000000000103 /* story_pressure_intro.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000003 /* story_pressure_intro.json */; };
+		53544F525900000000000104 /* story_outboxer_intro.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000004 /* story_outboxer_intro.json */; };
+		53544F525900000000000105 /* story_rival_pressure_win.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000005 /* story_rival_pressure_win.json */; };
+		53544F525900000000000106 /* story_rival_outboxer_win.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000006 /* story_rival_outboxer_win.json */; };
+		53544F525900000000000107 /* story_rival_counter_win.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000007 /* story_rival_counter_win.json */; };
+		53544F525900000000000108 /* story_rival_slugger_win.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000008 /* story_rival_slugger_win.json */; };
+		53544F525900000000000109 /* story_counter_intro.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000009 /* story_counter_intro.json */; };
+		53544F52590000000000010A /* story_slugger_intro.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F52590000000000000A /* story_slugger_intro.json */; };
+		53544F52590000000000010B /* story_championship_intro.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F52590000000000000B /* story_championship_intro.json */; };
+		53544F52590000000000010C /* story_championship_ending.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F52590000000000000C /* story_championship_ending.json */; };
+		53544F52590000000000010D /* story_championship_ending_player.json in Resources */ = {isa = PBXBuildFile; fileRef = 53544F52590000000000000D /* story_championship_ending_player.json */; };
+		53544F525900000000000101 /* StoryMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000001 /* StoryMode.swift */; };
+		53544F525900000000000102 /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000002 /* StoryViews.swift */; };
+		0476E204003E9D966BA00889 /* GameController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9EE1576B9CD752C9075938 /* GameController.swift */; };
+		10B08424B43EA625DBF7222A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 090033F2AAA516B93499FF14 /* Assets.xcassets */; };
+		130817A206C12484ECBFB920 /* UIStyleKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12C40B85262FC8101A1558 /* UIStyleKit.swift */; };
+		193780021A5B627D8E4F3383 /* PixelBoxingIOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9433F6A915F54633224890B0 /* PixelBoxingIOSUITests.swift */; };
+		207A756E9C0F093418E011D0 /* CombatPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55E0D76BDCD1D6E40DF8CE2 /* CombatPresentationTests.swift */; };
+		2124E127A814DC04BF27FC1D /* MotionRegressionChecks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EC794C748AE1714A018AF5E /* MotionRegressionChecks.swift */; };
+		26A877EB8E51972072F1DB03 /* WeavingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6FFA8A048D186F79DE07710 /* WeavingTests.swift */; };
+		2724AF3547E32CCAD9E65190 /* BoxingMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 525A5994CBC5F5DDBD013A2D /* BoxingMotionTests.swift */; };
+		29B4B6A1F022CD862E6DACF1 /* PracticeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74F045143DB5DAD7BB78502F /* PracticeController.swift */; };
+		2B136DAFE212EECFD665B841 /* CombatInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F88E6C8BB29EB9181BB3E6DE /* CombatInput.swift */; };
+		2B29E984059DEFC4E8F850F0 /* RivalAITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82607CE1175E40DE3C8347C8 /* RivalAITests.swift */; };
+		322BD4626E90EE060449275A /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73DE4FA9B0E7E6C7F77DF170 /* MainMenuView.swift */; };
+		3E5155BC290061C2258CB8DB /* PixelBoxingApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 015C983A77AE827DF4E32EDE /* PixelBoxingApp.swift */; };
+		41BC7DAEEB7BD6D5627485D2 /* MapDressing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B049C586DD953638CE4616B4 /* MapDressing.swift */; };
+		519EBFB9A13757D82C12428C /* Weaving.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C2022C57BC8FE63C963A68A /* Weaving.swift */; };
+		6567C9A0BEE5433F924CB4CA /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADB8682EB6A5E64AAA81454 /* GameCenterManager.swift */; };
+		6750D2D79DFDDB68877F305C /* CombatCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B1899EF9F3F938D6E4746C /* CombatCore.swift */; };
+		7E32012F154F233FA381DB51 /* PlaceholderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CCF305D078A820E33B6E4C8 /* PlaceholderTests.swift */; };
+		7FCC7D5D7969F5F6169A5C24 /* Arena3DScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44F9E90636538AB57FC68BA /* Arena3DScene.swift */; };
+		808CE1DEF344F1DA4547BC93 /* WeaveMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D306F6F5663AF5C28F0B3F /* WeaveMotion.swift */; };
+		8AD46C60280D01F62B41545F /* MapDressingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0871BD08B0E204207E635A9D /* MapDressingTests.swift */; };
+		8CB5293AC0AB73A940C2C7CB /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE84CEFA93F531AC610FB30 /* LeaderboardView.swift */; };
+		8E37A008EA169AF20A136066 /* CombatPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81336300F0F8641F40E3CDC8 /* CombatPresentation.swift */; };
+		90BBA8BE3C66CEB0EAF2BFD5 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CCE7A54B487610BD649963C5 /* GameKit.framework */; };
+		916A28CE59EFD086F7D054BF /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EF1627964E760556243818 /* SoundManager.swift */; };
+		9A099F15FC7444FDB4496524 /* VSSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA3B3A696DFABA9B7B27AE1 /* VSSplashView.swift */; };
+		A2C1805F3B6706E9C5480F58 /* MainMenuDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841EEC3D27D22C9C47F7B4C4 /* MainMenuDesign.swift */; };
+		A9726A44213D1E9497B2F78E /* CombatText.swift in Sources */ = {isa = PBXBuildFile; fileRef = F34520692015F6AAB16A7450 /* CombatText.swift */; };
+		AB9FF1DF517C465A55A9C0F8 /* ImpactFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD19005092A8FCB7F588B12 /* ImpactFeedbackTests.swift */; };
+		B0820664725C6C2E5C166EB6 /* ImpactFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C3FDE3A4010C902ECAE7B3F /* ImpactFeedback.swift */; };
+		B58551863AB3837B61C66CD1 /* RivalMenuComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98999BE4AC258D041ACF8DDD /* RivalMenuComponents.swift */; };
+		B794B28B80A42D56A9E39BE1 /* ControlAndDefenseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8F2B8C8B17055EF7409ED96 /* ControlAndDefenseTests.swift */; };
+		B852082D821FCF25603480F3 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18649BDFAA79CA848872EE71 /* Localization.swift */; };
+		B8ADA7507AE6A806CC19E853 /* FighterPose.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0341B3A43628D1433DFD0C /* FighterPose.swift */; };
+		BEBFB1186D22423B2C00BDED /* RivalAI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B8E2FB93FEAD175F5329513 /* RivalAI.swift */; };
+		C502777BDB097144FDE3B0AF /* DefensiveMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 605A58FDE46997232AA60556 /* DefensiveMotion.swift */; };
+		C9E3C7C3B2472E604200CB4F /* MainMenuPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBDAFB2FF11E26131B36E89 /* MainMenuPresentationTests.swift */; };
+		D0D17CDEAC6212D88EBB9F3D /* MotionPolishTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58905DD5031EA7594B16FE3 /* MotionPolishTests.swift */; };
+		D750E429071454AA00B457B4 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E74B4D4AEC69795F71CB0189 /* GameView.swift */; };
+		D8A57C93487886A8C18ED314 /* BoxingMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61338B4E8D496B0C8DE4CB17 /* BoxingMotion.swift */; };
+		EB00DED2A9A8B58152F26EBA /* PracticeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BCAAF7B4B08A7FDD8A7A3B4 /* PracticeView.swift */; };
+		FA36B4616592DD19A672EE55 /* LoadingScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B11145A0A7255C78E1388D8 /* LoadingScreenView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		75350D26DF1BFEF2325DAC05 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A8157B60EB541C5044AC7CF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 341831AE88B28BDEA0C04914;
+			remoteInfo = RIVAL;
+		};
+		8951C0051090498EBE078124 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A8157B60EB541C5044AC7CF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 341831AE88B28BDEA0C04914;
+			remoteInfo = RIVAL;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		52455649455753544F524502 /* StoryReview.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = StoryReview.storekit; sourceTree = "<group>"; };
+		50524956414359494E460001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		53544F524550555243480001 /* StoryPurchaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPurchaseStore.swift; sourceTree = "<group>"; };
+		53544F524550555243480002 /* StoryPurchaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPurchaseView.swift; sourceTree = "<group>"; };
+		53544F524550555243480003 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		53544F525900000000000003 /* story_pressure_intro.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_pressure_intro.json; sourceTree = "<group>"; };
+		53544F525900000000000004 /* story_outboxer_intro.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_outboxer_intro.json; sourceTree = "<group>"; };
+		53544F525900000000000005 /* story_rival_pressure_win.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_rival_pressure_win.json; sourceTree = "<group>"; };
+		53544F525900000000000006 /* story_rival_outboxer_win.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_rival_outboxer_win.json; sourceTree = "<group>"; };
+		53544F525900000000000007 /* story_rival_counter_win.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_rival_counter_win.json; sourceTree = "<group>"; };
+		53544F525900000000000008 /* story_rival_slugger_win.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_rival_slugger_win.json; sourceTree = "<group>"; };
+		53544F525900000000000009 /* story_counter_intro.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_counter_intro.json; sourceTree = "<group>"; };
+		53544F52590000000000000A /* story_slugger_intro.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_slugger_intro.json; sourceTree = "<group>"; };
+		53544F52590000000000000B /* story_championship_intro.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_championship_intro.json; sourceTree = "<group>"; };
+		53544F52590000000000000C /* story_championship_ending.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_championship_ending.json; sourceTree = "<group>"; };
+		53544F52590000000000000D /* story_championship_ending_player.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Resources/story_championship_ending_player.json; sourceTree = "<group>"; };
+		53544F525900000000000001 /* StoryMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryMode.swift; sourceTree = "<group>"; };
+		53544F525900000000000002 /* StoryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryViews.swift; sourceTree = "<group>"; };
+		015C983A77AE827DF4E32EDE /* PixelBoxingApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBoxingApp.swift; sourceTree = "<group>"; };
+		0871BD08B0E204207E635A9D /* MapDressingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapDressingTests.swift; sourceTree = "<group>"; };
+		090033F2AAA516B93499FF14 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0BCAAF7B4B08A7FDD8A7A3B4 /* PracticeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeView.swift; sourceTree = "<group>"; };
+		11D306F6F5663AF5C28F0B3F /* WeaveMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaveMotion.swift; sourceTree = "<group>"; };
+		18649BDFAA79CA848872EE71 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
+		1B11145A0A7255C78E1388D8 /* LoadingScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingScreenView.swift; sourceTree = "<group>"; };
+		1EC794C748AE1714A018AF5E /* MotionRegressionChecks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRegressionChecks.swift; sourceTree = "<group>"; };
+		27605356261D2DCA6F23EDCC /* RIVAL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RIVAL.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C2022C57BC8FE63C963A68A /* Weaving.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Weaving.swift; sourceTree = "<group>"; };
+		3CCF305D078A820E33B6E4C8 /* PlaceholderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderTests.swift; sourceTree = "<group>"; };
+		3FA07DFE3546E2864BA14EAA /* RIVALUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RIVALUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		42C269C7551D67B86E570E60 /* RIVAL.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RIVAL.entitlements; sourceTree = "<group>"; };
+		4B8E2FB93FEAD175F5329513 /* RivalAI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RivalAI.swift; sourceTree = "<group>"; };
+		525A5994CBC5F5DDBD013A2D /* BoxingMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxingMotionTests.swift; sourceTree = "<group>"; };
+		605A58FDE46997232AA60556 /* DefensiveMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefensiveMotion.swift; sourceTree = "<group>"; };
+		61338B4E8D496B0C8DE4CB17 /* BoxingMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoxingMotion.swift; sourceTree = "<group>"; };
+		6C3FDE3A4010C902ECAE7B3F /* ImpactFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpactFeedback.swift; sourceTree = "<group>"; };
+		73DE4FA9B0E7E6C7F77DF170 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		74F045143DB5DAD7BB78502F /* PracticeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeController.swift; sourceTree = "<group>"; };
+		7AE84CEFA93F531AC610FB30 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
+		7BBDAFB2FF11E26131B36E89 /* MainMenuPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuPresentationTests.swift; sourceTree = "<group>"; };
+		7DA3B3A696DFABA9B7B27AE1 /* VSSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VSSplashView.swift; sourceTree = "<group>"; };
+		81336300F0F8641F40E3CDC8 /* CombatPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatPresentation.swift; sourceTree = "<group>"; };
+		82607CE1175E40DE3C8347C8 /* RivalAITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RivalAITests.swift; sourceTree = "<group>"; };
+		841EEC3D27D22C9C47F7B4C4 /* MainMenuDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuDesign.swift; sourceTree = "<group>"; };
+		9433F6A915F54633224890B0 /* PixelBoxingIOSUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBoxingIOSUITests.swift; sourceTree = "<group>"; };
+		98999BE4AC258D041ACF8DDD /* RivalMenuComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RivalMenuComponents.swift; sourceTree = "<group>"; };
+		A8BD2E36F4496EDE17CC81C9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AA9EE1576B9CD752C9075938 /* GameController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameController.swift; sourceTree = "<group>"; };
+		AFD19005092A8FCB7F588B12 /* ImpactFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImpactFeedbackTests.swift; sourceTree = "<group>"; };
+		B049C586DD953638CE4616B4 /* MapDressing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapDressing.swift; sourceTree = "<group>"; };
+		B6FFA8A048D186F79DE07710 /* WeavingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeavingTests.swift; sourceTree = "<group>"; };
+		CCE7A54B487610BD649963C5 /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
+		E0B1899EF9F3F938D6E4746C /* CombatCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatCore.swift; sourceTree = "<group>"; };
+		E27BD5C62F6135F22F72EC94 /* RIVALTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RIVALTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E74B4D4AEC69795F71CB0189 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		EADB8682EB6A5E64AAA81454 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
+		F1EF1627964E760556243818 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
+		F34520692015F6AAB16A7450 /* CombatText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatText.swift; sourceTree = "<group>"; };
+		F44F9E90636538AB57FC68BA /* Arena3DScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Arena3DScene.swift; sourceTree = "<group>"; };
+		F55E0D76BDCD1D6E40DF8CE2 /* CombatPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatPresentationTests.swift; sourceTree = "<group>"; };
+		F58905DD5031EA7594B16FE3 /* MotionPolishTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionPolishTests.swift; sourceTree = "<group>"; };
+		F88E6C8BB29EB9181BB3E6DE /* CombatInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatInput.swift; sourceTree = "<group>"; };
+		F8F2B8C8B17055EF7409ED96 /* ControlAndDefenseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlAndDefenseTests.swift; sourceTree = "<group>"; };
+		FD12C40B85262FC8101A1558 /* UIStyleKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIStyleKit.swift; sourceTree = "<group>"; };
+		FE0341B3A43628D1433DFD0C /* FighterPose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FighterPose.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A256138635A1368E310158AB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90BBA8BE3C66CEB0EAF2BFD5 /* GameKit.framework in Frameworks */,
+				53544F524550555243480103 /* StoreKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		21ED948806B9DA84A1736591 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				27605356261D2DCA6F23EDCC /* RIVAL.app */,
+				E27BD5C62F6135F22F72EC94 /* RIVALTests.xctest */,
+				3FA07DFE3546E2864BA14EAA /* RIVALUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		35DEBC98270E5A613842CFAB /* PixelBoxingIOS */ = {
+			isa = PBXGroup;
+			children = (
+				F44F9E90636538AB57FC68BA /* Arena3DScene.swift */,
+				090033F2AAA516B93499FF14 /* Assets.xcassets */,
+				61338B4E8D496B0C8DE4CB17 /* BoxingMotion.swift */,
+				E0B1899EF9F3F938D6E4746C /* CombatCore.swift */,
+				F88E6C8BB29EB9181BB3E6DE /* CombatInput.swift */,
+				81336300F0F8641F40E3CDC8 /* CombatPresentation.swift */,
+				F34520692015F6AAB16A7450 /* CombatText.swift */,
+				605A58FDE46997232AA60556 /* DefensiveMotion.swift */,
+				FE0341B3A43628D1433DFD0C /* FighterPose.swift */,
+				EADB8682EB6A5E64AAA81454 /* GameCenterManager.swift */,
+				AA9EE1576B9CD752C9075938 /* GameController.swift */,
+				E74B4D4AEC69795F71CB0189 /* GameView.swift */,
+				6C3FDE3A4010C902ECAE7B3F /* ImpactFeedback.swift */,
+				A8BD2E36F4496EDE17CC81C9 /* Info.plist */,
+				7AE84CEFA93F531AC610FB30 /* LeaderboardView.swift */,
+				1B11145A0A7255C78E1388D8 /* LoadingScreenView.swift */,
+				18649BDFAA79CA848872EE71 /* Localization.swift */,
+				841EEC3D27D22C9C47F7B4C4 /* MainMenuDesign.swift */,
+				73DE4FA9B0E7E6C7F77DF170 /* MainMenuView.swift */,
+				B049C586DD953638CE4616B4 /* MapDressing.swift */,
+				015C983A77AE827DF4E32EDE /* PixelBoxingApp.swift */,
+				74F045143DB5DAD7BB78502F /* PracticeController.swift */,
+				0BCAAF7B4B08A7FDD8A7A3B4 /* PracticeView.swift */,
+				50524956414359494E460001 /* PrivacyInfo.xcprivacy */,
+				42C269C7551D67B86E570E60 /* RIVAL.entitlements */,
+				4B8E2FB93FEAD175F5329513 /* RivalAI.swift */,
+				98999BE4AC258D041ACF8DDD /* RivalMenuComponents.swift */,
+				F1EF1627964E760556243818 /* SoundManager.swift */,
+				53544F525900000000000001 /* StoryMode.swift */,
+				53544F525900000000000002 /* StoryViews.swift */,
+				53544F524550555243480001 /* StoryPurchaseStore.swift */,
+				53544F524550555243480002 /* StoryPurchaseView.swift */,
+				53544F525900000000000003 /* story_pressure_intro.json */,
+				53544F525900000000000004 /* story_outboxer_intro.json */,
+				53544F525900000000000005 /* story_rival_pressure_win.json */,
+				53544F525900000000000006 /* story_rival_outboxer_win.json */,
+				53544F525900000000000007 /* story_rival_counter_win.json */,
+				53544F525900000000000008 /* story_rival_slugger_win.json */,
+				53544F525900000000000009 /* story_counter_intro.json */,
+				53544F52590000000000000A /* story_slugger_intro.json */,
+				53544F52590000000000000B /* story_championship_intro.json */,
+				53544F52590000000000000C /* story_championship_ending.json */,
+				53544F52590000000000000D /* story_championship_ending_player.json */,
+				FD12C40B85262FC8101A1558 /* UIStyleKit.swift */,
+				7DA3B3A696DFABA9B7B27AE1 /* VSSplashView.swift */,
+				11D306F6F5663AF5C28F0B3F /* WeaveMotion.swift */,
+				3C2022C57BC8FE63C963A68A /* Weaving.swift */,
+			);
+			path = PixelBoxingIOS;
+			sourceTree = "<group>";
+		};
+		3A133D00295EF8556F6E272A = {
+			isa = PBXGroup;
+			children = (
+				35DEBC98270E5A613842CFAB /* PixelBoxingIOS */,
+				EB5B13A779B6BD336EB8118D /* PixelBoxingIOSTests */,
+				7F23A713C2C2F6DD699512E3 /* PixelBoxingIOSUITests */,
+				4A9CE010C0B8A631D767E3BF /* Frameworks */,
+				21ED948806B9DA84A1736591 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4A9CE010C0B8A631D767E3BF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				CCE7A54B487610BD649963C5 /* GameKit.framework */,
+				53544F524550555243480003 /* StoreKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		7F23A713C2C2F6DD699512E3 /* PixelBoxingIOSUITests */ = {
+			isa = PBXGroup;
+			children = (
+				9433F6A915F54633224890B0 /* PixelBoxingIOSUITests.swift */,
+				52455649455753544F524502 /* StoryReview.storekit */,
+			);
+			path = PixelBoxingIOSUITests;
+			sourceTree = "<group>";
+		};
+		EB5B13A779B6BD336EB8118D /* PixelBoxingIOSTests */ = {
+			isa = PBXGroup;
+			children = (
+				525A5994CBC5F5DDBD013A2D /* BoxingMotionTests.swift */,
+				F55E0D76BDCD1D6E40DF8CE2 /* CombatPresentationTests.swift */,
+				F8F2B8C8B17055EF7409ED96 /* ControlAndDefenseTests.swift */,
+				AFD19005092A8FCB7F588B12 /* ImpactFeedbackTests.swift */,
+				7BBDAFB2FF11E26131B36E89 /* MainMenuPresentationTests.swift */,
+				0871BD08B0E204207E635A9D /* MapDressingTests.swift */,
+				F58905DD5031EA7594B16FE3 /* MotionPolishTests.swift */,
+				1EC794C748AE1714A018AF5E /* MotionRegressionChecks.swift */,
+				3CCF305D078A820E33B6E4C8 /* PlaceholderTests.swift */,
+				82607CE1175E40DE3C8347C8 /* RivalAITests.swift */,
+				B6FFA8A048D186F79DE07710 /* WeavingTests.swift */,
+			);
+			path = PixelBoxingIOSTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		341831AE88B28BDEA0C04914 /* RIVAL */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 68DFD132DEAA8EB8FAC7F056 /* Build configuration list for PBXNativeTarget "RIVAL" */;
+			buildPhases = (
+				C976A9DE0F8B9C4767D966D1 /* Sources */,
+				BEB6F2A00B6290D4DAA5130A /* Resources */,
+				A256138635A1368E310158AB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RIVAL;
+			packageProductDependencies = (
+			);
+			productName = RIVAL;
+			productReference = 27605356261D2DCA6F23EDCC /* RIVAL.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5F903C1CF7B28585A8BC38B2 /* RIVALTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6AB7BD92259E74E1B1F22E9B /* Build configuration list for PBXNativeTarget "RIVALTests" */;
+			buildPhases = (
+				DB9F5543370687ED329E91E2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E5E1EAFA065164EDD9A2270E /* PBXTargetDependency */,
+			);
+			name = RIVALTests;
+			packageProductDependencies = (
+			);
+			productName = RIVALTests;
+			productReference = E27BD5C62F6135F22F72EC94 /* RIVALTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		8A68E3E0F0231A3EBE195141 /* RIVALUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E6FD42A607411EB86E9BA4DB /* Build configuration list for PBXNativeTarget "RIVALUITests" */;
+			buildPhases = (
+				43BD4320E304BA9FE4AC4684 /* Sources */,
+				52455649455753544F524503 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D46A84AB6B85F28399BE4803 /* PBXTargetDependency */,
+			);
+			name = RIVALUITests;
+			packageProductDependencies = (
+			);
+			productName = RIVALUITests;
+			productReference = 3FA07DFE3546E2864BA14EAA /* RIVALUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A8157B60EB541C5044AC7CF9 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					341831AE88B28BDEA0C04914 = {
+						DevelopmentTeam = 6S5ZH3ZJ93;
+						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.InAppPurchase = { enabled = 1; };
+						};
+					};
+					5F903C1CF7B28585A8BC38B2 = {
+						DevelopmentTeam = 6S5ZH3ZJ93;
+						ProvisioningStyle = Automatic;
+					};
+					8A68E3E0F0231A3EBE195141 = {
+						DevelopmentTeam = 6S5ZH3ZJ93;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 341831AE88B28BDEA0C04914;
+					};
+				};
+			};
+			buildConfigurationList = 1ECA309D97234C53E89DD158 /* Build configuration list for PBXProject "RIVAL" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 3A133D00295EF8556F6E272A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 21ED948806B9DA84A1736591 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				341831AE88B28BDEA0C04914 /* RIVAL */,
+				5F903C1CF7B28585A8BC38B2 /* RIVALTests */,
+				8A68E3E0F0231A3EBE195141 /* RIVALUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		52455649455753544F524503 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52455649455753544F524501 /* StoryReview.storekit in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BEB6F2A00B6290D4DAA5130A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10B08424B43EA625DBF7222A /* Assets.xcassets in Resources */,
+				50524956414359494E460101 /* PrivacyInfo.xcprivacy in Resources */,
+				53544F525900000000000103 /* story_pressure_intro.json in Resources */,
+				53544F525900000000000104 /* story_outboxer_intro.json in Resources */,
+				53544F525900000000000105 /* story_rival_pressure_win.json in Resources */,
+				53544F525900000000000106 /* story_rival_outboxer_win.json in Resources */,
+				53544F525900000000000107 /* story_rival_counter_win.json in Resources */,
+				53544F525900000000000108 /* story_rival_slugger_win.json in Resources */,
+				53544F525900000000000109 /* story_counter_intro.json in Resources */,
+				53544F52590000000000010A /* story_slugger_intro.json in Resources */,
+				53544F52590000000000010B /* story_championship_intro.json in Resources */,
+				53544F52590000000000010C /* story_championship_ending.json in Resources */,
+				53544F52590000000000010D /* story_championship_ending_player.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		43BD4320E304BA9FE4AC4684 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				193780021A5B627D8E4F3383 /* PixelBoxingIOSUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C976A9DE0F8B9C4767D966D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FCC7D5D7969F5F6169A5C24 /* Arena3DScene.swift in Sources */,
+				D8A57C93487886A8C18ED314 /* BoxingMotion.swift in Sources */,
+				6750D2D79DFDDB68877F305C /* CombatCore.swift in Sources */,
+				2B136DAFE212EECFD665B841 /* CombatInput.swift in Sources */,
+				8E37A008EA169AF20A136066 /* CombatPresentation.swift in Sources */,
+				A9726A44213D1E9497B2F78E /* CombatText.swift in Sources */,
+				C502777BDB097144FDE3B0AF /* DefensiveMotion.swift in Sources */,
+				B8ADA7507AE6A806CC19E853 /* FighterPose.swift in Sources */,
+				6567C9A0BEE5433F924CB4CA /* GameCenterManager.swift in Sources */,
+				0476E204003E9D966BA00889 /* GameController.swift in Sources */,
+				D750E429071454AA00B457B4 /* GameView.swift in Sources */,
+				B0820664725C6C2E5C166EB6 /* ImpactFeedback.swift in Sources */,
+				8CB5293AC0AB73A940C2C7CB /* LeaderboardView.swift in Sources */,
+				FA36B4616592DD19A672EE55 /* LoadingScreenView.swift in Sources */,
+				B852082D821FCF25603480F3 /* Localization.swift in Sources */,
+				A2C1805F3B6706E9C5480F58 /* MainMenuDesign.swift in Sources */,
+				322BD4626E90EE060449275A /* MainMenuView.swift in Sources */,
+				41BC7DAEEB7BD6D5627485D2 /* MapDressing.swift in Sources */,
+				3E5155BC290061C2258CB8DB /* PixelBoxingApp.swift in Sources */,
+				29B4B6A1F022CD862E6DACF1 /* PracticeController.swift in Sources */,
+				EB00DED2A9A8B58152F26EBA /* PracticeView.swift in Sources */,
+				BEBFB1186D22423B2C00BDED /* RivalAI.swift in Sources */,
+				B58551863AB3837B61C66CD1 /* RivalMenuComponents.swift in Sources */,
+				916A28CE59EFD086F7D054BF /* SoundManager.swift in Sources */,
+				53544F525900000000000101 /* StoryMode.swift in Sources */,
+				53544F525900000000000102 /* StoryViews.swift in Sources */,
+				53544F524550555243480101 /* StoryPurchaseStore.swift in Sources */,
+				53544F524550555243480102 /* StoryPurchaseView.swift in Sources */,
+				130817A206C12484ECBFB920 /* UIStyleKit.swift in Sources */,
+				9A099F15FC7444FDB4496524 /* VSSplashView.swift in Sources */,
+				808CE1DEF344F1DA4547BC93 /* WeaveMotion.swift in Sources */,
+				519EBFB9A13757D82C12428C /* Weaving.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DB9F5543370687ED329E91E2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2724AF3547E32CCAD9E65190 /* BoxingMotionTests.swift in Sources */,
+				207A756E9C0F093418E011D0 /* CombatPresentationTests.swift in Sources */,
+				B794B28B80A42D56A9E39BE1 /* ControlAndDefenseTests.swift in Sources */,
+				AB9FF1DF517C465A55A9C0F8 /* ImpactFeedbackTests.swift in Sources */,
+				C9E3C7C3B2472E604200CB4F /* MainMenuPresentationTests.swift in Sources */,
+				8AD46C60280D01F62B41545F /* MapDressingTests.swift in Sources */,
+				D0D17CDEAC6212D88EBB9F3D /* MotionPolishTests.swift in Sources */,
+				2124E127A814DC04BF27FC1D /* MotionRegressionChecks.swift in Sources */,
+				7E32012F154F233FA381DB51 /* PlaceholderTests.swift in Sources */,
+				2B29E984059DEFC4E8F850F0 /* RivalAITests.swift in Sources */,
+				26A877EB8E51972072F1DB03 /* WeavingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D46A84AB6B85F28399BE4803 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 341831AE88B28BDEA0C04914 /* RIVAL */;
+			targetProxy = 75350D26DF1BFEF2325DAC05 /* PBXContainerItemProxy */;
+		};
+		E5E1EAFA065164EDD9A2270E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 341831AE88B28BDEA0C04914 /* RIVAL */;
+			targetProxy = 8951C0051090498EBE078124 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3C4DEE1705A62F72827A205B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6S5ZH3ZJ93;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4BCDFB9EB1A152FE81B95FB1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6S5ZH3ZJ93;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		AC0EED192E07EA4E30F20DFD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = RIVAL;
+			};
+			name = Debug;
+		};
+		AFD13D939C7AE43FEBC2A07C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PixelBoxingIOS/RIVAL.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 6;
+				INFOPLIST_FILE = PixelBoxingIOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C4A2C1C0B488686AC1E21195 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RIVAL.app/RIVAL";
+			};
+			name = Debug;
+		};
+		C7190F9EBCEC860C5FD72A3A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = PixelBoxingIOS/RIVAL.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 6;
+				INFOPLIST_FILE = PixelBoxingIOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CA44F5F62CACDE5929FB7EE4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RIVAL.app/RIVAL";
+			};
+			name = Release;
+		};
+		FE3582CE42BCD27674A231D1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = RIVAL;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1ECA309D97234C53E89DD158 /* Build configuration list for PBXProject "RIVAL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4BCDFB9EB1A152FE81B95FB1 /* Debug */,
+				3C4DEE1705A62F72827A205B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		68DFD132DEAA8EB8FAC7F056 /* Build configuration list for PBXNativeTarget "RIVAL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AFD13D939C7AE43FEBC2A07C /* Debug */,
+				C7190F9EBCEC860C5FD72A3A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6AB7BD92259E74E1B1F22E9B /* Build configuration list for PBXNativeTarget "RIVALTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4A2C1C0B488686AC1E21195 /* Debug */,
+				CA44F5F62CACDE5929FB7EE4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E6FD42A607411EB86E9BA4DB /* Build configuration list for PBXNativeTarget "RIVALUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0EED192E07EA4E30F20DFD /* Debug */,
+				FE3582CE42BCD27674A231D1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A8157B60EB541C5044AC7CF9 /* Project object */;
+}

@@ -1,4 +1,20 @@
+/*
+ CombatCore.swift
+
+ 파일 설명:
+ - 게임의 핵심 전투 모델과 규칙을 정의하는 파일입니다. 주요 타입(FighterModel, Punch, Combo, Style 등)
+     과 데미지/확률/상태 전환 규칙이 여기서 선언됩니다.
+ - 이 파일의 타입과 함수들은 게임 플레이의 규칙적 동작(점수, 데미지, 타격 콜리전 판정 등)에 직접 영향을 줍니다.
+
+ 사용 영향 및 주의사항:
+ - 이 파일을 변경하면 게임 밸런스와 룰에 영향이 있으므로 테스트 커버리지가 필요합니다.
+ - 현재는 주석만 추가되므로 동작에는 영향이 없습니다.
+*/
+//   사용되는 순수 모델 값들을 포함합니다.
+// - UI와 분리된 순수 모델로 설계되어 있어, 저장/로컬화/비즈니스 로직에서 재사용됩니다.
+
 import Foundation
+import simd
 
 enum Punch: String, CaseIterable, Codable, Sendable {
     case jab
@@ -147,16 +163,6 @@ enum FightStyle: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Amplitude of a continuous idle weave/sway applied even while standing still, so the stance keeps
-    /// reading as a different style over time and not just as a single static pose.
-    var idleWeaveAmount: Float {
-        switch self {
-        case .standard: 0.015
-        case .outboxing: 0.05
-        case .infighting: 0.006
-        }
-    }
-
     /// Lateral foot/knee spread. Outboxers plant a wider, bouncier base; infighters keep a tight, compact base.
     var stanceWidth: Float {
         switch self {
@@ -234,7 +240,9 @@ enum FightStyle: String, Codable, CaseIterable, Sendable {
 
 enum OutfitID: String, Codable, CaseIterable, Sendable {
     case classic
+    case storyStarter
     case champion
+    case storyChampion
     case blackout
     case gymGray
     case unscathed
@@ -252,11 +260,23 @@ enum OutfitID: String, Codable, CaseIterable, Sendable {
             case .english: "Classic"
             case .japanese: "クラシック"
             }
+        case .storyStarter:
+            switch language {
+            case .korean: "퍼스트 벨"
+            case .english: "First Bell"
+            case .japanese: "ファーストベル"
+            }
         case .champion:
             switch language {
             case .korean: "챔피언 골드"
             case .english: "Champion Gold"
             case .japanese: "チャンピオンゴールド"
+            }
+        case .storyChampion:
+            switch language {
+            case .korean: "파이널 챔피언"
+            case .english: "Final Champion"
+            case .japanese: "ファイナルチャンピオン"
             }
         case .blackout:
             switch language {
@@ -312,6 +332,8 @@ enum OutfitID: String, Codable, CaseIterable, Sendable {
     /// What stat (and threshold) permanently unlocks this outfit. `.none` (Classic) is always available.
     private enum UnlockRequirement {
         case none
+        case storyPurchase
+        case storyVictory
         case highestRound(Int)
         case totalWins(Int)
         case gymSeconds(Double)
@@ -323,15 +345,17 @@ enum OutfitID: String, Codable, CaseIterable, Sendable {
     private var unlockRequirement: UnlockRequirement {
         switch self {
         case .classic: .none
-        case .champion: .highestRound(20)
-        case .blackout: .totalWins(100)
-        case .gymGray: .gymSeconds(24 * 3600)
-        case .unscathed: .perfectRoundWins(10)
-        case .champ: .totalWins(1000)
-        case .streak: .winStreak(20)
-        case .masteryInFighter: .styleWins(.standard, 50)
-        case .masteryOutboxer: .styleWins(.outboxing, 50)
-        case .masterySlugger: .styleWins(.infighting, 50)
+        case .storyStarter: .storyPurchase
+        case .champion: .highestRound(15)
+        case .storyChampion: .storyVictory
+        case .blackout: .totalWins(75)
+        case .gymGray: .gymSeconds(3 * 3600)
+        case .unscathed: .perfectRoundWins(7)
+        case .champ: .totalWins(500)
+        case .streak: .winStreak(12)
+        case .masteryInFighter: .styleWins(.standard, 35)
+        case .masteryOutboxer: .styleWins(.outboxing, 35)
+        case .masterySlugger: .styleWins(.infighting, 35)
         }
     }
 
@@ -344,6 +368,7 @@ enum OutfitID: String, Codable, CaseIterable, Sendable {
     ) -> Bool {
         switch unlockRequirement {
         case .none: true
+        case .storyPurchase, .storyVictory: false
         case .highestRound(let required): highestRound >= required
         case .totalWins(let required): totalWins >= required
         case .gymSeconds(let required): gymSeconds >= required
@@ -359,6 +384,18 @@ enum OutfitID: String, Codable, CaseIterable, Sendable {
         switch unlockRequirement {
         case .none:
             ""
+        case .storyPurchase:
+            switch language {
+            case .korean: "스토리 구매 즉시 해금 · 클리어 불필요"
+            case .english: "Unlocks with Story purchase · No wins required"
+            case .japanese: "ストーリー購入ですぐ解放・クリア不要"
+            }
+        case .storyVictory:
+            switch language {
+            case .korean: "스토리 챔피언 결정전 우승 시 해제"
+            case .english: "Win the Story championship to unlock"
+            case .japanese: "ストーリーの王座決定戦に優勝で解放"
+            }
         case .highestRound(let required):
             switch language {
             case .korean: "ROUND \(required) 도달 시 해제"
@@ -410,28 +447,91 @@ struct AttackSpec: Equatable, Sendable {
     let duration: Double
     let activeStart: Double
     let activeEnd: Double
+    let deliveryStart: Double
+    let followThroughEnd: Double
+    let recoveryEnd: Double
     let damage: Int
+    /// Base fighter-root to glove-center reach in game units, before the shared chest extension.
+    /// Target surface allowance is separate from both parts of the punch's reach.
     let range: Double
     let halfAngle: Double
     let staminaCost: Double
     let targetZone: TargetZone
     let fistRadius: Double
     let family: AttackFamily
+
+    init(duration: Double, activeStart: Double, activeEnd: Double,
+         damage: Int, range: Double, halfAngle: Double, staminaCost: Double,
+         targetZone: TargetZone, fistRadius: Double, family: AttackFamily,
+         deliveryStart: Double? = nil, followThroughEnd: Double? = nil,
+         recoveryEnd: Double? = nil) {
+        self.duration = duration
+        self.activeStart = activeStart
+        self.activeEnd = activeEnd
+        self.damage = damage
+        self.range = range
+        self.halfAngle = halfAngle
+        self.staminaCost = staminaCost
+        self.targetZone = targetZone
+        self.fistRadius = fistRadius
+        self.family = family
+
+        let deliveryFraction: Double
+        let followThroughFraction: Double
+        let recoveryFraction: Double
+        switch family {
+        case .straight:
+            deliveryFraction = 0.28
+            followThroughFraction = 0
+            recoveryFraction = 0.92
+        case .body:
+            deliveryFraction = 0.40
+            followThroughFraction = 0.09
+            recoveryFraction = 0.88
+        case .hook:
+            deliveryFraction = 0.32
+            followThroughFraction = 0.08
+            recoveryFraction = 0.94
+        case .uppercut:
+            deliveryFraction = 0.36
+            followThroughFraction = 0.08
+            recoveryFraction = 0.96
+        }
+        self.deliveryStart = deliveryStart ?? activeStart * deliveryFraction
+        self.followThroughEnd = followThroughEnd ?? activeStart + duration * followThroughFraction
+        self.recoveryEnd = recoveryEnd ?? duration * recoveryFraction
+    }
 }
 
 enum CombatData {
+    static let sceneScale = 0.025
+    /// Equal extra GAME units for all eight punches and all styles, after the style multiplier.
+    /// Rendering supplies the same additional travel through the chest, never arm-length scaling.
+    static let punchReachExtension = 14.0
+    // Shared geometric contact allowances, not an extra invisible arm extension.
+    static let fighterContactRadius = 0.34
+    static let bagContactRadius = 0.60
     static let roundSeconds = 45.0
+    static let movementSpeed = 210.0
+    static let backstepDistance = 34.0
+    static let backstepDuration = 0.22
     static let dodgeStaminaCost = 17.0
     static let enemyDuckDuration = 0.32
     static let backstepStaminaCost = 31.0
     /// Retreating (moving straight back) is slower than closing distance, so backpedaling alone is a
     /// weaker substitute for guarding/ducking and players can't rely purely on distance control to stay safe.
     static let backwardMoveSpeedMultiplier = 0.5
-    static let staminaRecoveryPerSecond = 8.5
+    static let staminaRecoveryPerSecond = 11.0
     static let exhaustionDuration = 1.1
     static let exhaustionExposed = 0.28
     static let whiffRecovery = 0.22
     static let duckCounterWindow = 0.42
+    /// A dedicated, stronger slow-motion + camera-zoom beat for the blow that actually lands a knockout,
+    /// separate from the RIVAL MOMENT dodge beat above -- so the player reads "this is the finishing shot"
+    /// a beat before the round-break overlay appears, not just after the fact.
+    static let koMomentDuration = 0.62
+    static let koMomentTimeScale = 0.14
+    static let koMomentCameraZoom: Float = 1.9
     static let exposedDamageMultiplier = 1.4
     static let bodyHookCounterMultiplier = 1.2
     static let staggerLock = 0.16
@@ -444,18 +544,26 @@ enum CombatData {
     static let ringMinimum = 70.0
     static let ringMaximum = 520.0
     static let fighterMargin = 34.0
-    static let minimumFighterSeparation = 50.0
+    // Root spacing still keeps the torso volumes apart, while allowing short bent-arm punches.
+    static let minimumFighterSeparation = 34.0
 
     static let attacks: [Punch: AttackSpec] = [
-        .jab: AttackSpec(duration: 0.24, activeStart: 0.08, activeEnd: 0.15, damage: 6, range: 78, halfAngle: 26, staminaCost: 13, targetZone: .head, fistRadius: 5, family: .straight),
-        .cross: AttackSpec(duration: 0.34, activeStart: 0.14, activeEnd: 0.24, damage: 11, range: 60, halfAngle: 20, staminaCost: 18, targetZone: .head, fistRadius: 5.4, family: .straight),
-        .leftBody: AttackSpec(duration: 0.32, activeStart: 0.12, activeEnd: 0.22, damage: 9, range: 54, halfAngle: 40, staminaCost: 16, targetZone: .body, fistRadius: 5.2, family: .body),
-        .rightBody: AttackSpec(duration: 0.35, activeStart: 0.14, activeEnd: 0.24, damage: 10, range: 56, halfAngle: 38, staminaCost: 17, targetZone: .body, fistRadius: 5.4, family: .body),
-        .leftHook: AttackSpec(duration: 0.36, activeStart: 0.16, activeEnd: 0.26, damage: 11, range: 50, halfAngle: 56, staminaCost: 18, targetZone: .head, fistRadius: 5.6, family: .hook),
-        .rightHook: AttackSpec(duration: 0.38, activeStart: 0.17, activeEnd: 0.28, damage: 12, range: 52, halfAngle: 50, staminaCost: 19, targetZone: .head, fistRadius: 5.8, family: .hook),
-        .leftUppercut: AttackSpec(duration: 0.40, activeStart: 0.18, activeEnd: 0.30, damage: 13, range: 44, halfAngle: 26, staminaCost: 20, targetZone: .head, fistRadius: 5.4, family: .uppercut),
-        .rightUppercut: AttackSpec(duration: 0.42, activeStart: 0.19, activeEnd: 0.31, damage: 14, range: 46, halfAngle: 24, staminaCost: 21, targetZone: .head, fistRadius: 5.8, family: .uppercut),
+        .jab: AttackSpec(duration: 0.24, activeStart: 0.08, activeEnd: 0.15, damage: 6, range: 44, halfAngle: 26, staminaCost: 13, targetZone: .head, fistRadius: 5, family: .straight, deliveryStart: 0.008, recoveryEnd: 0.1728),
+        .cross: AttackSpec(duration: 0.38, activeStart: 0.17, activeEnd: 0.27, damage: 11, range: 38, halfAngle: 20, staminaCost: 18, targetZone: .head, fistRadius: 5.4, family: .straight, deliveryStart: 0.06, followThroughEnd: 0.19, recoveryEnd: 0.35),
+        .leftBody: AttackSpec(duration: 0.36, activeStart: 0.15, activeEnd: 0.25, damage: 9, range: 29, halfAngle: 40, staminaCost: 16, targetZone: .body, fistRadius: 5.2, family: .body, deliveryStart: 0.055, followThroughEnd: 0.18, recoveryEnd: 0.33),
+        .rightBody: AttackSpec(duration: 0.39, activeStart: 0.17, activeEnd: 0.27, damage: 10, range: 30, halfAngle: 38, staminaCost: 17, targetZone: .body, fistRadius: 5.4, family: .body, deliveryStart: 0.065, followThroughEnd: 0.20, recoveryEnd: 0.36),
+        .leftHook: AttackSpec(duration: 0.40, activeStart: 0.19, activeEnd: 0.29, damage: 11, range: 26, halfAngle: 56, staminaCost: 18, targetZone: .head, fistRadius: 5.6, family: .hook, deliveryStart: 0.060, followThroughEnd: 0.22, recoveryEnd: 0.37),
+        .rightHook: AttackSpec(duration: 0.43, activeStart: 0.21, activeEnd: 0.32, damage: 12, range: 27, halfAngle: 50, staminaCost: 19, targetZone: .head, fistRadius: 5.8, family: .hook, deliveryStart: 0.075, followThroughEnd: 0.24, recoveryEnd: 0.40),
+        .leftUppercut: AttackSpec(duration: 0.44, activeStart: 0.22, activeEnd: 0.34, damage: 13, range: 25, halfAngle: 26, staminaCost: 20, targetZone: .head, fistRadius: 5.4, family: .uppercut, deliveryStart: 0.080, followThroughEnd: 0.25, recoveryEnd: 0.41),
+        .rightUppercut: AttackSpec(duration: 0.47, activeStart: 0.24, activeEnd: 0.36, damage: 14, range: 26, halfAngle: 24, staminaCost: 21, targetZone: .head, fistRadius: 5.8, family: .uppercut, deliveryStart: 0.090, followThroughEnd: 0.27, recoveryEnd: 0.44),
     ]
+
+    /// Returns GAME units for FighterModel.x/y distance checks. Radius is in scene units,
+    /// so divide it by sceneScale here; only the renderer multiplies range by sceneScale.
+    static func hitRange(_ punch: Punch, style: FightStyle, targetRadius: Double = fighterContactRadius) -> Double {
+        guard let spec = attacks[punch] else { return 0 }
+        return spec.range * style.reachMultiplier + punchReachExtension + targetRadius / sceneScale
+    }
 
     static let requiredDuck: [Punch: Int] = [
         .jab: 1,
@@ -477,7 +585,7 @@ enum CombatData {
         if duckDirection > 0 {
             return base == .jab ? .leftHook : .rightBody
         }
-        return base == .jab ? .jab : .cross
+        return base
     }
 
     static func roundOutcome(playerHP: Int, enemyHP: Int) -> RoundOutcome {
@@ -591,14 +699,14 @@ enum CombatCommentary {
     static func duckEvade(defender: String, isPlayerDefender: Bool, language: AppLanguage) -> String {
         if isPlayerDefender {
             switch language {
-            case .korean: return "\(defender)의 완벽한 더킹! 지금이 카운터 타이밍입니다."
-            case .english: return "\(defender)'s perfect duck! Now's the counter window."
-            case .japanese: return "\(defender)の完璧なダッキング!今がカウンターのタイミングです。"
+            case .korean: return "\(defender)의 더킹 성공! 지금이 카운터 타이밍입니다."
+            case .english: return "\(defender) slips the punch! Now's the counter window."
+            case .japanese: return "\(defender)のダッキング成功!今がカウンターのタイミングです。"
             }
         }
         switch language {
-        case .korean: return "\(defender)이(가) 완벽하게 피했습니다! 지금 당신이 노출됐어요, 조심하세요!"
-        case .english: return "\(defender) dodges perfectly! You're the one exposed now -- watch out!"
+        case .korean: return "\(defender)이(가) 공격을 피했습니다! 지금 당신이 노출됐어요, 조심하세요!"
+        case .english: return "\(defender) slips your punch! You're exposed now -- watch out!"
         case .japanese: return "\(defender)が見事に避けました!今はあなたが隙だらけです、気をつけて!"
         }
     }
@@ -670,64 +778,163 @@ enum RoundOutcome: Equatable, Sendable {
     case draw
 }
 
+enum DodgeGrade: String, Codable, Equatable, Sendable {
+    case normal
+    case good
+    case accurate
+    case perfect
+
+    var counterWindow: Double {
+        switch self {
+        case .normal: 0.18
+        case .good: 0.28
+        case .accurate: 0.60
+        case .perfect: 0.80
+        }
+    }
+
+    var focusDuration: Double {
+        switch self {
+        case .normal: 0
+        case .good: 0.16
+        case .accurate: 0.48
+        case .perfect: 0.65
+        }
+    }
+
+    /// How much simulation time slows during the focus beat. Accurate/Perfect are deliberately pushed
+    /// much closer to a full freeze than before so the counter-timing cue reads as unmistakable rather
+    /// than a subtle wobble.
+    var timeScale: Double {
+        switch self {
+        case .normal, .good: 1
+        case .accurate: 0.40
+        case .perfect: 0.20
+        }
+    }
+
+    /// Forward camera push during the focus beat. Bumped up substantially for Accurate/Perfect so the
+    /// zoom itself is an unmissable, bold cue -- not just the slow motion -- per the "확실하게 걸어서" /
+    /// "줌인도 과감하게" direction.
+    var cameraZoom: Float {
+        switch self {
+        case .normal: 0
+        case .good: 0.30
+        case .accurate: 1.05
+        case .perfect: 1.75
+        }
+    }
+}
+
 final class FighterModel {
     let name: String
-    let colorName: String
+    let maximumHealth: Int
+    let punchReachBonus: Double
+    let punchDamageMultiplier: Double
     var x: Double
     var y: Double
-    var hp = 100
+    var hp: Int
     var stamina = 100.0
     var facingX = 1.0
     var facingY = 0.0
     var attack: Punch?
+    var attackSerial: UInt64 = 0
+    var attackAim: SIMD3<Float>?
+    var attackEntryPose: FightPose?
+    var poseTransition: FighterPoseTransition?
     var actionTime = 0.0
     var acted = false
+    var attackOutcome: RivalAttackOutcome?
+    var attackContactFrame: PunchContactFrame?
     var guarding = false
+    var guardAmount: Float = 0
     var duckDirection = 0
     var duckTime = 0.0
+    var duckMotion = DuckMotion()
+    var weave = WeaveState()
+    var weaveOrigin: SIMD2<Double>?
+    var backstep = BackstepState()
     var invulnerable = 0.0
     var exhausted = 0.0
     var exposed = 0.0
     var stagger = 0.0
     var hitReaction = 0.0
+    var lastImpact: CombatImpact?
     var knockedOut = false
     var knockdown = 0.0
+    var getupProgress = 0.0
     var streakAttack: Punch?
     var streakCount = 0
-    var whiffed = false
+    var pendingDodgeCounter = false
+    var isAligningCross: Bool {
+        guard attack == .cross, let spec = CombatData.attacks[.cross] else { return false }
+        return actionTime < spec.deliveryStart
+    }
     /// Boxing style preference. Not touched by reset()/round transitions so it persists for the whole session.
     var style: FightStyle = .standard
 
-    init(name: String, colorName: String, x: Double, y: Double) {
+    init(name: String, x: Double, y: Double, maximumHealth: Int = 100,
+         punchReachBonus: Double = 0, punchDamageMultiplier: Double = 1) {
         self.name = name
-        self.colorName = colorName
         self.x = x
         self.y = y
+        self.maximumHealth = maximumHealth
+        self.punchReachBonus = punchReachBonus
+        self.punchDamageMultiplier = punchDamageMultiplier
+        hp = maximumHealth
+    }
+
+    func reachMultiplier(for punch: Punch) -> Double {
+        guard let spec = CombatData.attacks[punch] else { return style.reachMultiplier }
+        return style.reachMultiplier + punchReachBonus / spec.range
+    }
+
+    func hitRange(_ punch: Punch, targetRadius: Double = CombatData.fighterContactRadius) -> Double {
+        CombatData.hitRange(punch, style: style, targetRadius: targetRadius) + punchReachBonus
     }
 
     func reset(x: Double, y: Double) {
         self.x = x
         self.y = y
-        hp = 100
+        hp = maximumHealth
         stamina = 100
         facingX = name == "PLAYER" ? 1 : -1
         facingY = 0
         attack = nil
+        attackSerial = 0
+        attackAim = nil
+        attackEntryPose = nil
+        poseTransition = nil
         actionTime = 0
         acted = false
+        attackOutcome = nil
+        attackContactFrame = nil
         guarding = false
+        guardAmount = 0
         duckDirection = 0
         duckTime = 0
+        duckMotion = DuckMotion()
+        weave.reset()
+        weaveOrigin = nil
+        backstep.cancel()
         invulnerable = 0
         exhausted = 0
         exposed = 0
         stagger = 0
         hitReaction = 0
+        lastImpact = nil
         knockedOut = false
         knockdown = 0
+        getupProgress = 0
         streakAttack = nil
         streakCount = 0
-        whiffed = false
+        pendingDodgeCounter = false
+    }
+
+    func advancePoseTransition(_ deltaTime: Double) {
+        guard var transition = poseTransition else { return }
+        transition.advance(deltaTime)
+        poseTransition = transition.isActive ? transition : nil
     }
 }
 
@@ -762,7 +969,7 @@ struct HabitMemory: Codable, Sendable {
         if duckDirection < 0 { duckLeftSamples += sample }
         if duckDirection > 0 { duckRightSamples += sample }
         if backstep { backstepSamples += sample }
-        if forwardAxis > 0 { pressureSamples += sample * abs(forwardAxis) }
+        if forwardAxis > 0 { pressureSamples += sample * forwardAxis }
         if forwardAxis < 0 { retreatSamples += sample * abs(forwardAxis) }
     }
 
@@ -785,7 +992,8 @@ struct HabitMemory: Codable, Sendable {
     }
 
     var snapshot: HabitSnapshot {
-        let totalAttacks = max(attackCounts.values.reduce(0, +), 1)
+        let attackCount = attackCounts.values.reduce(0, +)
+        let totalAttacks = max(attackCount, 1)
         let sampleTotal = max(totalSamples, 1)
         let favorite = Punch.allCases.max { attackCounts[$0, default: 0] < attackCounts[$1, default: 0] } ?? .jab
         return HabitSnapshot(
@@ -799,7 +1007,8 @@ struct HabitMemory: Codable, Sendable {
             pressureRatio: pressureSamples / sampleTotal,
             retreatRatio: retreatSamples / sampleTotal,
             repeatStreak: repeatStreak,
-            sampleStrength: min(1, sampleTotal / 900)
+            sampleStrength: min(1, max(0, totalSamples) / 900),
+            attackCount: attackCount
         )
     }
 
@@ -815,7 +1024,7 @@ struct HabitMemory: Codable, Sendable {
             pressureRatio: snapshot.pressureRatio,
             retreatRatio: snapshot.retreatRatio,
             repeatStreak: snapshot.repeatStreak,
-            attackCount: attackCounts.values.reduce(0, +),
+            attackCount: snapshot.attackCount,
             sampleSeconds: totalSamples / 8
         )
     }
@@ -931,75 +1140,6 @@ struct RivalReadProfile: Equatable, Sendable {
     }
 }
 
-private struct RecentHabitMemory {
-    private static let maxAttackHistory = 6
-    private static let sampleHalfLife = 8.0
-
-    private var attackHistory: [Punch] = []
-    private var guardSamples = 0.0
-    private var duckLeftSamples = 0.0
-    private var duckRightSamples = 0.0
-    private var pressureSamples = 0.0
-    private var retreatSamples = 0.0
-    private var totalSamples = 0.0
-
-    mutating func noteAttack(_ punch: Punch) {
-        attackHistory.append(punch)
-        if attackHistory.count > Self.maxAttackHistory {
-            attackHistory.removeFirst(attackHistory.count - Self.maxAttackHistory)
-        }
-    }
-
-    mutating func sample(
-        deltaTime: Double,
-        guarding: Bool,
-        duckDirection: Int,
-        forwardAxis: Double
-    ) {
-        let sample = min(0.05, max(0, deltaTime))
-        guard sample > 0 else { return }
-        let retention = exp(-log(2) * sample / Self.sampleHalfLife)
-        guardSamples *= retention
-        duckLeftSamples *= retention
-        duckRightSamples *= retention
-        pressureSamples *= retention
-        retreatSamples *= retention
-        totalSamples = totalSamples * retention + sample
-
-        if guarding { guardSamples += sample }
-        if duckDirection < 0 { duckLeftSamples += sample }
-        if duckDirection > 0 { duckRightSamples += sample }
-        if forwardAxis > 0 { pressureSamples += sample * abs(forwardAxis) }
-        if forwardAxis < 0 { retreatSamples += sample * abs(forwardAxis) }
-    }
-
-    var rivalRead: RivalReadProfile {
-        let attackCount = Double(attackHistory.count)
-        let totalAttacks = max(attackCount, 1)
-        let counts = Dictionary(attackHistory.map { ($0, 1) }, uniquingKeysWith: +)
-        let favorite = Punch.allCases.max { counts[$0, default: 0] < counts[$1, default: 0] } ?? .jab
-        var repeatStreak = 0
-        for punch in attackHistory.reversed() {
-            guard punch == favorite else { break }
-            repeatStreak += 1
-        }
-        let sampleTotal = max(totalSamples, 0.001)
-        return RivalReadProfile.infer(
-            favoriteAttack: favorite,
-            jabRatio: Double(counts[.jab, default: 0]) / totalAttacks,
-            bodyRatio: Double(counts[.leftBody, default: 0] + counts[.rightBody, default: 0]) / totalAttacks,
-            guardRatio: guardSamples / sampleTotal,
-            duckLeftRatio: duckLeftSamples / sampleTotal,
-            duckRightRatio: duckRightSamples / sampleTotal,
-            pressureRatio: pressureSamples / sampleTotal,
-            retreatRatio: retreatSamples / sampleTotal,
-            repeatStreak: repeatStreak,
-            attackCount: attackCount,
-            sampleSeconds: totalSamples
-        )
-    }
-}
-
 struct HabitSnapshot: Sendable {
     let favoriteAttack: Punch
     let jabRatio: Double
@@ -1012,6 +1152,7 @@ struct HabitSnapshot: Sendable {
     let retreatRatio: Double
     let repeatStreak: Int
     let sampleStrength: Double
+    var attackCount: Double = 0
 
     func adaptation() -> Double {
         min(0.75, max(0.18, 0.18 + 0.57 * sampleStrength))
@@ -1020,9 +1161,12 @@ struct HabitSnapshot: Sendable {
     func enemyWeights(
         distance: Double,
         playerExposed: Bool,
-        rivalRead: RivalReadProfile = .none
+        rivalRead: RivalReadProfile = .none,
+        learningMultiplier: Double = 1,
+        style: FightStyle = .standard
     ) -> [String: Double] {
-        let adapt = adaptation()
+        let learning = min(2.5, max(0, learningMultiplier))
+        let adapt = adaptation() * learning
         var weights: [String: Double] = [
             Punch.jab.rawValue: 0.1, Punch.cross.rawValue: 0.1,
             Punch.leftBody.rawValue: 0.08, Punch.rightBody.rawValue: 0.08,
@@ -1035,9 +1179,9 @@ struct HabitSnapshot: Sendable {
         ]
 
         func add(_ key: String, _ amount: Double) { weights[key, default: 0] += amount }
-        if distance > 115 {
+        if distance > CombatData.hitRange(.jab, style: style) + 12 {
             add(Punch.jab.rawValue, 1.55); add(Punch.cross.rawValue, 0.45); add("advance", 1.2)
-        } else if distance > 78 {
+        } else if distance > CombatData.hitRange(.cross, style: style) - 4 {
             add(Punch.jab.rawValue, 1); add(Punch.cross.rawValue, 0.95)
             add(Punch.leftHook.rawValue, 0.35); add(Punch.rightHook.rawValue, 0.55)
             add("dodge_left", 0.22); add("dodge_right", 0.22); add("circle_left", 0.22); add("circle_right", 0.22)
@@ -1050,12 +1194,12 @@ struct HabitSnapshot: Sendable {
         if guardRatio > 0.22 { add(Punch.leftBody.rawValue, 0.95 * adapt); add(Punch.rightBody.rawValue, 1.2 * adapt); add("circle_left", 0.3 * adapt); add("circle_right", 0.3 * adapt) }
         if duckRightRatio > 0.16 { add(Punch.cross.rawValue, 1.05 * adapt); add(Punch.rightHook.rawValue, 0.95 * adapt); add(Punch.rightUppercut.rawValue, 0.7 * adapt) }
         if duckLeftRatio > 0.16 { add(Punch.jab.rawValue, 0.85 * adapt); add(Punch.leftHook.rawValue, 0.8 * adapt); add(Punch.leftUppercut.rawValue, 0.6 * adapt) }
-        if jabRatio > 0.34 || favoriteAttack == .jab { add(Punch.cross.rawValue, 0.9 * adapt); add(Punch.rightHook.rawValue, 0.55 * adapt); add("dodge_right", 0.35 * adapt) }
+        if jabRatio > 0.34 || (attackCount > 0 && favoriteAttack == .jab) { add(Punch.cross.rawValue, 0.9 * adapt); add(Punch.rightHook.rawValue, 0.55 * adapt); add("dodge_right", 0.35 * adapt) }
         if bodyRatio > 0.3 { add(Punch.leftUppercut.rawValue, 0.45 * adapt); add(Punch.rightUppercut.rawValue, 0.7 * adapt) }
         if pressureRatio > 0.2 { add("dodge_back", 0.75 * adapt); add("retreat", 0.5 * adapt); add("circle_left", 0.55 * adapt); add("circle_right", 0.55 * adapt); add(Punch.rightHook.rawValue, 0.55 * adapt); add(Punch.leftHook.rawValue, 0.45 * adapt) }
         if backstepRatio > 0.14 || retreatRatio > 0.18 { add("cut_off", 1.05 * adapt); add("advance", 0.45 * adapt); add(Punch.jab.rawValue, 0.7 * adapt); add(Punch.cross.rawValue, 0.45 * adapt); weights["wait", default: 0] *= 0.8 }
         if repeatStreak >= 3 { add("dodge_left", 0.35 * adapt); add("dodge_right", 0.35 * adapt) }
-        let readStrength = 0.65 + 0.35 * rivalRead.confidence
+        let readStrength = (0.65 + 0.35 * rivalRead.confidence) * learning
         switch rivalRead.kind {
         case .none:
             break
@@ -1130,6 +1274,9 @@ struct CombatSnapshot: Sendable {
     let roundFinishingPunch: Punch?
     let roundFinishingBlowByPlayer: Bool
     let canAdvanceRound: Bool
+    let showsRoundResult: Bool
+    let lastPlayerDodgeGrade: DodgeGrade?
+    let perfectCounterCount: Int
     /// True only when the round just ended in a player win AND the player's HP is still full (100) --
     /// since HP resets to 100 at the start of every round (see `FighterModel.reset`), this cleanly means
     /// the rival never landed a single hit the whole round. Used to unlock the "Untouchable" outfit.
@@ -1158,9 +1305,14 @@ final class CombatEngine {
         }
     }
 
-    let player = FighterModel(name: "PLAYER", colorName: "cyan", x: 170, y: 295)
-    let enemy = FighterModel(name: "RIVAL", colorName: "red", x: 420, y: 295)
+    let player = FighterModel(name: "PLAYER", x: 170, y: 295)
+    let enemy: FighterModel
+    private(set) var storyBout: StoryBoutState?
+    private(set) var storyRoundTransition: StoryRoundTransition?
 
+    /// Synchronous facts only; the observer must not advance or mutate the combat simulation.
+    var onCombatEvent: ((CombatEvent) -> Void)?
+    private(set) var lastSimulationDeltaTime = 0.0
     private(set) var phase = FightPhase.intro
     private(set) var round = 1
     private(set) var highestRound = 1
@@ -1184,7 +1336,14 @@ final class CombatEngine {
     /// The punch that landed the knockout blow this round, if the round ended in a K.O. Reset each round.
     private(set) var roundFinishingPunch: Punch?
     private(set) var roundFinishingBlowByPlayer = false
-    private(set) var message = L.tagline.text(for: .korean)
+    private(set) var lastPlayerDodgeGrade: DodgeGrade?
+    private(set) var rivalMomentTime = 0.0
+    private(set) var rivalMomentGrade: DodgeGrade?
+    private(set) var perfectCounterImpactTime = 0.0
+    private(set) var perfectCounterCount = 0
+    /// Real-seconds remaining in the dedicated knockout finishing-blow slow-motion + zoom beat.
+    private(set) var koMomentTime = 0.0
+    private(set) var message = LocalizationManager.shared.t(.tagline)
     private(set) var habits: HabitMemory
     var moveX = 0.0
     var moveY = 0.0
@@ -1193,22 +1352,95 @@ final class CombatEngine {
     private var enemyDecisionTimer = 0.5
     private var enemyFootwork = EnemyFootwork.none
     private var enemyFootworkTime = 0.0
+    private var enemyGuardTime = 0.0
+    private var enemyTacticTime = 0.0
+    private var enemyCircleDirection = 1.0
+    /// Next-decision intent: a timed entry or a short combination, never a permanent close stance.
+    private var enemyFollowUp: Punch?
+    private var enemyRecoveryChoice: String?
+    private var observedPlayerAttackSerial: UInt64 = 0
+    private var reactedToPlayerAttack = false
+    private var random: RivalRandom
+    private(set) var tacticalRead = RivalReadProfile.none
+    private var storyLearning = StoryLearningState()
+    private var storyRoundCommitted = false
+    private var storyPolicyRound = 30
+    private var usesAdaptiveRival: Bool { storyBout == nil || storyBout?.opponent == .rival }
+    private var isStoryRival: Bool { storyBout?.opponent == .rival }
+    var rivalDifficulty: RivalDifficulty {
+        RivalDifficulty(round: storyBout == nil ? round : storyBout?.opponent == .rival ? storyPolicyRound : 8,
+            championship: isStoryRival)
+    }
+    private var storyPressureRecovering = false
+    private var storyPressureCombination = 0
+    private var storyOutboxerRecovering = false
+    private var storyOutboxerCombination = 0
+    private var storyOutboxerExitTime = 0.0
+    private var storyOutboxerStepTime = 0.0
+    private var storyOutboxerStepCooldown = 0.0
+    private var storyOutboxerStepTravel = 0.0
+    private var storyOutboxerAngleTime = 0.0
+    private var storyCounterRecovering = false
+    private var storyCounterRetreatTime = 0.0
+    private var storyCounterRecoveryPending = false
+    private var storyCounterPunishDelay = 0.0
+    private var storyCounterPunishTime = 0.0
+    private var storyCounterProbeTime = 0.0
+    private var storySluggerRecovering = false
+    private var storySluggerCombination = 0
+    private var storySluggerRecoveryTime = 0.0
+    private var storySluggerAdvanceTime = 0.0
+    private var storySluggerAdvanceCooldown = 0.0
+    private var storySluggerEntryPending = false
+    private var storyRivalCombination = 0
+    private var storyRivalRecoveryTime = 0.0
+    private var storyRivalReadCooldown = 0.0
     private var roundBreakTimer = 0.0
+    private var roundBreakElapsedTime = 0.0
     private var advancesRoundAfterBreak = false
     private var roundHabits = HabitMemory()
-    private var recentHabits = RecentHabitMemory()
+    private(set) var playerAttackResults = RivalAttackMemory()
+    private(set) var rivalAttackResults = RivalAttackMemory()
+    private var roundPlayerAttackResults = RivalAttackMemory()
+    private var roundRivalAttackResults = RivalAttackMemory()
+    private var combatElapsedTime = 0.0
+    private var playerDuckStartedAt: Double?
+    private var playerWeaveStartedAt: Double?
+    private var playerCounterWindowTime = 0.0
     private let defaults: UserDefaults?
 
-    init(persistHabits: Bool = true) {
-        defaults = persistHabits ? .standard : nil
+    init(persistHabits: Bool = true, initialRound: Int = 1,
+         randomSeed: UInt64 = UInt64.random(in: UInt64.min...UInt64.max),
+            storyOpponent: StoryOpponent? = nil, storyLearning: StoryLearningState = StoryLearningState()) {
+        enemy = FighterModel(name: storyOpponent?.rawValue.uppercased() ?? "RIVAL", x: 420, y: 295,
+            maximumHealth: storyOpponent == .slugger ? 120 : 100,
+            punchReachBonus: storyOpponent == .slugger ? 4 : 0,
+            punchDamageMultiplier: storyOpponent == .slugger ? 1.15 : 1)
+        if storyOpponent == .outboxer { enemy.style = .outboxing }
+        if storyOpponent == .slugger { enemy.style = .infighting }
+        storyBout = storyOpponent.map { StoryBoutState(opponent: $0) }
+        self.storyLearning = storyLearning
+        defaults = persistHabits && storyOpponent == nil ? .standard : nil
+        random = RivalRandom(seed: randomSeed)
         let initialHabits: HabitMemory
-        if let data = defaults?.data(forKey: "pixelBoxingHabitMemory"),
+        if storyOpponent != nil {
+            initialHabits = storyLearning.habits
+        } else if let data = defaults?.data(forKey: "pixelBoxingHabitMemory"),
            let decoded = try? JSONDecoder().decode(HabitMemory.self, from: data) {
             initialHabits = decoded
         } else {
             initialHabits = HabitMemory()
         }
         habits = initialHabits
+        if storyOpponent != nil {
+            playerAttackResults = storyLearning.playerAttacks
+            rivalAttackResults = storyLearning.opponentAttacks
+        } else if let data = defaults?.data(forKey: "pixelBoxingRivalResults"),
+           let profile = try? JSONDecoder().decode(RivalLearningProfile.self, from: data) {
+            playerAttackResults = profile.playerAttacks
+            rivalAttackResults = profile.rivalAttacks
+        }
+        round = max(1, initialRound)
         if let savedRound = defaults?.integer(forKey: "pixelBoxingRound"), savedRound > 0 {
             round = savedRound
         }
@@ -1222,7 +1454,7 @@ final class CombatEngine {
 
     var snapshot: CombatSnapshot {
         let habit = habits.snapshot
-        let rivalRead = recentHabits.rivalRead
+        let rivalRead = tacticalRead
         return CombatSnapshot(
             phase: phase, round: round, highestRound: highestRound, time: roundTime,
             playerHP: player.hp, enemyHP: enemy.hp,
@@ -1238,14 +1470,22 @@ final class CombatEngine {
             guardBreakCount: guardBreakCount, lastGuardBreakByPlayer: lastGuardBreakByPlayer,
             exhaustionCount: exhaustionCount, lastExhaustedByPlayer: lastExhaustedByPlayer,
             lastRoundOutcome: lastRoundOutcome, lastRoundWasKnockout: lastRoundWasKnockout,
-            playerLocked: player.exhausted > 0 || player.stagger > 0,
+            playerLocked: player.exhausted > 0 || player.stagger > 0 || (storyBout.map { $0.phase != .fighting } ?? false),
             roundPlayerDodgeCount: roundPlayerDodgeCount,
             roundEnemyDodgeCount: roundEnemyDodgeCount,
             roundPlayerTopAttack: Self.topAttack(from: roundPlayerPunchCounts),
             roundEnemyTopAttack: Self.topAttack(from: roundEnemyPunchCounts),
             roundFinishingPunch: roundFinishingPunch,
             roundFinishingBlowByPlayer: roundFinishingBlowByPlayer,
-            canAdvanceRound: phase == .roundBreak && roundBreakTimer <= 0,
+            canAdvanceRound: storyRoundTransition == nil
+                && (storyBout?.canStartNextRound ?? (phase == .roundBreak && roundBreakTimer <= 0)),
+            showsRoundResult: phase == .roundBreak && (storyBout == nil || storyBout?.phase == .finished) && roundBreakElapsedTime >= (
+                lastRoundWasKnockout
+                    ? CombatPresentationTiming.knockoutResultReveal
+                    : CombatPresentationTiming.decisionResultReveal
+            ),
+            lastPlayerDodgeGrade: lastPlayerDodgeGrade,
+            perfectCounterCount: perfectCounterCount,
             roundPlayerWasUnhit: lastRoundOutcome == .playerWin && player.hp == 100
         )
     }
@@ -1263,6 +1503,7 @@ final class CombatEngine {
     }
 
     func startSession() {
+        if let storyBout { self.storyBout = StoryBoutState(opponent: storyBout.opponent, rules: storyBout.rules) }
         round = 1
         playerScore = 0
         enemyScore = 0
@@ -1282,42 +1523,104 @@ final class CombatEngine {
         defaults?.set(style.rawValue, forKey: "pixelBoxingPlayerStyle")
     }
 
-    func startRound() {
+    func startRound(emitsStartEvent: Bool = true) {
+        storyRoundTransition = nil
         player.reset(x: 170, y: 295)
         enemy.reset(x: 420, y: 295)
+        if let storyBout {
+            round = storyBout.round
+            habits = storyLearning.habits
+            playerAttackResults = storyLearning.playerAttacks
+            rivalAttackResults = storyLearning.opponentAttacks
+            storyPolicyRound = 30 + min(100, storyLearning.championshipRounds) * 2
+            switch storyBout.opponent {
+            case .outboxer: enemy.style = .outboxing
+            case .slugger: enemy.style = .infighting
+            case .pressure, .counter, .rival: enemy.style = .standard
+            }
+        }
         phase = .fight
-        roundTime = CombatData.roundSeconds
+        roundTime = storyBout?.rules.roundSeconds ?? CombatData.roundSeconds
         roundBreakTimer = 0
+        roundBreakElapsedTime = 0
+        lastSimulationDeltaTime = 0
         advancesRoundAfterBreak = false
         enemyDecisionTimer = 0.55
         enemyFootwork = .none
         enemyFootworkTime = 0
+        enemyGuardTime = 0
+        enemyTacticTime = 0
+        enemyCircleDirection = random.unit() < 0.5 ? -1 : 1
+        enemyFollowUp = nil
+        enemyRecoveryChoice = nil
+        observedPlayerAttackSerial = 0
+        reactedToPlayerAttack = false
+        tacticalRead = usesAdaptiveRival ? habits.rivalRead : .none
+        storyRoundCommitted = false
+        storyPressureRecovering = false
+        storyPressureCombination = 0
+        storyOutboxerRecovering = false
+        storyOutboxerCombination = 0
+        storyOutboxerExitTime = 0
+        storyOutboxerStepTime = 0
+        storyOutboxerStepCooldown = 0.35
+        storyOutboxerStepTravel = 0
+        storyOutboxerAngleTime = 0
+        storyCounterRecovering = false
+        storyCounterRetreatTime = 0
+        storyCounterRecoveryPending = false
+        storyCounterPunishDelay = 0
+        storyCounterPunishTime = 0
+        storyCounterProbeTime = storyBout?.opponent == .counter ? 8 + random.unit() * 4 : 0
+        storySluggerRecovering = false
+        storySluggerCombination = 0
+        storySluggerRecoveryTime = 0
+        storySluggerAdvanceTime = 0
+        storySluggerAdvanceCooldown = 0.70
+        storySluggerEntryPending = false
+        storyRivalCombination = 0
+        storyRivalRecoveryTime = 0
+        storyRivalReadCooldown = 0.50
         roundHabits = HabitMemory()
-        recentHabits = RecentHabitMemory()
+        roundPlayerAttackResults = RivalAttackMemory()
+        roundRivalAttackResults = RivalAttackMemory()
         roundPlayerDodgeCount = 0
         roundEnemyDodgeCount = 0
         roundPlayerPunchCounts = [:]
         roundEnemyPunchCounts = [:]
         roundFinishingPunch = nil
         roundFinishingBlowByPlayer = false
-        message = "FIGHT"
+        lastPlayerDodgeGrade = nil
+        rivalMomentTime = 0
+        rivalMomentGrade = nil
+        perfectCounterImpactTime = 0
+        koMomentTime = 0
+        playerCounterWindowTime = 0
+        playerDuckStartedAt = nil
+        playerWeaveStartedAt = nil
+        combatElapsedTime = 0
+        message = LocalizationManager.shared.t(.fightStarted)
+        if emitsStartEvent { onCombatEvent?(.roundStarted) }
     }
 
     func togglePause() {
-        if phase == .fight {
+        if phase == .fight || (storyBout != nil && phase == .roundBreak && storyBout?.phase != .finished) {
+            cancelWeaveInput()
             previousPhase = phase
             phase = .paused
-            message = "PAUSED"
+            message = LocalizationManager.shared.t(.pausedTitle)
         } else if phase == .paused {
             phase = previousPhase ?? .fight
-            message = "FIGHT"
+            message = LocalizationManager.shared.t(.fightStarted)
         }
     }
 
     func resetLearning() {
         habits = HabitMemory()
-        roundHabits = HabitMemory()
+        playerAttackResults = RivalAttackMemory()
+        rivalAttackResults = RivalAttackMemory()
         defaults?.removeObject(forKey: "pixelBoxingHabitMemory")
+        defaults?.removeObject(forKey: "pixelBoxingRivalResults")
         startSession()
         message = LocalizationManager.shared.t(.learningResetMessage)
     }
@@ -1332,41 +1635,92 @@ final class CombatEngine {
             player.guarding = false
             return
         }
-        guard phase == .fight, player.attack == nil, player.exhausted <= 0 else { return }
+        guard phase == .fight, player.attack == nil, player.exhausted <= 0, !player.weave.isActive else { return }
         player.guarding = true
     }
 
     func setDuck(_ direction: Int, active: Bool) {
-        if !active {
+        let clampedDirection = min(1, max(-1, direction))
+        if !active || clampedDirection == 0 {
             player.duckDirection = 0
+            if abs(player.duckMotion.direction) < DuckMotion.minimumEvadeAmount {
+                playerDuckStartedAt = nil
+            }
             return
         }
-        guard phase == .fight, player.attack == nil, player.exhausted <= 0 else { return }
-        player.duckDirection = min(1, max(-1, direction))
+        guard phase == .fight, player.attack == nil, player.exhausted <= 0, !player.weave.isActive else { return }
+        if player.duckDirection != clampedDirection {
+            playerDuckStartedAt = combatElapsedTime
+        }
+        player.duckDirection = clampedDirection
+    }
+
+    @discardableResult
+    func weave(direction: Int) -> Bool {
+        guard phase == .fight else { return false }
+        updateFacing()
+        guard player.beginWeave(direction: direction) else { return false }
+        playerDuckStartedAt = nil
+        playerWeaveStartedAt = combatElapsedTime
+        // A prior graded duck cannot lend its counter token to a new weave or its hook.
+        playerCounterWindowTime = 0
+        message = LocalizationManager.shared.t(direction < 0 ? .weaveLeftAccessibility : .weaveRightAccessibility)
+        if player.stamina <= 0 { exhaust(player) }
+        return true
+    }
+
+    @discardableResult
+    func requestWeaveHook(base: Punch) -> Bool {
+        guard phase == .fight, player.queueWeaveHook(base: base) else { return false }
+        launchWeaveHook(player)
+        return true
+    }
+
+    /// Called by pause/leave/suspend input. No refund and no queued motion on resume.
+    func cancelWeaveInput() {
+        player.weave.cancel()
+        enemy.weave.cancel()
+        playerWeaveStartedAt = nil
+        moveX = 0
+        moveY = 0
+    }
+
+    private func launchWeaveHook(_ fighter: FighterModel) {
+        guard let hook = fighter.weave.takeReadyHook() else { return }
+        _ = executeAttack(fighter, punch: hook, recordsHabit: fighter === player, fromWeave: true)
     }
 
     @discardableResult
     func backstep() -> Bool {
         let staminaCost = CombatData.backstepStaminaCost * player.style.backstepStaminaMultiplier
         guard phase == .fight, player.attack == nil, player.stagger <= 0, player.exhausted <= 0,
-              player.stamina >= staminaCost else { return false }
+              !player.weave.isActive, !player.backstep.isActive, player.stamina >= staminaCost else { return false }
+        player.weave.cancel()
         player.stamina -= staminaCost
-        player.invulnerable = 0.22
-        let dx = -player.facingX * 34
-        let dy = -player.facingY * 34
-        player.x = clampToRing(player.x + dx)
-        player.y = clampToRing(player.y + dy)
-        message = "BACKSTEP"
+        player.backstep.start(facingX: player.facingX, facingY: player.facingY)
+        message = LocalizationManager.shared.t(.backstepAccessibility)
         if player.stamina <= 0 { exhaust(player) }
         return true
     }
 
     @discardableResult
     func startAttack(_ fighter: FighterModel, punch: Punch, recordsHabit: Bool = false) -> Bool {
+        executeAttack(fighter, punch: punch, recordsHabit: recordsHabit, fromWeave: false)
+    }
+
+    private func executeAttack(_ fighter: FighterModel, punch: Punch, recordsHabit: Bool, fromWeave: Bool) -> Bool {
         guard phase == .fight, fighter.attack == nil, fighter.stagger <= 0, fighter.exhausted <= 0,
+              fighter.hp > 0, !fighter.knockedOut, !fighter.backstep.isActive, (!fighter.weave.isActive || fromWeave),
               let spec = CombatData.attacks[punch] else { return false }
+          if fighter === enemy, isStoryRival, storyRivalRecoveryTime > 0 { return false }
         let staminaCost = spec.staminaCost * fighter.style.punchStaminaMultiplier
         guard fighter.stamina >= staminaCost else { return false }
+        let defender = fighter === player ? enemy : player
+        updateFacing()
+        PunchContactGeometry.begin(fighter,
+            target: PunchContactGeometry.target(defender, zone: spec.targetZone, defended: false),
+            radius: PunchContactGeometry.radius(spec.targetZone))
+        if !fromWeave { fighter.weave.cancel() }
         if fighter.streakAttack == punch {
             fighter.streakCount += 1
         } else {
@@ -1374,22 +1728,45 @@ final class CombatEngine {
             fighter.streakCount = 1
         }
         fighter.attack = punch
+        fighter.attackSerial &+= 1
         fighter.actionTime = 0
         fighter.acted = false
-        fighter.whiffed = false
+        fighter.attackOutcome = nil
+        fighter.pendingDodgeCounter = fighter === player && playerCounterWindowTime > 0
+        if fighter.pendingDodgeCounter { playerCounterWindowTime = 0 }
         fighter.guarding = false
         fighter.stamina = max(0, fighter.stamina - staminaCost)
+        fighter.attackContactFrame = PunchContactGeometry.contactFrame(fighter, defender: defender,
+            punch: punch, spec: spec, time: 0)
         message = CombatCommentary.attackCall(punch, attacker: fighter.name, language: LocalizationManager.shared.language)
         if fighter.stamina <= 0 { exhaust(fighter) }
         if recordsHabit {
             roundHabits.noteAttack(punch)
-            recentHabits.noteAttack(punch)
         }
         if fighter === player {
             roundPlayerPunchCounts[punch, default: 0] += 1
         } else {
+            enemyRecoveryChoice = nil
             roundEnemyPunchCounts[punch, default: 0] += 1
+            if isStoryRival {
+                storyRivalCombination += 1
+                if storyRivalCombination >= 3 {
+                    storyRivalCombination = 0
+                    storyRivalRecoveryTime = spec.duration + 0.45
+                    enemyFollowUp = nil
+                }
+            }
+            // Consume the approach when the punch really starts (including queued weave hooks).
+            // A separately queued follow-up may still close distance; otherwise recover jab spacing.
+            switch enemyFootwork {
+            case .advance, .cutOff:
+                enemyFootwork = .none
+                enemyFootworkTime = 0
+            default:
+                break
+            }
         }
+        onCombatEvent?(.attackStarted(fighter: fighter === player ? .player : .rival))
         return true
     }
 
@@ -1397,6 +1774,11 @@ final class CombatEngine {
     /// automatically once `roundBreakTimer` expired; it now only clears the knockdown-fall animation and
     /// unlocks the round-result overlay's "next round" button, waiting for the player to explicitly confirm.
     func requestNextRound() {
+        if let storyBout {
+            guard phase == .roundBreak, storyBout.canStartNextRound, storyRoundTransition == nil else { return }
+            storyRoundTransition = StoryRoundTransition(round: storyBout.round + 1)
+            return
+        }
         guard phase == .roundBreak, roundBreakTimer <= 0 else { return }
         if advancesRoundAfterBreak { round += 1 }
         highestRound = max(highestRound, round)
@@ -1405,22 +1787,86 @@ final class CombatEngine {
     }
 
     func update(deltaTime rawDeltaTime: Double) {
-        let deltaTime = min(0.05, max(0, rawDeltaTime))
-        guard deltaTime > 0 else { return }
+        lastSimulationDeltaTime = 0
+        guard rawDeltaTime.isFinite else { return }
+        let realDeltaTime = min(0.05, max(0, rawDeltaTime))
+        guard realDeltaTime > 0 else { return }
+        guard phase == .fight || phase == .roundBreak else { return }
+        if phase == .fight { combatElapsedTime += realDeltaTime }
+        // Read the active scale before expiring its grade; the last slowed frame must not jump to 1x.
+        let rivalTimeScale = rivalMomentTime > 0 ? (rivalMomentGrade?.timeScale ?? 1) : 1
+        rivalMomentTime = max(0, rivalMomentTime - realDeltaTime)
+        if rivalMomentTime == 0 { rivalMomentGrade = nil }
+        perfectCounterImpactTime = max(0, perfectCounterImpactTime - realDeltaTime)
+        let hasKoMoment = koMomentTime > 0
+        koMomentTime = max(0, koMomentTime - realDeltaTime)
+        // The knockout finishing-blow beat always wins over a dodge focus beat -- a KO landed during a
+        // perfect-counter window should read as "this finished him", not just "nice dodge".
+        let timeScale: Double
+        if hasKoMoment {
+            timeScale = CombatData.koMomentTimeScale
+        } else {
+            timeScale = rivalTimeScale
+        }
+        let deltaTime = realDeltaTime * timeScale
+        playerCounterWindowTime = max(0, playerCounterWindowTime - deltaTime)
+        lastSimulationDeltaTime = deltaTime
         if phase == .roundBreak {
+            if storyBout != nil {
+                updateStoryIntermission(realDeltaTime, simulationDelta: deltaTime)
+                return
+            }
             roundBreakTimer = max(0, roundBreakTimer - deltaTime)
+            roundBreakElapsedTime += deltaTime
             updateKnockdowns(deltaTime)
             return
         }
         guard phase == .fight else { return }
 
-        roundTime = max(0, roundTime - deltaTime)
+        roundTime = max(0, roundTime - (storyBout == nil ? deltaTime : realDeltaTime))
         updateFacing()
+        let enemyWasWeaving = enemy.weave.isActive
         updatePlayerMovement(deltaTime)
-        sampleHabits(deltaTime)
-        updateFighter(player, deltaTime)
-        updateFighter(enemy, deltaTime)
-        updateEnemy(deltaTime)
+        sampleHabits(storyBout == nil ? deltaTime : realDeltaTime)
+        // Both weave clocks/positions must describe this frame before EITHER fighter can hit.
+        for (fighter, other) in [(player, enemy), (enemy, player)] {
+            if fighter === enemy, fighter.duckTime > 0 {
+                fighter.duckTime = max(0, fighter.duckTime - deltaTime)
+                if fighter.duckTime == 0 { fighter.duckDirection = 0 }
+            }
+            fighter.duckMotion.advance(direction: fighter.duckDirection, deltaTime: deltaTime)
+            fighter.advancePoseTransition(deltaTime)
+            fighter.guardAmount = DefensiveMotion.guardBlend(current: fighter.guardAmount,
+                raised: fighter.guarding, deltaTime: deltaTime, reducedMotion: false)
+            let retreat = fighter.backstep.advance(deltaTime)
+            if retreat.x != 0 || retreat.y != 0 {
+                moveFighter(fighter, byX: retreat.x, byY: retreat.y, avoiding: other)
+            }
+            let step = fighter.advanceWeave(deltaTime)
+            if step.x != 0 || step.y != 0 {
+                moveFighter(fighter, byX: step.x, byY: step.y, avoiding: other)
+            }
+        }
+        if storyBout?.opponent == .outboxer { advanceStoryOutboxerMovement(deltaTime) }
+        let playerPreviousTime = player.actionTime
+        let enemyPreviousTime = enemy.actionTime
+        advanceFighter(player, deltaTime)
+        advanceFighter(enemy, deltaTime)
+        let playerContact = prepareContact(player, previous: playerPreviousTime)
+        let enemyContact = prepareContact(enemy, previous: enemyPreviousTime)
+        let enemyFirst = (enemyContact?.frameOffset ?? .infinity) < (playerContact?.frameOffset ?? .infinity)
+        let first = enemyFirst ? (fighter: enemy, contact: enemyContact) : (fighter: player, contact: playerContact)
+        let second = enemyFirst ? (fighter: player, contact: playerContact) : (fighter: enemy, contact: enemyContact)
+        updateFighter(first.fighter, contact: first.contact)
+        guard phase == .fight else { return }
+        updateFighter(second.fighter, contact: second.contact)
+        guard phase == .fight else { return }
+        // Newly launched hooks start at zero; don't credit them a full frame of attack time.
+        // A hit earlier in this frame has already cancelled its recipient's buffer.
+        launchWeaveHook(player)
+        launchWeaveHook(enemy)
+        // Like player movement above, don't add a full ordinary step on the weave's final tick.
+        if !enemyWasWeaving { updateEnemy(deltaTime) }
 
         if roundTime <= 0 {
             finishRound(
@@ -1431,12 +1877,13 @@ final class CombatEngine {
     }
 
     private func updatePlayerMovement(_ deltaTime: Double) {
-        guard player.attack == nil, player.stagger <= 0, player.exhausted <= 0, !player.guarding else { return }
+        guard player.attack == nil, player.stagger <= 0, player.exhausted <= 0,
+              !player.guarding, !player.weave.isActive, !player.backstep.isActive else { return }
         let magnitude = hypot(moveX, moveY)
         guard magnitude > 0.01 else { return }
         let forward = moveX / max(1, magnitude)
         let strafe = moveY / max(1, magnitude)
-        let baseSpeed = player.duckDirection == 0 ? 210.0 : 105.0
+        let baseSpeed = CombatData.movementSpeed * (player.duckDirection == 0 ? 1 : 0.5)
         // Retreating never benefits from a style's mobility bonus, so no style can back away faster than
         // the shared baseline backpedal speed — the mobility upside only applies advancing or strafing.
         let forwardSpeed = forward < 0
@@ -1459,81 +1906,235 @@ final class CombatEngine {
         let dx = enemy.x - player.x
         let dy = enemy.y - player.y
         let magnitude = max(0.001, hypot(dx, dy))
-        player.facingX = dx / magnitude
-        player.facingY = dy / magnitude
-        enemy.facingX = -player.facingX
-        enemy.facingY = -player.facingY
+        if player.attack == nil {
+            player.facingX = dx / magnitude
+            player.facingY = dy / magnitude
+        }
+        if enemy.attack == nil {
+            enemy.facingX = -dx / magnitude
+            enemy.facingY = -dy / magnitude
+        }
     }
 
-    private func updateFighter(_ fighter: FighterModel, _ deltaTime: Double) {
-        if fighter === enemy, fighter.duckTime > 0 {
-            fighter.duckTime = max(0, fighter.duckTime - deltaTime)
-            if fighter.duckTime == 0 { fighter.duckDirection = 0 }
+    private enum AttackContactEvent {
+        case hit(PunchContactFrame)
+        case evaded(RivalDefense, PunchContactFrame)
+        case missed(RivalMissReason)
+
+        var frame: PunchContactFrame? {
+            switch self {
+            case .hit(let frame), .evaded(_, let frame): frame
+            case .missed: nil
+            }
         }
+    }
+
+    private struct AttackContactAttempt {
+        let punch: Punch
+        let serial: UInt64
+        let previousTime: Double
+        let event: AttackContactEvent?
+
+        var frameOffset: Double { event?.frame.map { $0.time - previousTime } ?? .infinity }
+    }
+
+    private func prepareContact(_ fighter: FighterModel, previous: Double) -> AttackContactAttempt? {
+        guard let punch = fighter.attack, let spec = CombatData.attacks[punch] else {
+            fighter.attackContactFrame = nil
+            return nil
+        }
+        guard fighter.attackOutcome == nil else {
+            return AttackContactAttempt(punch: punch, serial: fighter.attackSerial, previousTime: previous, event: nil)
+        }
+        let defender = fighter === player ? enemy : player
+        let previousFrame = fighter.attackContactFrame ?? PunchContactGeometry.contactFrame(fighter,
+            defender: defender, punch: punch, spec: spec, time: previous)
+        let currentFrame = PunchContactGeometry.contactFrame(fighter, defender: defender,
+            punch: punch, spec: spec, time: fighter.actionTime)
+        fighter.attackContactFrame = currentFrame
+        let event = previous <= spec.activeEnd && fighter.actionTime >= spec.activeStart
+            ? evaluateContact(attacker: fighter, defender: defender, punch: punch, from: previousFrame, to: currentFrame) : nil
+        return AttackContactAttempt(punch: punch, serial: fighter.attackSerial, previousTime: previous, event: event)
+    }
+
+    private func evaluateContact(attacker: FighterModel, defender: FighterModel, punch: Punch,
+                                 from previous: PunchContactFrame, to current: PunchContactFrame) -> AttackContactEvent {
+        guard let spec = CombatData.attacks[punch], current.defense.invulnerable <= 0 else {
+            return .missed(.unavailable)
+        }
+        let hit = PunchContactGeometry.sweptContact(attacker, punch: punch, from: previous, to: current)
+        var evasion: (defense: RivalDefense, frame: PunchContactFrame)?
+        func consider(_ frame: PunchContactFrame?, defense: RivalDefense) {
+            guard let frame,
+                  hit == nil || frame.time < hit!.time || (defense == .backstep && frame.time == hit!.time),
+                  evasion == nil || frame.time < evasion!.frame.time else { return }
+            evasion = (defense: defense, frame: frame)
+        }
+        if previous.defense.backstep.isActive || current.defense.backstep.isActive {
+            consider(PunchContactGeometry.sweptContact(attacker, punch: punch, from: previous, to: current,
+                defense: .backstep), defense: .backstep)
+            consider(PunchContactGeometry.sweptContact(attacker, punch: punch, from: previous, to: current,
+                defended: false, defense: .backstep), defense: .backstep)
+        }
+        if let required = CombatData.requiredDuck[punch] {
+            if max(previous.defense.duck.direction * Float(required), current.defense.duck.direction * Float(required))
+                >= DuckMotion.minimumEvadeAmount {
+                consider(PunchContactGeometry.sweptContact(attacker, punch: punch, from: previous, to: current,
+                    defended: false, defense: .duck), defense: .duck)
+            }
+            if previous.defense.weave.direction == required || current.defense.weave.direction == required {
+                consider(PunchContactGeometry.sweptContact(attacker, punch: punch, from: previous, to: current,
+                    defended: false, defense: .weave), defense: .weave)
+                if let origin = defender.weaveOrigin {
+                    let scale = Float(CombatData.sceneScale)
+                    let worldOrigin = SIMD3<Float>(Float(origin.x) * scale, 0, Float(origin.y) * scale)
+                    func atOrigin(_ frame: PunchContactFrame) -> PunchContactFrame {
+                        var result = frame
+                        let defenderPosition = frame.attackerPosition
+                            + SIMD3<Float>(frame.rootDelta.x * scale, 0, frame.rootDelta.y * scale)
+                        result.standingTarget += worldOrigin - defenderPosition
+                        result.rootDelta = SIMD2<Float>((worldOrigin.x - frame.attackerPosition.x) / scale,
+                            (worldOrigin.z - frame.attackerPosition.z) / scale)
+                        return result
+                    }
+                    consider(PunchContactGeometry.sweptContact(attacker, punch: punch, from: atOrigin(previous),
+                        to: atOrigin(current), defended: false, defense: .weave), defense: .weave)
+                }
+            }
+        }
+        if let evasion { return .evaded(evasion.defense, evasion.frame) }
+        if let hit { return .hit(hit) }
+        let distance = simd_length(current.rootDelta)
+        guard Double(distance) <= attacker.hitRange(punch) else { return .missed(.distance) }
+        let facing = SIMD2<Float>(Float(attacker.facingX), Float(attacker.facingY))
+        let dot = min(1, max(-1, simd_dot(current.rootDelta, facing) / max(0.001, distance)))
+        guard acos(Double(dot)) * 180 / .pi <= spec.halfAngle else { return .missed(.angle) }
+        return .missed(.contact)
+    }
+
+    private func advanceFighter(_ fighter: FighterModel, _ deltaTime: Double) {
         fighter.invulnerable = max(0, fighter.invulnerable - deltaTime)
         fighter.exhausted = max(0, fighter.exhausted - deltaTime)
         fighter.exposed = max(0, fighter.exposed - deltaTime)
         fighter.stagger = max(0, fighter.stagger - deltaTime)
         fighter.hitReaction = max(0, fighter.hitReaction - deltaTime)
-        if fighter.exhausted <= 0, fighter.attack == nil, !fighter.guarding, fighter.duckDirection == 0 {
-            fighter.stamina = min(100, fighter.stamina + CombatData.staminaRecoveryPerSecond * deltaTime)
+        let isSluggerRecovery = fighter === enemy && storyBout?.opponent == .slugger
+            && storySluggerRecovering
+        if fighter.exhausted <= 0, fighter.attack == nil, (!fighter.guarding || isSluggerRecovery),
+           fighter.duckDirection == 0, !fighter.weave.isActive {
+            let recoveryPerSecond = isSluggerRecovery
+                ? (fighter.guarding ? 6.0 : CombatData.staminaRecoveryPerSecond * 1.5)
+                : CombatData.staminaRecoveryPerSecond
+            fighter.stamina = min(100, fighter.stamina
+                + recoveryPerSecond * deltaTime)
         }
         guard let punch = fighter.attack, let spec = CombatData.attacks[punch] else { return }
         let previous = fighter.actionTime
         fighter.actionTime += deltaTime
-        if !fighter.acted, previous < spec.activeStart, fighter.actionTime >= spec.activeStart {
-            fighter.acted = attemptHit(attacker: fighter, defender: fighter === player ? enemy : player, punch: punch)
+        let swingTime = PunchSwingTiming.cueTime(spec: spec)
+        // Cross this boundary once on the simulation clock; cancelled/paused attacks cannot queue audio.
+        if previous < swingTime, fighter.actionTime >= swingTime {
+            onCombatEvent?(.punchSwing(fighter: fighter === player ? .player : .rival, punch: punch))
+        }
+    }
+
+    private func updateFighter(_ fighter: FighterModel, contact: AttackContactAttempt?) {
+        guard let punch = fighter.attack, let spec = CombatData.attacks[punch] else {
+            fighter.attackContactFrame = nil
+            return
+        }
+        guard let contact, contact.serial == fighter.attackSerial, contact.punch == punch else { return }
+        let defender = fighter === player ? enemy : player
+        if fighter.attackOutcome == nil, let event = contact.event {
+            let outcome = attemptHit(attacker: fighter, defender: defender, punch: punch, event: event)
+            let resolved: Bool
+            if case .missed = outcome {
+                resolved = fighter.actionTime >= spec.activeEnd
+            } else {
+                resolved = true
+            }
+            if resolved {
+                fighter.attackOutcome = outcome
+                fighter.acted = outcome.landed
+                if fighter === player {
+                    roundPlayerAttackResults.note(punch, outcome: outcome)
+                } else {
+                    roundRivalAttackResults.note(punch, outcome: outcome)
+                }
+                if storyBout?.phase == .finished {
+                    announceStoryResult()
+                }
+                if storyBout == nil, outcome.landed, defender.knockedOut {
+                    finishRound(outcome: defender === enemy ? .playerWin : .playerLoss, knockout: true)
+                }
+            }
         }
         if fighter.actionTime >= spec.duration {
             if !fighter.acted {
-                fighter.whiffed = true
                 fighter.exposed = max(fighter.exposed, CombatData.whiffRecovery)
                 message = CombatCommentary.whiff(attacker: fighter.name, isPlayerAttacker: fighter === player, language: LocalizationManager.shared.language)
                 whiffCount += 1
                 lastWhiffByPlayer = fighter === player
+                onCombatEvent?(.whiff(fighter: fighter === player ? .player : .rival))
+            }
+            if fighter === enemy, phase == .fight, let outcome = fighter.attackOutcome {
+                planEnemyRecovery(after: punch, outcome: outcome)
             }
             fighter.attack = nil
+            fighter.attackAim = nil
+            fighter.attackEntryPose = nil
             fighter.actionTime = 0
             fighter.acted = false
+            fighter.attackOutcome = nil
+            fighter.attackContactFrame = nil
+            fighter.pendingDodgeCounter = false
         }
     }
 
     @discardableResult
-    private func attemptHit(attacker: FighterModel, defender: FighterModel, punch: Punch) -> Bool {
-        guard let spec = CombatData.attacks[punch], defender.invulnerable <= 0 else { return false }
-        let dx = defender.x - attacker.x
-        let dy = defender.y - attacker.y
-        let distance = hypot(dx, dy)
-        let effectiveRange = spec.range * attacker.style.reachMultiplier
-        guard distance <= effectiveRange + 17 else { return false }
-        let direction = max(0.001, distance)
-        let dot = max(-1, min(1, (dx / direction) * attacker.facingX + (dy / direction) * attacker.facingY))
-        guard acos(dot) * 180 / .pi <= spec.halfAngle else { return false }
-
-        if let requiredDuck = CombatData.requiredDuck[punch], defender.duckDirection == requiredDuck {
-            attacker.exposed = max(attacker.exposed, CombatData.duckCounterWindow)
-            if defender === player {
-                successfulDodgeCount += 1
-                roundPlayerDodgeCount += 1
-            } else {
-                roundEnemyDodgeCount += 1
-            }
-            message = CombatCommentary.duckEvade(defender: defender.name, isPlayerDefender: defender === player, language: LocalizationManager.shared.language)
-            return false
+    private func attemptHit(attacker: FighterModel, defender: FighterModel, punch: Punch,
+                            event: AttackContactEvent) -> RivalAttackOutcome {
+        guard let spec = CombatData.attacks[punch], defender.hp > 0 else {
+            return .missed(.unavailable)
         }
-
-        let countered = defender.exposed > 0
-        lastImpactGuarded = defender.guarding
+        let contactFrame: PunchContactFrame
+        switch event {
+        case .missed(let reason):
+            return .missed(reason)
+        case .evaded(.backstep, _):
+            return .evaded(.backstep)
+        case .evaded(let defense, _):
+            let startedAt = defense == .weave ? playerWeaveStartedAt : playerDuckStartedAt
+            let grade = defender === player
+                ? playerDodgeGrade(startedAt: startedAt, entryDuration: DuckMotion.entryDuration) : .normal
+            message = defense == .weave ? LocalizationManager.shared.t(.weaveEvadeMessage)
+                : CombatCommentary.duckEvade(defender: defender.name, isPlayerDefender: defender === player,
+                    language: LocalizationManager.shared.language)
+            rewardDodge(attacker: attacker, defender: defender, grade: grade)
+            return .evaded(defense)
+        case .hit(let frame):
+            contactFrame = frame
+        }
+        let contact = contactFrame.glove
+        let interruptedPose = defender.attack != nil || defender.weave.isActive || defender.backstep.isActive
+            ? PunchContactGeometry.samplePose(defender) : nil
+        let dodgeCounter = attacker === player && attacker.pendingDodgeCounter
+        let countered = defender.exposed > 0 || dodgeCounter
+        let perfectCounter = dodgeCounter && lastPlayerDodgeGrade == .perfect
+        let wasGuarding = contactFrame.defense.guarding && contactFrame.defense.guardAmount >= 0.65
+        var guardBroken = false
+        lastImpactGuarded = wasGuarding
         let staleStage = max(0, attacker.streakCount - CombatData.staleThreshold)
         let staleMultiplier = max(CombatData.staleFloor, pow(CombatData.staleDecay, Double(staleStage)))
-        var damage = max(1, Int((Double(spec.damage) * staleMultiplier * attacker.style.damageMultiplier).rounded()))
+        var damage = max(1, Int((Double(spec.damage) * staleMultiplier * attacker.style.damageMultiplier
+            * attacker.punchDamageMultiplier).rounded()))
         if defender.exposed > 0 {
             damage = Int((Double(damage) * CombatData.exposedDamageMultiplier).rounded())
             if spec.family == .body || spec.family == .hook {
                 damage = Int((Double(damage) * CombatData.bodyHookCounterMultiplier).rounded())
             }
         }
-        if defender.guarding {
+        if wasGuarding {
             let guardDamageMultiplier = CombatData.guardDamageMultiplier * defender.style.guardDamageMultiplier
             damage = max(1, Int((Double(damage) * guardDamageMultiplier).rounded()))
             let staminaDamage = max(
@@ -1543,13 +2144,18 @@ final class CombatEngine {
             defender.stamina = max(0, defender.stamina - staminaDamage)
             if defender.stamina <= 0 {
                 defender.guarding = false
-                exhaust(defender)
+                guardBroken = true
+                exhaust(defender, emitsFeedback: false)
                 message = CombatCommentary.guardBreak(defender: defender.name, language: LocalizationManager.shared.language)
                 guardBreakCount += 1
                 lastGuardBreakByPlayer = defender === player
             } else {
                 message = CombatCommentary.guardBlock(defender: defender.name, language: LocalizationManager.shared.language)
             }
+        } else if perfectCounter {
+            message = LocalizationManager.shared.t(.perfectCounter)
+            perfectCounterCount += 1
+            perfectCounterImpactTime = 0.24
         } else if countered {
             message = CombatCommentary.counter(
                 attacker: attacker.name,
@@ -1560,62 +2166,403 @@ final class CombatEngine {
         } else {
             message = CombatCommentary.impact(punch, attacker: attacker.name, language: LocalizationManager.shared.language)
         }
+        let appliedDamage = min(defender.hp, damage)
         defender.hp = max(0, defender.hp - damage)
         defender.hitReaction = 0.24
         defender.stagger = max(defender.stagger, CombatData.staggerLock)
+        defender.weave.cancel()
+        defender.backstep.cancel()
+        if let interruptedPose {
+            defender.poseTransition = FighterPoseTransition(source: interruptedPose,
+                facingAngle: Float(atan2(defender.facingX, defender.facingY)))
+        }
         if defender.attack != nil {
             defender.attack = nil
+            defender.attackAim = nil
+            defender.attackEntryPose = nil
+            defender.attackOutcome = nil
+            defender.attackContactFrame = nil
             defender.exposed = max(defender.exposed, CombatData.whiffRecovery)
         }
+        if defender === enemy {
+            enemyRecoveryChoice = nil
+            enemyFollowUp = nil
+        }
+        let incoming = PunchContactGeometry.direction(attacker, punch: punch, contact: contact,
+            progress: Float(contactFrame.time / spec.duration))
+        let defenderOrigin = PunchContactGeometry.worldPoint(.zero, fighter: defender)
+        storyBout?.recordImpact(by: attacker === player ? .player : .opponent,
+                               damage: appliedDamage, guarded: wasGuarding, counter: countered && !wasGuarding)
+        if defender.hp == 0 {
+            storyBout?.knockdown(defender === player ? .player : .opponent, resolvedDamage: damage)
+        }
+        let resolvedImpact = CombatImpact(
+            attacker: attacker === player ? .player : .rival,
+            punch: punch,
+            damage: appliedDamage,
+            guarded: wasGuarding,
+            guardBroken: guardBroken,
+            counter: countered && !wasGuarding,
+            perfectCounter: perfectCounter && !wasGuarding,
+            knockout: defender.hp == 0 && (storyBout == nil || storyBout?.phase == .finished),
+            contactPoint: PunchContactGeometry.localPoint(contact, fighter: defender),
+            incomingDirection: PunchContactGeometry.localPoint(defenderOrigin + incoming, fighter: defender)
+        )
+        defender.lastImpact = resolvedImpact
+        onCombatEvent?(.impact(resolvedImpact))
         if defender.hp == 0 {
             defender.knockedOut = true
+            defender.poseTransition = nil
             roundFinishingPunch = punch
             roundFinishingBlowByPlayer = attacker === player
-            finishRound(outcome: defender === enemy ? .playerWin : .playerLoss, knockout: true)
+            if storyBout != nil {
+                phase = .roundBreak
+                roundBreakElapsedTime = 0
+                cancelWeaveInput()
+                player.backstep.cancel()
+                enemy.backstep.cancel()
+                rivalMomentTime = 0
+                rivalMomentGrade = nil
+                playerCounterWindowTime = 0
+            }
         }
-        return true
+        return wasGuarding && !guardBroken ? .guarded : .hit
+    }
+
+    private func rewardDodge(attacker: FighterModel, defender: FighterModel, grade: DodgeGrade) {
+        if defender === player {
+            attacker.exposed = max(attacker.exposed, grade.counterWindow)
+            successfulDodgeCount += 1
+            roundPlayerDodgeCount += 1
+            lastPlayerDodgeGrade = grade
+            playerCounterWindowTime = grade.counterWindow
+            if grade.focusDuration > 0, rivalMomentTime <= 0 {
+                rivalMomentTime = grade.focusDuration
+                rivalMomentGrade = grade
+            }
+        } else {
+            attacker.exposed = max(attacker.exposed, CombatData.duckCounterWindow)
+            roundEnemyDodgeCount += 1
+            if storyBout?.opponent == .counter {
+                storyCounterRecoveryPending = false
+                storyCounterPunishDelay = 0
+                storyCounterPunishTime = max(storyCounterPunishTime, 0.55)
+                storyCounterRetreatTime = 0
+                enemyDecisionTimer = min(enemyDecisionTimer, 0.04)
+                let direction = defender.weave.comboDirection
+                let base: Punch = direction < 0 ? .jab : .cross
+                if defender.weave.isActive,
+                   let hook = WeaveState.hook(base: base, direction: direction),
+                   let spec = CombatData.attacks[hook],
+                   defender.stamina >= spec.staminaCost * defender.style.punchStaminaMultiplier + 8,
+                   PunchContactGeometry.canReach(defender, defender: attacker, punch: hook),
+                   defender.queueWeaveHook(base: base) {
+                    storyCounterPunishTime = 0
+                    storyCounterRetreatTime = 0.35
+                    enemyDecisionTimer = 0.55
+                }
+            }
+        }
+        if defender === enemy, isStoryRival, storyRivalRecoveryTime <= 0 {
+            enemyRecoveryChoice = nil
+            enemyDecisionTimer = min(enemyDecisionTimer, 0.04)
+            let direction = defender.weave.comboDirection
+            let base: Punch = direction < 0 ? .jab : .cross
+            if defender.weave.isActive,
+               let hook = WeaveState.hook(base: base, direction: direction),
+               let spec = CombatData.attacks[hook],
+               defender.stamina >= spec.staminaCost * defender.style.punchStaminaMultiplier + 8,
+               PunchContactGeometry.canReach(defender, defender: attacker, punch: hook),
+               defender.queueWeaveHook(base: base) {
+                enemyFollowUp = nil
+                enemyDecisionTimer = 0.32
+            }
+        }
+        onCombatEvent?(.dodge(fighter: defender === player ? .player : .rival,
+                             grade: defender === player ? grade : nil))
+    }
+
+    private func playerDodgeGrade(startedAt: Double?, entryDuration: Double) -> DodgeGrade {
+        guard let startedAt else { return .normal }
+        let leadTime = max(0, combatElapsedTime - startedAt - entryDuration)
+        return switch leadTime {
+        case ...0.12: .perfect
+        case ...0.22: .accurate
+        case ...0.36: .good
+        default: .normal
+        }
+    }
+
+    private func planEnemyRecovery(after punch: Punch, outcome: RivalAttackOutcome) {
+        enemyRecoveryChoice = nil
+        enemyFollowUp = nil
+        guard usesAdaptiveRival else { return }
+        if isStoryRival {
+            guard storyRivalRecoveryTime <= 0 else { return }
+            let remaining = max(0, (CombatData.attacks[punch]?.duration ?? 0) - enemy.actionTime)
+            switch outcome {
+            case .evaded, .missed:
+                storyRivalCombination = 0
+                storyRivalRecoveryTime = remaining + 0.24
+                return
+            case .hit, .guarded:
+                if storyRivalCombination >= 2, enemy.stamina < 40 {
+                    storyRivalCombination = 0
+                    storyRivalRecoveryTime = remaining + 0.35
+                    return
+                }
+            }
+        }
+        let policy = rivalDifficulty
+        switch outcome {
+        case .hit, .guarded:
+            guard random.unit() < policy.combinationChance else { return }
+        case .evaded, .missed:
+            break
+        }
+        enemyRecoveryChoice = policy.recoveryChoice(after: punch, outcome: outcome,
+            read: tacticalRead.kind, stamina: enemy.stamina, style: enemy.style)
     }
 
     private func updateEnemy(_ deltaTime: Double) {
-        guard enemy.attack == nil, enemy.stagger <= 0, enemy.exhausted <= 0 else { return }
+        if let opponent = storyBout?.opponent, opponent != .rival {
+            switch opponent {
+            case .pressure: updateStoryPressure(deltaTime)
+            case .outboxer: updateStoryOutboxer(deltaTime)
+            case .counter: updateStoryCounter(deltaTime)
+            case .slugger: updateStorySlugger(deltaTime)
+            case .rival: break
+            }
+            return
+        }
+        if isStoryRival {
+            storyRivalRecoveryTime = max(0, storyRivalRecoveryTime - deltaTime)
+            storyRivalReadCooldown = max(0, storyRivalReadCooldown - deltaTime)
+            if enemy.stagger > 0 || enemy.exhausted > 0 {
+                storyRivalCombination = 0
+                storyRivalRecoveryTime = max(storyRivalRecoveryTime, 0.20)
+                enemyFollowUp = nil
+                enemyRecoveryChoice = nil
+            }
+        }
+        // Decision time continues during a punch, but never bypasses its existing recovery/lock.
+        // Beginners still leave gaps; experienced rivals can connect two legal attacks.
+        enemyDecisionTimer = max(0, enemyDecisionTimer - deltaTime)
+        enemyFootworkTime = max(0, enemyFootworkTime - deltaTime)
+        if enemyGuardTime > 0 {
+            enemyGuardTime = max(0, enemyGuardTime - deltaTime)
+            if enemyGuardTime == 0 { enemy.guarding = false }
+        }
+        enemyTacticTime = max(0, enemyTacticTime - deltaTime)
+        let policy = rivalDifficulty
+        if enemyTacticTime == 0 {
+            enemyTacticTime = policy.tacticDuration
+            if random.unit() < 0.35 { enemyCircleDirection *= -1 }
+        }
+          guard enemy.attack == nil, enemy.stagger <= 0, enemy.exhausted <= 0,
+              !enemy.weave.isActive, !enemy.backstep.isActive else { return }
+        if isStoryRival, enemy.exposed > 0 || storyRivalRecoveryTime > 0 {
+            enemyFollowUp = nil
+            enemyRecoveryChoice = nil
+            enemyFootwork = .retreat
+            enemyFootworkTime = max(enemyFootworkTime, 0.12)
+            applyEnemyFootwork(deltaTime, distance: hypot(player.x - enemy.x, player.y - enemy.y))
+            return
+        }
+        guard !enemy.guarding else { return }
         guard enemy.duckDirection == 0 else { return }
+        if reactToVisibleAttack(policy: policy) {
+            enemyRecoveryChoice = nil
+            return
+        }
         let initialDistance = hypot(player.x - enemy.x, player.y - enemy.y)
         applyEnemyFootwork(deltaTime, distance: initialDistance)
         let distance = hypot(player.x - enemy.x, player.y - enemy.y)
-        enemyDecisionTimer -= deltaTime
         guard enemyDecisionTimer <= 0 else { return }
-        let adaptation = habits.snapshot.adaptation()
-        enemyDecisionTimer = max(0.18, 0.68 - 0.28 * adaptation) + Double.random(in: 0...0.18)
-        let choice = weightedChoice(
-            habits.snapshot.enemyWeights(
-                distance: distance,
-                playerExposed: player.exposed > 0,
-                rivalRead: recentHabits.rivalRead
-            )
-        )
-        performEnemyDecision(choice)
+        enemyDecisionTimer = policy.decisionInterval + random.unit() * policy.decisionJitter
+        let weights = enemyActionWeights(distance: distance)
+        if let choice = enemyRecoveryChoice {
+            enemyRecoveryChoice = nil
+            let canGuard = choice == "guard" && enemy.stamina > CombatData.minimumGuardStaminaDamage
+                && distance <= CombatData.hitRange(.jab, style: player.style) + 7
+            if (weights[choice, default: 0] > 0 || canGuard), performEnemyDecision(choice) { return }
+        }
+        if let followUp = enemyFollowUp {
+            enemyFollowUp = nil
+            if weights[followUp.rawValue, default: 0] > 0,
+               enemy.stamina >= (CombatData.attacks[followUp]?.staminaCost ?? 100) * enemy.style.punchStaminaMultiplier + 10,
+               performEnemyDecision(followUp.rawValue) { return }
+        }
+          if isStoryRival, storyRivalReadCooldown <= 0, tacticalRead.confidence >= 0.60,
+              let response = policy.learnedDecision(read: tacticalRead.kind, distance: distance, style: enemy.style) {
+                storyRivalReadCooldown = 1.1 + random.unit() * 0.50
+                if random.unit() < 0.50 + 0.25 * tacticalRead.confidence,
+                    weights[response, default: 0] > 0, performEnemyDecision(response) { return }
+          }
+        let choice = weightedChoice(weights)
+        _ = performEnemyDecision(choice)
+    }
+
+    /// Only public combat state after visible windup is observed: no queued touch input or future hits.
+    /// One probabilistic reaction attempt per swing, with real startup delay even at very high rounds.
+    /// A weave's pending hook is intentionally invisible here; observe it only after execution.
+    private func reactToVisibleAttack(policy: RivalDifficulty) -> Bool {
+        guard let punch = player.attack, let spec = CombatData.attacks[punch] else {
+            reactedToPlayerAttack = false
+            return false
+        }
+        if observedPlayerAttackSerial != player.attackSerial {
+            observedPlayerAttackSerial = player.attackSerial
+            reactedToPlayerAttack = false
+        }
+        guard !reactedToPlayerAttack, player.actionTime >= policy.reactionDelay else { return false }
+        reactedToPlayerAttack = true
+        let distance = hypot(player.x - enemy.x, player.y - enemy.y)
+        guard player.actionTime < spec.activeStart,
+              distance <= CombatData.hitRange(punch, style: player.style) + 7 else { return false }
+          let remaining = spec.activeStart - player.actionTime
+        let evidenceBonus = tacticalRead.kind == .none ? 0 : 0.10 * tacticalRead.confidence * policy.experience
+        guard random.unit() < min(0.82, policy.reactionChance + evidenceBonus) else { return false }
+                if isStoryRival, remaining >= WeaveState.evadeStart + 0.012,
+                     remaining < WeaveState.evadeEnd - 0.02,
+                     let direction = CombatData.requiredDuck[punch], enemy.stamina >= WeaveState.staminaCost + 22,
+                     random.unit() < 0.55, performEnemyDecision(direction < 0 ? "weave_left" : "weave_right") {
+                        return true
+                }
+          if remaining >= DuckMotion.entryDuration + 0.015,
+              let direction = CombatData.requiredDuck[punch], enemy.stamina > CombatData.dodgeStaminaCost + 8 {
+            if performEnemyDecision(direction < 0 ? "dodge_left" : "dodge_right") {
+                enemyFollowUp = direction < 0 ? .rightBody : .leftBody
+                return true
+            }
+        }
+          if remaining >= BackstepState.evadeStart + 0.015, spec.targetZone == .body,
+              enemy.stamina > CombatData.backstepStaminaCost * enemy.style.backstepStaminaMultiplier + 12,
+           random.unit() < 0.45, performEnemyDecision("dodge_back") { return true }
+        return performEnemyDecision("guard")
+    }
+
+    /// Runtime action mask: don't burn a whole decision on an unaffordable/out-of-range punch.
+    /// Both fighters use the shared hit range and unchanged stamina/attack timing rules.
+    func enemyActionWeights(distance: Double) -> [String: Double] {
+        let policy = rivalDifficulty
+        var weights = habits.snapshot.enemyWeights(distance: distance, playerExposed: player.exposed > 0,
+                                                  rivalRead: tacticalRead, learningMultiplier: policy.learningWeight,
+                                                  style: enemy.style)
+        rivalAttackResults.adjustWeights(&weights, against: playerAttackResults, policy: policy)
+        var hasReachableAttack = false
+        var headTarget: SIMD3<Float>?
+        var bodyTarget: SIMD3<Float>?
+        var entryPose: FightPose?
+        for punch in Punch.allCases {
+            guard let spec = CombatData.attacks[punch] else { continue }
+            if enemy.stamina < spec.staminaCost * enemy.style.punchStaminaMultiplier ||
+                distance > CombatData.hitRange(punch, style: enemy.style) {
+                weights[punch.rawValue] = 0
+                continue
+            }
+            let center: SIMD3<Float>
+            if spec.targetZone == .head {
+                center = headTarget ?? PunchContactGeometry.target(player, zone: .head, defended: false)
+                headTarget = center
+            } else {
+                center = bodyTarget ?? PunchContactGeometry.target(player, zone: .body, defended: false)
+                bodyTarget = center
+            }
+            if entryPose == nil { entryPose = PunchContactGeometry.stance(enemy) }
+            if !PunchContactGeometry.canReach(enemy, defender: player, punch: punch,
+                                             targetCenter: center, entryPose: entryPose) {
+                weights[punch.rawValue] = 0
+            } else {
+                hasReachableAttack = true
+                weights[punch.rawValue, default: 0] *= policy.attackCommitment
+                if enemy.streakAttack == punch, enemy.streakCount >= CombatData.staleThreshold {
+                    weights[punch.rawValue, default: 0] *= 0.25
+                }
+            }
+        }
+        let threatDistance = CombatData.hitRange(.jab, style: player.style) + 7
+        if enemy.stamina < CombatData.dodgeStaminaCost || distance > threatDistance {
+            weights["dodge_left"] = 0
+            weights["dodge_right"] = 0
+        }
+        if enemy.stamina < CombatData.backstepStaminaCost * enemy.style.backstepStaminaMultiplier || distance > threatDistance {
+            weights["dodge_back"] = 0
+        }
+        if enemy.stamina <= CombatData.minimumGuardStaminaDamage || distance > threatDistance {
+            weights["guard"] = 0
+        }
+        if enemy.stamina < 25 {
+            weights["retreat", default: 0] += 2
+            weights["wait", default: 0] += 1
+        }
+        weights["wait", default: 0] += (1 - policy.experience) * 1.4
+        if distance > CombatData.hitRange(.jab, style: enemy.style) { weights["advance", default: 0] += 2 }
+        if !hasReachableAttack, enemy.stamina >= 25 { weights["advance", default: 0] += 2 }
+        if distance <= CombatData.minimumFighterSeparation + 2 { weights["advance"] = 0 }
+        return weights
     }
 
     @discardableResult
     func performEnemyDecision(_ choice: String) -> Bool {
+        guard phase == .fight, !enemy.knockedOut, enemy.attack == nil,
+              enemy.stagger <= 0, enemy.exhausted <= 0, !enemy.weave.isActive,
+              !enemy.backstep.isActive else { return false }
         if let punch = Punch(rawValue: choice) {
             return startAttack(enemy, punch: punch)
         } else if let footwork = EnemyFootwork(decision: choice) {
+            if isStoryRival {
+                switch footwork {
+                case .advance, .cutOff, .circleLeft, .circleRight:
+                    guard enemy.stamina >= 34 else { return false }
+                    enemy.stamina -= 4
+                case .none, .retreat:
+                    break
+                }
+            }
             enemyFootwork = footwork
-            enemyFootworkTime = Double.random(in: 0.32...0.58)
+            enemyFootworkTime = isStoryRival ? 0.18 + random.unit() * 0.10 : 0.40 + random.unit() * 0.35
+            if isStoryRival { enemyDecisionTimer = min(enemyDecisionTimer, enemyFootworkTime + 0.02) }
+            switch footwork {
+            case .advance, .cutOff:
+                let punch = rivalDifficulty.entryPunch(read: tacticalRead.kind)
+                if enemyFollowUp == nil, enemy.stamina >= 25,
+                   let spec = CombatData.attacks[punch],
+                   enemy.stamina >= spec.staminaCost * enemy.style.punchStaminaMultiplier + 10 {
+                    // One legal attempt at the next decision, not continuous tactical crowding.
+                    enemyFollowUp = punch
+                }
+            case .circleLeft, .circleRight:
+                if isStoryRival { enemyFollowUp = rivalDifficulty.entryPunch(read: tacticalRead.kind) }
+            default:
+                break
+            }
+            return true
+        } else if choice == "guard" {
+            guard enemy.stamina > CombatData.minimumGuardStaminaDamage else { return false }
+            enemy.guarding = true
+            let incomingContact = player.attack.flatMap { CombatData.attacks[$0]?.activeStart } ?? 0
+            enemyGuardTime = max(0.18 + random.unit() * 0.12, incomingContact - player.actionTime + 0.08)
             return true
         } else if choice == "dodge_left" || choice == "dodge_right" {
             guard enemy.stamina >= CombatData.dodgeStaminaCost else { return false }
             enemy.stamina -= CombatData.dodgeStaminaCost
             enemy.duckDirection = choice == "dodge_left" ? -1 : 1
             enemy.duckTime = CombatData.enemyDuckDuration
+            if enemy.stamina <= 0 {
+                exhaust(enemy)
+                enemy.duckDirection = 0
+            }
             message = CombatCommentary.enemyDuck(direction: choice == "dodge_left" ? -1 : 1, language: LocalizationManager.shared.language)
             return true
-        } else if choice == "dodge_back", enemy.stamina >= CombatData.dodgeStaminaCost {
-            enemy.stamina -= CombatData.dodgeStaminaCost
-            enemy.invulnerable = 0.18
-            enemy.x = clampToRing(enemy.x - enemy.facingX * 24)
-            enemy.y = clampToRing(enemy.y - enemy.facingY * 24)
+        } else if choice == "weave_left" || choice == "weave_right" {
+            return enemy.beginWeave(direction: choice == "weave_left" ? -1 : 1)
+        } else if choice == "dodge_back" {
+            let cost = CombatData.backstepStaminaCost * enemy.style.backstepStaminaMultiplier
+            guard enemy.stamina >= cost else { return false }
+            enemy.stamina -= cost
+            enemy.backstep.start(facingX: enemy.facingX, facingY: enemy.facingY)
+            if enemy.stamina <= 0 { exhaust(enemy) }
             message = CombatCommentary.enemyBackstep(language: LocalizationManager.shared.language)
             return true
         }
@@ -1627,83 +2574,103 @@ final class CombatEngine {
         let towardPlayerY = (player.y - enemy.y) / max(1, distance)
         let rightX = -enemy.facingY
         let rightY = enemy.facingX
-        let speed = 62 + 28 * habits.snapshot.adaptation()
-
-        guard enemyFootworkTime > 0 else {
-            guard distance > 112 else { return }
-            moveFighter(
-                enemy,
-                byX: towardPlayerX * speed * deltaTime,
-                byY: towardPlayerY * speed * deltaTime,
-                avoiding: player
-            )
-            return
+        let policy = rivalDifficulty
+        var targetDistance = policy.preferredDistance(read: tacticalRead.kind, stamina: enemy.stamina, style: enemy.style)
+        if let punch = enemyFollowUp, enemy.stamina >= 25 {
+            targetDistance = min(targetDistance, CombatData.hitRange(punch, style: enemy.style) * 0.82)
         }
-
-        enemyFootworkTime = max(0, enemyFootworkTime - deltaTime)
-        var directionX = 0.0
-        var directionY = 0.0
-        switch enemyFootwork {
+        targetDistance = max(CombatData.minimumFighterSeparation + 1, targetDistance)
+        var forward = min(1, max(-1, (distance - targetDistance) / 18))
+        var strafe = enemyCircleDirection * (0.18 + 0.40 * policy.experience)
+        let footwork = enemyFootworkTime > 0 ? enemyFootwork : .none
+        switch footwork {
         case .none:
-            return
+            if tacticalRead.kind == .retreatPattern { strafe = -moveY * 0.6 }
         case .advance:
-            guard distance > 70 else { return }
-            directionX = towardPlayerX
-            directionY = towardPlayerY
+            // Advancing must not suppress backward correction after an overshoot/player approach.
+            forward = distance > targetDistance ? 1 : forward
+            strafe *= 0.35
         case .retreat:
-            guard distance < 145 else { return }
-            directionX = -towardPlayerX
-            directionY = -towardPlayerY
+            forward = distance < CombatData.hitRange(.jab, style: player.style) + 10 ? -0.8 : forward
         case .circleLeft:
-            let radialCorrection = distance < 76 ? -0.28 : (distance > 110 ? 0.22 : 0)
-            directionX = -rightX + towardPlayerX * radialCorrection
-            directionY = -rightY + towardPlayerY * radialCorrection
+            strafe = -0.8
         case .circleRight:
-            let radialCorrection = distance < 76 ? -0.28 : (distance > 110 ? 0.22 : 0)
-            directionX = rightX + towardPlayerX * radialCorrection
-            directionY = rightY + towardPlayerY * radialCorrection
+            strafe = 0.8
         case .cutOff:
-            let playerStrafe = moveX * (-player.facingY) + moveY * player.facingX
-            let lateralDirection = playerStrafe >= 0 ? 1.0 : -1.0
-            directionX = towardPlayerX * 0.82 + rightX * lateralDirection * 0.58
-            directionY = towardPlayerY * 0.82 + rightY * lateralDirection * 0.58
+            // moveY is ALREADY player-relative strafe. The rival's right basis is its opposite.
+            forward = distance > targetDistance ? 1 : forward
+            strafe = -moveY / max(1, hypot(moveX, moveY)) * 0.65
         }
-        moveFighter(
-            enemy,
-            byX: directionX * speed * deltaTime,
-            byY: directionY * speed * deltaTime,
-            avoiding: player
-        )
+        if distance > CombatData.hitRange(.jab, style: enemy.style) + 12 { forward = 1; strafe *= 0.3 }
+        let magnitude = max(1, hypot(forward, strafe))
+        forward /= magnitude
+        strafe /= magnitude
+        let speed = CombatData.movementSpeed * policy.movementEffort
+        let forwardSpeed = speed * (forward < 0 ? CombatData.backwardMoveSpeedMultiplier : enemy.style.moveSpeedMultiplier)
+        let strafeSpeed = speed * enemy.style.moveSpeedMultiplier
+        let oldX = enemy.x
+        let oldY = enemy.y
+        moveFighter(enemy,
+                    byX: (towardPlayerX * forward * forwardSpeed + rightX * strafe * strafeSpeed) * deltaTime,
+                    byY: (towardPlayerY * forward * forwardSpeed + rightY * strafe * strafeSpeed) * deltaTime,
+                    avoiding: player)
+        if hypot(enemy.x - oldX, enemy.y - oldY) < speed * deltaTime * 0.1 {
+            enemyCircleDirection *= -1
+            enemyFootwork = enemyCircleDirection < 0 ? .circleLeft : .circleRight
+            enemyFootworkTime = 0.35
+        }
     }
 
     private func weightedChoice(_ weights: [String: Double]) -> String {
         let total = weights.values.reduce(0, +)
-        var cursor = Double.random(in: 0..<max(total, 0.001))
+        var cursor = random.unit() * max(total, 0.001)
         for (key, weight) in weights.sorted(by: { $0.key < $1.key }) {
-            cursor -= max(0, weight)
+            guard weight > 0 else { continue }
+            cursor -= weight
             if cursor <= 0 { return key }
         }
         return "wait"
     }
 
     private func sampleHabits(_ deltaTime: Double) {
-        let forwardAxis = moveX * player.facingX + moveY * player.facingY
-        roundHabits.sample(deltaTime: deltaTime, guarding: player.guarding, duckDirection: player.duckDirection, backstep: player.invulnerable > 0, forwardAxis: forwardAxis)
-        recentHabits.sample(
-            deltaTime: deltaTime,
-            guarding: player.guarding,
-            duckDirection: player.duckDirection,
-            forwardAxis: forwardAxis
-        )
+        // Input is already (forward, strafe), not a world-space vector. Don't learn movement that
+        // was blocked by attack/guard/exhaustion, or rotate the same intent differently around the ring.
+        let canMove = player.attack == nil && player.stagger <= 0 && player.exhausted <= 0
+            && !player.guarding && !player.weave.isActive && !player.backstep.isActive
+        let forwardAxis = canMove ? moveX / max(1, hypot(moveX, moveY)) : 0
+        let duckDirection = storyBout != nil && player.weave.isActive ? player.weave.direction : player.duckDirection
+        roundHabits.sample(deltaTime: deltaTime, guarding: player.guarding, duckDirection: duckDirection,
+                   backstep: player.backstep.isActive, forwardAxis: forwardAxis)
     }
 
     func finishRound(outcome: RoundOutcome, knockout: Bool) {
         guard phase == .fight else { return }
+        if storyBout != nil {
+            storyBout?.finishRound()
+            commitStoryRoundLearning()
+            cancelWeaveInput()
+            player.backstep.cancel()
+            enemy.backstep.cancel()
+            phase = .roundBreak
+            roundBreakElapsedTime = 0
+            if storyBout?.phase == .finished { announceStoryResult() }
+            return
+        }
+        cancelWeaveInput()
+        player.backstep.cancel()
+        enemy.backstep.cancel()
         phase = .roundBreak
+        roundBreakElapsedTime = 0
         lastRoundOutcome = outcome
         lastRoundWasKnockout = knockout
+        if knockout {
+            koMomentTime = CombatData.koMomentDuration
+        }
         advancesRoundAfterBreak = outcome == .playerWin
         habits.incorporateRound(roundHabits)
+        playerAttackResults.incorporateRound(roundPlayerAttackResults)
+        rivalAttackResults.incorporateRound(roundRivalAttackResults)
+        tacticalRead = habits.rivalRead
         switch outcome {
         case .playerWin:
             playerScore += 1
@@ -1717,32 +2684,757 @@ final class CombatEngine {
             message = CombatCommentary.knockout(winner: outcome == .playerWin ? player.name : enemy.name, language: LocalizationManager.shared.language)
         } else {
             switch outcome {
-            case .playerWin: message = "ROUND WON"
+            case .playerWin: message = LocalizationManager.shared.t(.roundWon)
             case .playerLoss: message = LocalizationManager.shared.t(.roundLostMessage)
             case .draw: message = LocalizationManager.shared.t(.drawMessage)
             }
         }
         saveHabits()
         persistProgress()
+        onCombatEvent?(.roundEnded(outcome: outcome, knockout: knockout))
     }
 
-    private func updateKnockdowns(_ deltaTime: Double) {
-        for fighter in [player, enemy] where fighter.knockedOut {
-            fighter.knockdown = min(1, fighter.knockdown + deltaTime / 0.9)
+    private func chooseStoryOutboxerDirection() {
+        enemyCircleDirection = random.unit() < 0.5 ? -1 : 1
+        enemyTacticTime = 0.40 + random.unit() * 1.40
+    }
+
+    private func advanceStoryOutboxerMovement(_ deltaTime: Double) {
+        storyOutboxerExitTime = max(0, storyOutboxerExitTime - deltaTime)
+        storyOutboxerStepCooldown = max(0, storyOutboxerStepCooldown - deltaTime)
+        storyOutboxerAngleTime = max(0, storyOutboxerAngleTime - deltaTime)
+        enemyTacticTime = max(0, enemyTacticTime - deltaTime)
+        if enemy.stamina < 28 { storyOutboxerRecovering = true }
+        if enemy.stamina >= 56 { storyOutboxerRecovering = false }
+        if enemy.stagger > 0 || enemy.exhausted > 0 {
+            storyOutboxerStepTime = 0
+            storyOutboxerStepTravel = 0
+            storyOutboxerAngleTime = 0
+            storyOutboxerCombination = 0
+        }
+        if storyOutboxerRecovering || storyOutboxerExitTime > 0 || enemy.exposed > 0 {
+            storyOutboxerStepTime = 0
+            storyOutboxerStepTravel = 0
+            storyOutboxerAngleTime = 0
+        }
+        let movingPunch = enemy.attack == .jab || enemy.attack == .cross
+        guard enemy.attack == nil || movingPunch,
+              enemy.stagger <= 0, enemy.exhausted <= 0, !enemy.guarding,
+              enemy.duckDirection == 0, !enemy.weave.isActive, !enemy.backstep.isActive else { return }
+        if movingPunch, storyOutboxerRecovering || enemy.exposed > 0 { return }
+        if enemyTacticTime == 0, storyOutboxerStepTime <= 0, enemy.attack == nil {
+            chooseStoryOutboxerDirection()
+        }
+        let distance = hypot(player.x - enemy.x, player.y - enemy.y)
+        let targetDistance = enemy.hitRange(.jab) * 0.79
+        let stepping = storyOutboxerStepTime > 0
+        var forward = min(0.75, max(-0.80, (distance - targetDistance) / 20))
+        var strafe = enemyCircleDirection * (stepping ? 0.85 : 0.52)
+        if stepping { forward = min(0.35, max(-0.35, forward)) }
+        if movingPunch {
+            forward = min(0.15, max(-0.20, forward))
+            strafe = enemyCircleDirection * (stepping ? 0.75 : 0.60)
+        } else if storyOutboxerRecovering || storyOutboxerExitTime > 0 {
+            forward = distance < targetDistance + 9 ? -0.70 : 0
+            strafe = enemyCircleDirection * (storyOutboxerRecovering ? 0.36 : 0.72)
+        }
+        if enemy.exposed > 0 { forward = 0; strafe *= 0.30 }
+        let edge = CombatData.ringMinimum + CombatData.fighterMargin + 26
+        let farEdge = CombatData.ringMaximum - CombatData.fighterMargin - 26
+        if enemy.x < edge || enemy.x > farEdge || enemy.y < edge || enemy.y > farEdge {
+            let centerX = 295 - enemy.x
+            let centerY = 295 - enemy.y
+            let centerDistance = max(1, hypot(centerX, centerY))
+            forward = min(0.65, max(-0.65,
+                (centerX * enemy.facingX + centerY * enemy.facingY) / centerDistance))
+            strafe = min(0.80, max(-0.80,
+                (-centerX * enemy.facingY + centerY * enemy.facingX) / centerDistance))
+            if abs(strafe) > 0.1 { enemyCircleDirection = strafe < 0 ? -1 : 1 }
+            if movingPunch { forward = min(0.15, max(-0.20, forward)) }
+        }
+        let effort = movingPunch ? 0.42 : stepping || storyOutboxerExitTime > 0 ? 0.76 : 0.62
+        let speed = CombatData.movementSpeed * enemy.style.moveSpeedMultiplier * effort
+        let forwardSpeed = forward < 0 ? speed * CombatData.backwardMoveSpeedMultiplier : speed
+        let strafeSpeed = speed * (movingPunch ? 1.50 : stepping ? 1.35 : 1.40)
+        let previousX = enemy.x
+        let previousY = enemy.y
+        moveFighter(enemy,
+            byX: (enemy.facingX * forward * forwardSpeed - enemy.facingY * strafe * strafeSpeed) * deltaTime,
+            byY: (enemy.facingY * forward * forwardSpeed + enemy.facingX * strafe * strafeSpeed) * deltaTime,
+            avoiding: player)
+        if stepping {
+            storyOutboxerStepTravel += abs(-(enemy.x - previousX) * enemy.facingY
+                + (enemy.y - previousY) * enemy.facingX)
+            storyOutboxerStepTime = max(0, storyOutboxerStepTime - deltaTime)
+            if storyOutboxerStepTime == 0 {
+                if storyOutboxerStepTravel >= 8 {
+                    storyOutboxerAngleTime = 0.40
+                    enemyDecisionTimer = min(enemyDecisionTimer, 0.04)
+                } else {
+                    enemyTacticTime = min(enemyTacticTime, 0.12 + random.unit() * 0.15)
+                }
+                storyOutboxerStepTravel = 0
+            }
         }
     }
 
-    private func exhaust(_ fighter: FighterModel) {
+    private func beginStoryOutboxerStep() -> Bool {
+        guard !storyOutboxerRecovering, storyOutboxerExitTime <= 0,
+              storyOutboxerStepTime <= 0, storyOutboxerStepCooldown <= 0,
+              enemy.attack == nil, !enemy.guarding, enemy.duckDirection == 0,
+              enemy.stagger <= 0, enemy.exhausted <= 0, enemy.exposed <= 0,
+              !enemy.weave.isActive, !enemy.backstep.isActive, enemy.stamina >= 34 else { return false }
+        enemy.stamina -= 4
+        chooseStoryOutboxerDirection()
+        storyOutboxerStepTime = 0.22 + random.unit() * 0.14
+        storyOutboxerStepTravel = 0
+        storyOutboxerStepCooldown = 0.55 + random.unit() * 0.65
+        storyOutboxerAngleTime = 0
+        return true
+    }
+
+    private func updateStoryOutboxer(_ deltaTime: Double) {
+        enemyDecisionTimer = max(0, enemyDecisionTimer - deltaTime)
+        if enemyGuardTime > 0 {
+            enemyGuardTime = max(0, enemyGuardTime - deltaTime)
+            if enemyGuardTime == 0 { enemy.guarding = false }
+        }
+        guard enemy.attack == nil, enemy.stagger <= 0, enemy.exhausted <= 0,
+              !enemy.guarding, enemy.duckDirection == 0, !enemy.weave.isActive,
+              !enemy.backstep.isActive else { return }
+        let distance = hypot(player.x - enemy.x, player.y - enemy.y)
+        if storyOutboxerStepTime <= 0, let punch = player.attack, let spec = CombatData.attacks[punch] {
+            if observedPlayerAttackSerial != player.attackSerial {
+                observedPlayerAttackSerial = player.attackSerial
+                reactedToPlayerAttack = false
+            }
+            if !reactedToPlayerAttack,
+               player.actionTime >= min(0.02, spec.activeStart * 0.15),
+               player.actionTime < spec.activeStart,
+               distance <= player.hitRange(punch) + 6, enemy.stamina > 30 {
+                reactedToPlayerAttack = true
+                if random.unit() < 0.60 {
+                    let remaining = spec.activeStart - player.actionTime
+                    if spec.targetZone == .head, remaining >= 0.02, beginStoryOutboxerStep() {
+                        storyOutboxerCombination = 0
+                        enemyDecisionTimer = min(enemyDecisionTimer, 0.04)
+                    } else if spec.targetZone == .body, remaining >= BackstepState.evadeStart + 0.01,
+                              performEnemyDecision("dodge_back") {
+                        storyOutboxerCombination = 0
+                        storyOutboxerAngleTime = 0
+                        storyOutboxerExitTime = 0.25
+                        return
+                    } else if remaining >= 0.02, performEnemyDecision("guard") {
+                        storyOutboxerCombination = 0
+                        storyOutboxerAngleTime = 0
+                        return
+                    }
+                }
+            }
+        }
+        if player.attack == nil, enemyDecisionTimer <= 0, storyOutboxerCombination == 0,
+           storyOutboxerAngleTime <= 0, distance <= enemy.hitRange(.jab) + 6,
+           distance > CombatData.minimumFighterSeparation + 3 {
+            _ = beginStoryOutboxerStep()
+        }
+          guard !storyOutboxerRecovering, storyOutboxerExitTime <= 0,
+              enemy.exposed <= 0, enemyDecisionTimer <= 0 else { return }
+          let attackDistance = hypot(player.x - enemy.x, player.y - enemy.y)
+        var weights: [String: Double] = ["wait": 0.20, Punch.jab.rawValue: 4.2,
+            Punch.cross.rawValue: 1.8, Punch.leftBody.rawValue: 0.45,
+            Punch.rightBody.rawValue: 0.30, Punch.leftHook.rawValue: 0.35, Punch.rightHook.rawValue: 0.25]
+        if storyOutboxerAngleTime > 0 || storyOutboxerStepTime > 0 {
+            weights["wait"] = 0.08
+            weights[Punch.jab.rawValue] = 4.8
+            weights[Punch.cross.rawValue] = 2.4
+        }
+        for punch in Punch.allCases {
+            guard let spec = CombatData.attacks[punch], weights[punch.rawValue] != nil else { continue }
+            if enemy.stamina < spec.staminaCost * enemy.style.punchStaminaMultiplier + 10
+                || attackDistance > enemy.hitRange(punch)
+                || !PunchContactGeometry.canReach(enemy, defender: player, punch: punch) {
+                weights[punch.rawValue] = 0
+            }
+        }
+        let choice = storyOutboxerCombination == 1 && enemy.streakAttack == .jab
+            && weights[Punch.cross.rawValue, default: 0] > 0 && random.unit() < 0.68
+            ? Punch.cross.rawValue : weightedChoice(weights)
+        if let punch = Punch(rawValue: choice), performEnemyDecision(choice) {
+            storyOutboxerAngleTime = 0
+            storyOutboxerCombination += 1
+            let duration = CombatData.attacks[punch]?.duration ?? 0.24
+            if storyOutboxerCombination >= 2 {
+                storyOutboxerCombination = 0
+                storyOutboxerExitTime = duration + 0.18 + random.unit() * 0.16
+                enemyTacticTime = 0
+                enemyDecisionTimer = storyOutboxerExitTime + 0.04 + random.unit() * 0.10
+            } else {
+                enemyDecisionTimer = duration + 0.02 + random.unit() * 0.05
+            }
+        } else {
+            if storyOutboxerCombination > 0 {
+                storyOutboxerExitTime = 0.18 + random.unit() * 0.16
+                enemyTacticTime = 0
+                enemyDecisionTimer = storyOutboxerExitTime + 0.08
+            } else {
+                enemyDecisionTimer = 0.14 + random.unit() * 0.10
+            }
+            storyOutboxerCombination = 0
+        }
+    }
+
+    private func updateStoryPressure(_ deltaTime: Double) {
+        enemyDecisionTimer = max(0, enemyDecisionTimer - deltaTime)
+        if enemyGuardTime > 0 {
+            enemyGuardTime = max(0, enemyGuardTime - deltaTime)
+            if enemyGuardTime == 0 { enemy.guarding = false }
+        }
+        guard enemy.attack == nil, enemy.stagger <= 0, enemy.exhausted <= 0,
+              !enemy.guarding, enemy.duckDirection == 0, !enemy.backstep.isActive else { return }
+        if enemy.stamina < 25 { storyPressureRecovering = true }
+        if enemy.stamina >= 50 { storyPressureRecovering = false }
+        let distance = hypot(player.x - enemy.x, player.y - enemy.y)
+        let targetDistance = max(CombatData.minimumFighterSeparation + 3,
+                                 CombatData.hitRange(.leftHook, style: enemy.style) * 0.76)
+        let reapproaching = !storyPressureRecovering && distance > targetDistance + 8
+        let forward = storyPressureRecovering
+            ? (distance < CombatData.hitRange(.jab, style: player.style) + 12 ? -0.65 : 0)
+            : min(reapproaching ? 0.90 : 0.85, max(0, (distance - targetDistance) / 16))
+        let strafe = enemyCircleDirection * (storyPressureRecovering ? 0.40 : 0.18)
+        let speed = CombatData.movementSpeed * (reapproaching ? 0.70 : 0.60)
+        let forwardSpeed = forward < 0 ? speed * CombatData.backwardMoveSpeedMultiplier : speed
+        moveFighter(enemy,
+            byX: (enemy.facingX * forward * forwardSpeed - enemy.facingY * strafe * speed) * deltaTime,
+            byY: (enemy.facingY * forward * forwardSpeed + enemy.facingX * strafe * speed) * deltaTime,
+            avoiding: player)
+        if storyPressureRecovering { return }
+        if let punch = player.attack, let spec = CombatData.attacks[punch] {
+            if observedPlayerAttackSerial != player.attackSerial {
+                observedPlayerAttackSerial = player.attackSerial
+                reactedToPlayerAttack = false
+            }
+            if !reactedToPlayerAttack, player.actionTime >= 0.12, player.actionTime < spec.activeStart {
+                reactedToPlayerAttack = true
+                if distance <= CombatData.hitRange(punch, style: player.style) + 7,
+                   enemy.stamina > 30, random.unit() < 0.16,
+                   performEnemyDecision("guard") { return }
+            }
+        }
+        guard enemyDecisionTimer <= 0 else { return }
+        let attackDistance = hypot(player.x - enemy.x, player.y - enemy.y)
+        var weights: [String: Double] = ["wait": 0.45, Punch.jab.rawValue: 1.7,
+            Punch.cross.rawValue: 0.8, Punch.leftBody.rawValue: 2.1, Punch.rightBody.rawValue: 1.6,
+            Punch.leftHook.rawValue: 1.4, Punch.rightHook.rawValue: 1.0]
+        for punch in Punch.allCases {
+            guard let spec = CombatData.attacks[punch], weights[punch.rawValue] != nil else { continue }
+            if enemy.stamina < spec.staminaCost * enemy.style.punchStaminaMultiplier + 8
+                || attackDistance > enemy.hitRange(punch)
+                || !PunchContactGeometry.canReach(enemy, defender: player, punch: punch) {
+                weights[punch.rawValue] = 0
+            }
+        }
+        let choice = weightedChoice(weights)
+        if let punch = Punch(rawValue: choice), performEnemyDecision(choice) {
+            storyPressureCombination += 1
+            let extendsCombination = storyPressureCombination == 2 && enemy.stamina >= 42
+                && enemy.exposed <= 0 && attackDistance <= enemy.hitRange(.leftBody) && random.unit() < 0.35
+            if storyPressureCombination >= 2 && !extendsCombination {
+                storyPressureCombination = 0
+                enemyDecisionTimer = 1.02
+            } else {
+                enemyDecisionTimer = (CombatData.attacks[punch]?.duration ?? 0.36) + 0.10
+            }
+        } else {
+            enemyDecisionTimer = storyPressureCombination > 0 ? 0.45 : 0.18
+            storyPressureCombination = 0
+        }
+    }
+
+    private func updateStoryCounter(_ deltaTime: Double) {
+        enemyDecisionTimer = max(0, enemyDecisionTimer - deltaTime)
+        storyCounterRetreatTime = max(0, storyCounterRetreatTime - deltaTime)
+        storyCounterPunishTime = max(0, storyCounterPunishTime - deltaTime)
+        storyCounterProbeTime = max(0, storyCounterProbeTime - deltaTime)
+        if storyCounterPunishDelay > 0 {
+            storyCounterPunishDelay = max(0, storyCounterPunishDelay - deltaTime)
+            if storyCounterPunishDelay == 0 { storyCounterPunishTime = max(storyCounterPunishTime, 0.45) }
+        }
+        if enemyGuardTime > 0 {
+            enemyGuardTime = max(0, enemyGuardTime - deltaTime)
+            if enemyGuardTime == 0 { enemy.guarding = false }
+        }
+        if let punch = player.attack, let spec = CombatData.attacks[punch], player.actionTime > 0 {
+            if observedPlayerAttackSerial != player.attackSerial {
+                observedPlayerAttackSerial = player.attackSerial
+                reactedToPlayerAttack = false
+                storyCounterRecoveryPending = true
+                storyCounterPunishDelay = 0
+                storyCounterPunishTime = 0
+            }
+            if storyCounterRecoveryPending, player.actionTime >= spec.activeEnd {
+                storyCounterRecoveryPending = false
+                storyCounterPunishDelay = 0.07
+            }
+        } else if player.attack == nil, storyCounterRecoveryPending {
+            storyCounterRecoveryPending = false
+            storyCounterPunishDelay = 0.07
+        }
+        if enemy.stamina < 28 { storyCounterRecovering = true }
+        if enemy.stamina >= 56 { storyCounterRecovering = false }
+        if enemy.stagger > 0 || enemy.exhausted > 0 {
+            storyCounterRecoveryPending = false
+            storyCounterPunishDelay = 0
+            storyCounterPunishTime = 0
+            return
+        }
+        guard enemy.attack == nil, !enemy.guarding, enemy.duckDirection == 0,
+              !enemy.weave.isActive, !enemy.backstep.isActive else { return }
+        let distance = hypot(player.x - enemy.x, player.y - enemy.y)
+        let targetDistance = CombatData.hitRange(.cross, style: enemy.style) * 0.84
+        var forward = min(0.55, max(-0.65, (distance - targetDistance) / 20))
+        var strafe = enemyCircleDirection * 0.16
+        if storyCounterRecovering || (storyCounterRetreatTime > 0 && storyCounterPunishTime <= 0) {
+            forward = distance < targetDistance + 9 ? -0.60 : 0
+            strafe = enemyCircleDirection * 0.12
+        }
+        if enemy.exposed > 0 { forward = 0; strafe = 0 }
+        let speed = CombatData.movementSpeed * enemy.style.moveSpeedMultiplier * 0.52
+        let forwardSpeed = forward < 0 ? speed * CombatData.backwardMoveSpeedMultiplier : speed
+        moveFighter(enemy,
+            byX: (enemy.facingX * forward * forwardSpeed - enemy.facingY * strafe * speed) * deltaTime,
+            byY: (enemy.facingY * forward * forwardSpeed + enemy.facingX * strafe * speed) * deltaTime,
+            avoiding: player)
+        if !storyCounterRecovering, enemy.exposed <= 0,
+           let punch = player.attack, let spec = CombatData.attacks[punch],
+           observedPlayerAttackSerial == player.attackSerial, !reactedToPlayerAttack,
+                            player.actionTime >= min(0.012, spec.activeStart * 0.10), player.actionTime < spec.activeStart {
+                let remaining = spec.activeEnd - player.actionTime
+            if distance <= CombatData.hitRange(punch, style: player.style) + 5,
+                    enemy.stamina > 32 {
+                     reactedToPlayerAttack = true
+                                         guard random.unit() < (spec.targetZone == .body ? 0.80 : 0.92) else { return }
+                if let direction = CombatData.requiredDuck[punch] {
+                          if remaining >= WeaveState.evadeStart + 0.012,
+                                                            spec.activeStart - player.actionTime < WeaveState.evadeEnd - 0.025, random.unit() < 0.70,
+                       enemy.beginWeave(direction: direction) {
+                        storyCounterRetreatTime = 0
+                        enemyDecisionTimer = min(enemyDecisionTimer, 0.08)
+                        return
+                    }
+                          if remaining >= DuckMotion.entryDuration * Double(DuckMotion.minimumEvadeAmount) + 0.010,
+                       performEnemyDecision(direction < 0 ? "dodge_left" : "dodge_right") {
+                                enemy.duckTime = max(0.18, remaining + 0.025)
+                        storyCounterRetreatTime = 0
+                        enemyDecisionTimer = min(enemyDecisionTimer, 0.08)
+                        return
+                    }
+                }
+                if spec.targetZone == .body, remaining >= BackstepState.evadeStart + 0.02,
+                   enemy.stamina > CombatData.backstepStaminaCost * enemy.style.backstepStaminaMultiplier + 16,
+                   random.unit() < 0.45, performEnemyDecision("dodge_back") {
+                    storyCounterRetreatTime = 0.26
+                    enemyDecisionTimer = min(enemyDecisionTimer, 0.08)
+                    return
+                }
+                if remaining >= 0.045, performEnemyDecision("guard") {
+                    storyCounterRetreatTime = 0.30
+                    enemyDecisionTimer = min(enemyDecisionTimer, 0.12)
+                    return
+                }
+            }
+        }
+        guard !storyCounterRecovering, enemy.exposed <= 0, enemyDecisionTimer <= 0 else { return }
+        if storyCounterPunishTime > 0 {
+            if let punch = player.attack, let spec = CombatData.attacks[punch],
+               !(player.acted && player.exposed > 0) {
+                guard observedPlayerAttackSerial == player.attackSerial,
+                      player.actionTime >= spec.activeEnd + 0.07 else { return }
+            }
+            var weights: [String: Double] = ["wait": 0.25, Punch.jab.rawValue: player.attack == .jab ? 3.8 : 1.2,
+                Punch.cross.rawValue: 3.4,
+                Punch.leftHook.rawValue: 1.5, Punch.rightHook.rawValue: 1.7, Punch.rightBody.rawValue: 0.8]
+            for punch in Punch.allCases {
+                guard let spec = CombatData.attacks[punch], weights[punch.rawValue] != nil else { continue }
+                if enemy.stamina < spec.staminaCost * enemy.style.punchStaminaMultiplier + 16
+                    || !PunchContactGeometry.canReach(enemy, defender: player, punch: punch) {
+                    weights[punch.rawValue] = 0
+                }
+            }
+            let choice = weightedChoice(weights)
+            if performEnemyDecision(choice) {
+                if choice == Punch.jab.rawValue { storyCounterProbeTime = 8 + random.unit() * 4 }
+                storyCounterPunishTime = 0
+                storyCounterRetreatTime = 0.42
+                enemyDecisionTimer = 0.65 + random.unit() * 0.15
+            } else {
+                enemyDecisionTimer = 0.12
+            }
+            return
+        }
+        guard player.attack == nil, storyCounterRetreatTime <= 0 else { return }
+        if storyCounterProbeTime <= 0, storyCounterPunishDelay <= 0,
+           let spec = CombatData.attacks[.jab],
+           enemy.stamina >= spec.staminaCost * enemy.style.punchStaminaMultiplier + 24,
+           hypot(player.x - enemy.x, player.y - enemy.y) <= enemy.hitRange(.jab),
+           PunchContactGeometry.canReach(enemy, defender: player, punch: .jab),
+           performEnemyDecision(Punch.jab.rawValue) {
+            storyCounterProbeTime = 8 + random.unit() * 4
+            storyCounterRetreatTime = 0.30
+            enemyDecisionTimer = spec.duration + 0.30
+            return
+        }
+        var weights: [String: Double] = ["wait": 1.8]
+        if distance <= player.hitRange(.jab) + 4 {
+            if enemy.stamina >= WeaveState.staminaCost + 22 {
+                weights["weave_left"] = 0.45
+                weights["weave_right"] = 0.45
+            }
+            if enemy.stamina >= CombatData.dodgeStaminaCost + 22 {
+                weights["dodge_left"] = 0.25
+                weights["dodge_right"] = 0.25
+            }
+        }
+        _ = performEnemyDecision(weightedChoice(weights))
+        enemyDecisionTimer = 0.55 + random.unit() * 0.20
+    }
+
+    private func updateStorySlugger(_ deltaTime: Double) {
+        enemyDecisionTimer = max(0, enemyDecisionTimer - deltaTime)
+        storySluggerRecoveryTime = max(0, storySluggerRecoveryTime - deltaTime)
+        storySluggerAdvanceTime = max(0, storySluggerAdvanceTime - deltaTime)
+        storySluggerAdvanceCooldown = max(0, storySluggerAdvanceCooldown - deltaTime)
+        enemyGuardTime = max(0, enemyGuardTime - deltaTime)
+        if enemyGuardTime == 0 { enemy.guarding = false }
+        let minimumAttackCost = (CombatData.attacks.values.lazy.map(\.staminaCost).min() ?? 100)
+            * enemy.style.punchStaminaMultiplier
+        if enemy.stamina < minimumAttackCost, !storySluggerRecovering {
+            storySluggerRecovering = true
+            enemyGuardTime = 2.0
+        }
+        if storySluggerRecovering, enemy.stamina >= 45 {
+            storySluggerRecovering = false
+            storySluggerCombination = 0
+            enemyDecisionTimer = 0
+            enemy.guarding = false
+            enemyGuardTime = 0
+        }
+        if enemy.stagger > 0 || enemy.exhausted > 0 {
+            storySluggerCombination = 0
+            storySluggerRecoveryTime = max(storySluggerRecoveryTime, 0.45)
+            storySluggerAdvanceTime = 0
+            storySluggerEntryPending = false
+            return
+        }
+        guard enemy.attack == nil, (!enemy.guarding || storySluggerRecovering), enemy.duckDirection == 0,
+              !enemy.weave.isActive, !enemy.backstep.isActive else { return }
+        let distance = hypot(player.x - enemy.x, player.y - enemy.y)
+        let targetDistance = max(CombatData.minimumFighterSeparation + 4,
+                           enemy.hitRange(.leftHook) * 0.72)
+        let canAdvance = !storySluggerRecovering && storySluggerRecoveryTime <= 0 && enemy.exposed <= 0
+        if !canAdvance {
+            storySluggerAdvanceTime = 0
+            storySluggerEntryPending = false
+        } else if storySluggerAdvanceCooldown <= 0, storySluggerCombination == 0,
+                  !storySluggerEntryPending, enemy.invulnerable <= 0, enemy.stamina >= 48,
+                  distance > targetDistance + 10, distance <= enemy.hitRange(.jab) + 60 {
+            enemy.stamina -= 10
+            storySluggerAdvanceTime = 0.52
+            storySluggerAdvanceCooldown = 1.4 + random.unit() * 0.5
+            storySluggerEntryPending = true
+        }
+        let advancing = storySluggerAdvanceTime > 0
+        let closing = distance > enemy.hitRange(.leftHook)
+        var forward = min(advancing ? 1 : closing ? 0.90 : 0.72,
+            max(0, (distance - targetDistance) / (advancing ? 8 : closing ? 16 : 24)))
+        var strafe = advancing ? 0 : enemyCircleDirection * 0.08
+        if !canAdvance {
+            forward = 0
+            strafe = enemyCircleDirection * 0.04
+        }
+        let movementEffort = advancing ? 1.20 : closing ? 0.82 : 0.43
+        let speed = CombatData.movementSpeed * enemy.style.moveSpeedMultiplier * movementEffort
+        moveFighter(enemy,
+            byX: (enemy.facingX * forward - enemy.facingY * strafe) * speed * deltaTime,
+            byY: (enemy.facingY * forward + enemy.facingX * strafe) * speed * deltaTime,
+            avoiding: player)
+        let attackDistance = hypot(player.x - enemy.x, player.y - enemy.y)
+        if storySluggerRecovering {
+            storySluggerCombination = 0
+            enemy.guarding = enemyGuardTime > 0
+                && enemy.stamina > CombatData.minimumGuardStaminaDamage
+            enemy.exposed = max(enemy.exposed, 0.16)
+            return
+        }
+        guard storySluggerRecoveryTime <= 0, enemy.exposed <= 0 else { return }
+        var weights: [String: Double] = ["wait": 0.40, Punch.jab.rawValue: 0.15,
+            Punch.cross.rawValue: 0.35, Punch.leftHook.rawValue: 3.4, Punch.rightHook.rawValue: 3.8,
+            Punch.leftBody.rawValue: 1.5, Punch.rightBody.rawValue: 1.4,
+            Punch.leftUppercut.rawValue: 1.8, Punch.rightUppercut.rawValue: 2.0]
+        if storySluggerEntryPending {
+            weights = ["wait": 0.05, Punch.jab.rawValue: 0.15, Punch.cross.rawValue: 0.45,
+                Punch.leftHook.rawValue: 4.6, Punch.rightHook.rawValue: 5.2,
+                Punch.leftBody.rawValue: 1.6, Punch.rightBody.rawValue: 1.8,
+                Punch.leftUppercut.rawValue: 2.4, Punch.rightUppercut.rawValue: 2.8]
+        } else if storySluggerCombination > 0 {
+            weights["wait"] = 0.15
+            weights[Punch.jab.rawValue] = 0.15
+            weights[Punch.cross.rawValue] = 0.35
+            weights[Punch.leftHook.rawValue] = 4.6
+            weights[Punch.rightHook.rawValue] = 5.2
+            weights[Punch.leftUppercut.rawValue] = 2.6
+            weights[Punch.rightUppercut.rawValue] = 3.0
+        }
+        var hasAvailableAttack = false
+        for punch in Punch.allCases {
+            guard let spec = CombatData.attacks[punch] else { continue }
+            if enemy.stamina < spec.staminaCost * enemy.style.punchStaminaMultiplier
+                || attackDistance > enemy.hitRange(punch)
+                || !PunchContactGeometry.canReach(enemy, defender: player, punch: punch) {
+                weights[punch.rawValue] = 0
+            } else if (weights[punch.rawValue] ?? 0) > 0 {
+                hasAvailableAttack = true
+            }
+        }
+        if hasAvailableAttack {
+            storySluggerAdvanceTime = 0
+            enemyDecisionTimer = 0
+            weights.removeValue(forKey: "wait")
+        }
+        guard storySluggerAdvanceTime <= 0, enemyDecisionTimer <= 0 else { return }
+        let choice = weightedChoice(weights)
+        if let punch = Punch(rawValue: choice), performEnemyDecision(choice) {
+            storySluggerEntryPending = false
+            storySluggerCombination += 1
+            enemyDecisionTimer = CombatData.attacks[punch]?.duration ?? 0.43
+        } else {
+            storySluggerEntryPending = false
+            enemyDecisionTimer = 0.08
+        }
+    }
+
+    private func updateStoryIntermission(_ realDeltaTime: Double, simulationDelta: Double) {
+        updateKnockdowns(simulationDelta)
+        guard let storyBout else { return }
+        if var transition = storyRoundTransition {
+            transition.elapsed = min(StoryRoundTransition.duration, transition.elapsed + realDeltaTime)
+            if transition.elapsed >= StoryRoundTransition.resetTime, storyBout.phase == .corner {
+                self.storyBout?.beginNextRound()
+                startRound(emitsStartEvent: false)
+                phase = .roundBreak
+            }
+            if transition.elapsed >= StoryRoundTransition.duration {
+                storyRoundTransition = nil
+                phase = .fight
+                onCombatEvent?(.roundStarted)
+            } else {
+                storyRoundTransition = transition
+            }
+            return
+        }
+        switch storyBout.phase {
+        case .counting:
+            let side = storyBout.countingSide
+            if self.storyBout?.advanceCount(realDeltaTime) == true, let side {
+                let fighter = side == .player ? player : enemy
+                fighter.reset(x: fighter.x, y: fighter.y)
+                fighter.hp = min(fighter.maximumHealth, max(1, storyBout.rules.getupHealth))
+                fighter.stamina = min(100, max(0, storyBout.rules.getupStamina))
+                fighter.invulnerable = 0.35
+                phase = .fight
+                enemyDecisionTimer = 0.55
+                if storyBout.opponent == .outboxer {
+                    storyOutboxerRecovering = false
+                    storyOutboxerCombination = 0
+                    storyOutboxerExitTime = 0
+                    storyOutboxerStepTime = 0
+                    storyOutboxerStepCooldown = 0.35
+                    storyOutboxerStepTravel = 0
+                    storyOutboxerAngleTime = 0
+                    enemyGuardTime = 0
+                    enemyTacticTime = 0
+                    enemy.guarding = false
+                    observedPlayerAttackSerial = 0
+                    reactedToPlayerAttack = false
+                }
+                if storyBout.opponent == .counter || storyBout.opponent == .slugger || storyBout.opponent == .rival {
+                    enemy.style = storyBout.opponent == .slugger ? .infighting : .standard
+                    enemyFootwork = .none
+                    enemyFootworkTime = 0
+                    enemyGuardTime = 0
+                    enemyTacticTime = 0
+                    enemy.guarding = false
+                    enemyFollowUp = nil
+                    enemyRecoveryChoice = nil
+                    observedPlayerAttackSerial = 0
+                    reactedToPlayerAttack = false
+                    storyCounterRecovering = false
+                    storyCounterRetreatTime = 0
+                    storyCounterRecoveryPending = false
+                    storyCounterPunishDelay = 0
+                    storyCounterPunishTime = 0
+                    storyCounterProbeTime = storyBout.opponent == .counter ? 8 + random.unit() * 4 : 0
+                    storySluggerRecovering = false
+                    storySluggerCombination = 0
+                    storySluggerRecoveryTime = 0
+                    storySluggerAdvanceTime = 0
+                    storySluggerAdvanceCooldown = 0.70
+                    storySluggerEntryPending = false
+                    storyRivalCombination = 0
+                    storyRivalRecoveryTime = 0
+                    storyRivalReadCooldown = 0.50
+                }
+                updateFacing()
+                message = LocalizationManager.shared.t(.fightStarted)
+            } else if let side, let countingBout = self.storyBout, countingBout.getupKnockdownAmount < 1 {
+                let fighter = side == .player ? player : enemy
+                fighter.knockdown = countingBout.getupKnockdownAmount
+                fighter.getupProgress = countingBout.getupProgress
+            }
+        case .corner:
+            self.storyBout?.advanceCorner(realDeltaTime)
+        case .finished:
+            roundBreakElapsedTime += simulationDelta
+        case .fighting:
+            break
+        }
+    }
+
+    private func commitStoryRoundLearning() {
+        guard let storyBout, !storyRoundCommitted,
+              storyBout.phase == .corner || storyBout.phase == .finished else { return }
+        storyLearning.habits.incorporateRound(roundHabits)
+        storyLearning.playerAttacks.incorporateRound(roundPlayerAttackResults)
+        storyLearning.opponentAttacks.incorporateRound(roundRivalAttackResults)
+        storyLearning.completedRounds = min(10_000, storyLearning.completedRounds + 1)
+        if storyBout.opponent == .rival {
+            storyLearning.championshipRounds = min(10_000, storyLearning.championshipRounds + 1)
+        }
+        storyRoundCommitted = true
+    }
+
+    private func announceStoryResult() {
+        guard let storyBout, storyBout.phase == .finished else { return }
+        commitStoryRoundLearning()
+        switch storyBout.verdict {
+        case .win: lastRoundOutcome = .playerWin
+        case .loss: lastRoundOutcome = .playerLoss
+        case .draw, .none: lastRoundOutcome = .draw
+        }
+        lastRoundWasKnockout = storyBout.finish == .technicalKnockout
+        if lastRoundWasKnockout { koMomentTime = CombatData.koMomentDuration }
+        onCombatEvent?(.roundEnded(outcome: lastRoundOutcome, knockout: lastRoundWasKnockout))
+    }
+
+    func storyCheckpoint() -> StoryCheckpoint? {
+        guard let storyBout else { return nil }
+        func checkpoint(_ fighter: FighterModel) -> StoryFighterCheckpoint {
+            StoryFighterCheckpoint(health: fighter.hp, stamina: fighter.stamina,
+                positionX: fighter.x, positionY: fighter.y, facingX: fighter.facingX, facingY: fighter.facingY,
+                exhausted: fighter.exhausted, stagger: fighter.stagger, exposed: fighter.exposed,
+                invulnerable: fighter.invulnerable, repeatedPunch: fighter.streakAttack?.rawValue,
+                repetitionCount: fighter.streakCount)
+        }
+        let counterWindow = player.pendingDodgeCounter && !player.acted
+            ? max(playerCounterWindowTime, lastPlayerDodgeGrade?.counterWindow ?? 0.18) : playerCounterWindowTime
+        var observations = StoryRoundObservations()
+        observations.habits = roundHabits
+        observations.playerAttacks = roundPlayerAttackResults
+        observations.opponentAttacks = roundRivalAttackResults
+        observations.committed = storyRoundCommitted
+        observations.policyRound = storyPolicyRound
+        return StoryCheckpoint(bout: storyBout, remainingTime: roundTime,
+            player: checkpoint(player), opponent: checkpoint(enemy), playerStyle: player.style.rawValue,
+            counterWindow: counterWindow, lastDodgeGrade: lastPlayerDodgeGrade?.rawValue,
+            focusTime: rivalMomentTime, focusGrade: rivalMomentGrade?.rawValue,
+            learning: storyLearning, observations: observations)
+    }
+
+    func restoreStory(_ checkpoint: StoryCheckpoint) {
+        guard storyBout?.opponent == checkpoint.bout.opponent,
+              (1...checkpoint.bout.opponent.maximumRounds).contains(checkpoint.bout.round),
+              checkpoint.bout.phase != .finished else { return }
+        storyBout = checkpoint.bout
+        if let learning = checkpoint.learning { storyLearning = learning }
+        if let style = FightStyle(rawValue: checkpoint.playerStyle) { player.style = style }
+        startRound(emitsStartEvent: false)
+        if let observations = checkpoint.observations {
+            roundHabits = observations.habits
+            roundPlayerAttackResults = observations.playerAttacks
+            roundRivalAttackResults = observations.opponentAttacks
+            storyRoundCommitted = observations.committed
+            storyPolicyRound = observations.policyRound
+        } else {
+            storyRoundCommitted = checkpoint.bout.phase == .corner
+        }
+        for (fighter, saved) in [(player, checkpoint.player), (enemy, checkpoint.opponent)] {
+            fighter.x = clampToRing(saved.positionX)
+            fighter.y = clampToRing(saved.positionY)
+            fighter.hp = min(fighter.maximumHealth, max(0, saved.health))
+            fighter.stamina = min(100, max(0, saved.stamina))
+            fighter.facingX = saved.facingX
+            fighter.facingY = saved.facingY
+            fighter.exhausted = max(0, saved.exhausted)
+            fighter.stagger = max(0, saved.stagger)
+            fighter.exposed = max(0, saved.exposed)
+            fighter.invulnerable = max(0, saved.invulnerable)
+            fighter.streakAttack = saved.repeatedPunch.flatMap(Punch.init(rawValue:))
+            fighter.streakCount = max(0, saved.repetitionCount)
+            fighter.knockedOut = fighter.hp == 0
+            fighter.knockdown = fighter.knockedOut ? 1 : 0
+        }
+        if checkpoint.bout.phase == .counting, let side = checkpoint.bout.countingSide {
+            let fighter = side == .player ? player : enemy
+            fighter.knockdown = checkpoint.bout.getupKnockdownAmount
+            fighter.getupProgress = checkpoint.bout.getupProgress
+        }
+        roundTime = min(checkpoint.bout.rules.roundSeconds, max(0, checkpoint.remainingTime))
+        playerCounterWindowTime = max(0, checkpoint.counterWindow)
+        lastPlayerDodgeGrade = checkpoint.lastDodgeGrade.flatMap(DodgeGrade.init(rawValue:))
+        rivalMomentGrade = checkpoint.focusGrade.flatMap(DodgeGrade.init(rawValue:))
+        rivalMomentTime = rivalMomentGrade == nil ? 0 : max(0, checkpoint.focusTime)
+        phase = checkpoint.bout.phase == .fighting ? .fight : .roundBreak
+    }
+
+    private func updateKnockdowns(_ deltaTime: Double) {
+        for fighter in [player, enemy] {
+            fighter.advancePoseTransition(deltaTime)
+            fighter.hitReaction = max(0, fighter.hitReaction - deltaTime)
+            if fighter.knockedOut {
+                fighter.knockdown = min(1, fighter.knockdown + deltaTime / 0.9)
+            } else if let punch = fighter.attack, let spec = CombatData.attacks[punch] {
+                // Cosmetic follow-through only: never call attemptHit, AI, stamina or habit sampling.
+                fighter.actionTime += deltaTime
+                if fighter.actionTime >= spec.duration {
+                    fighter.attack = nil
+                    fighter.attackAim = nil
+                    fighter.attackEntryPose = nil
+                    fighter.actionTime = 0
+                    fighter.acted = false
+                    fighter.pendingDodgeCounter = false
+                }
+            }
+        }
+    }
+
+    private func exhaust(_ fighter: FighterModel, emitsFeedback: Bool = true) {
         fighter.exhausted = max(fighter.exhausted, CombatData.exhaustionDuration)
         fighter.exposed = max(fighter.exposed, CombatData.exhaustionExposed)
+        fighter.weave.cancel()
         exhaustionCount += 1
         lastExhaustedByPlayer = fighter === player
-        if fighter === player { message = "GASSED OUT" }
+        if fighter === player { message = LocalizationManager.shared.t(.exhausted) }
+        if emitsFeedback { onCombatEvent?(.exhausted(fighter: fighter === player ? .player : .rival)) }
     }
 
     private func saveHabits() {
-        guard let defaults, let data = try? JSONEncoder().encode(habits) else { return }
-        defaults.set(data, forKey: "pixelBoxingHabitMemory")
+        guard let defaults else { return }
+        if let data = try? JSONEncoder().encode(habits) {
+            defaults.set(data, forKey: "pixelBoxingHabitMemory")
+        }
+        let profile = RivalLearningProfile(playerAttacks: playerAttackResults, rivalAttacks: rivalAttackResults)
+        if let data = try? JSONEncoder().encode(profile) {
+            defaults.set(data, forKey: "pixelBoxingRivalResults")
+        }
     }
 
     private func persistProgress() {
@@ -1782,8 +3474,8 @@ final class CombatEngine {
 /// the player's own movement/guard/duck/backstep/attack state, circling a fixed heavy bag hung at the
 /// gym's center. Deliberately NOT built on top of `CombatEngine` (which is tightly coupled to always having
 /// a live opponent to face/hit) — reimplements only the subset of per-fighter update logic that makes sense
-/// against a stationary target. Stamina is never actually spent here (see `startAttack`/`backstep`) so
-/// players can freely drill combos without being locked out.
+/// against a stationary target. All training actions, including weaves and linked hooks, are free:
+/// no stamina spending/exhaustion, and stamina stays at 100 on every simulation update.
 @MainActor
 final class PracticeEngine {
     // Reuses the same (295, 295) center convention `BoxerRig`/`worldPosition` assume is the arena's origin,
@@ -1792,27 +3484,29 @@ final class PracticeEngine {
     static let bagX = 295.0
     static let bagY = 295.0
 
-    let player = FighterModel(name: "PLAYER", colorName: "cyan", x: bagX, y: bagY + 95)
+    let player = FighterModel(name: "PLAYER", x: bagX, y: bagY + 95)
 
     /// Notified with `(punch, damage)` the instant a punch lands on the bag, so the scene can pop a floating
     /// damage number and give the bag a physical swing impulse.
     var onHit: ((Punch, Int) -> Void)?
 
+    /// Emitted once when an actual punch extends, including misses and buffered weave hooks.
+    var onPunchSwing: ((Punch) -> Void)?
+
     // Player position is clamped to an annulus around the bag instead of a rectangular room, so movement
     // input naturally reads as "walk in / back away / circle around" the fixed target.
     //
-    // `minRadius` must stay comfortably under the SHORTEST punch's worst-case effective range (left uppercut,
-    // Slugger's (`.infighting`) tight lead-hand jab-up: `range 44 * infighting reachMultiplier 0.90 + the
-    // shared 17 fudge margin in `attemptHitBag` == 56.6`) or that punch becomes mathematically unable to ever
-    // land on the bag -- this was exactly the bug where a Slugger's left uppercut never connected, since the
-    // old `minRadius` of 58 was already past that punch's max reach before the player even started swinging.
-    private let minRadius = 54.0
+    // The bag's larger surface uses its own contact allowance. All styles, including the
+    // shortest Slugger uppercut, can enter range without putting the torso inside the bag.
+    private let minRadius = CombatData.minimumFighterSeparation
     private let maxRadius = 185.0
     var moveX = 0.0
     var moveY = 0.0
+    private(set) var isPaused = false
+    private(set) var message = ""
 
     var playerLocked: Bool {
-        player.stagger > 0
+        player.stagger > 0 || player.exhausted > 0 || player.knockedOut || player.hp <= 0
     }
 
     func setStyle(_ style: FightStyle) {
@@ -1829,7 +3523,7 @@ final class PracticeEngine {
             player.guarding = false
             return
         }
-        guard player.attack == nil else { return }
+        guard !isPaused, !playerLocked, player.attack == nil, !player.weave.isActive else { return }
         player.guarding = true
     }
 
@@ -1838,22 +3532,69 @@ final class PracticeEngine {
             player.duckDirection = 0
             return
         }
-        guard player.attack == nil else { return }
+        guard !isPaused, !playerLocked, player.attack == nil, !player.weave.isActive else { return }
         player.duckDirection = min(1, max(-1, direction))
     }
 
     @discardableResult
+    func weave(direction: Int) -> Bool {
+        guard !isPaused else { return false }
+        updateFacing()
+        guard player.beginWeave(direction: direction, spendsStamina: false) else { return false }
+        message = LocalizationManager.shared.t(direction < 0 ? .weaveLeftAccessibility : .weaveRightAccessibility)
+        return true
+    }
+
+    @discardableResult
+    func requestWeaveHook(base: Punch) -> Bool {
+        guard !isPaused, player.queueWeaveHook(base: base) else { return false }
+        launchWeaveHook()
+        return true
+    }
+
+    func cancelWeaveInput() {
+        player.weave.cancel()
+        moveX = 0
+        moveY = 0
+    }
+
+    func togglePause() {
+        if !isPaused { cancelWeaveInput() }
+        isPaused.toggle()
+    }
+
+    private func launchWeaveHook() {
+        guard let hook = player.weave.takeReadyHook() else { return }
+        _ = executeAttack(hook, fromWeave: true)
+    }
+
+    @discardableResult
     func backstep() -> Bool {
-        guard player.attack == nil, player.stagger <= 0 else { return false }
-        player.invulnerable = 0.22
-        moveToClamped(x: player.x - player.facingX * 34, y: player.y - player.facingY * 34)
+        guard !isPaused, !playerLocked, player.attack == nil, !player.weave.isActive,
+              !player.backstep.isActive else { return false }
+        updateFacing()
+        player.weave.cancel()
+        player.backstep.start(facingX: player.facingX, facingY: player.facingY)
         return true
     }
 
     @discardableResult
     func startAttack(_ punch: Punch) -> Bool {
-        guard player.attack == nil, player.stagger <= 0, CombatData.attacks[punch] != nil else { return false }
+        executeAttack(punch, fromWeave: false)
+    }
+
+    private func executeAttack(_ punch: Punch, fromWeave: Bool) -> Bool {
+        guard !isPaused, !playerLocked, player.attack == nil, (!player.weave.isActive || fromWeave),
+              !player.backstep.isActive, let spec = CombatData.attacks[punch] else { return false }
+          updateFacing()
+          PunchContactGeometry.begin(player,
+            target: SIMD3<Float>(Float(Self.bagX * CombatData.sceneScale),
+                            spec.targetZone == .body ? 1.40 : 2.20,
+                            Float(Self.bagY * CombatData.sceneScale)),
+            radius: Float(CombatData.bagContactRadius))
+        if !fromWeave { player.weave.cancel() }
         player.attack = punch
+        player.attackSerial &+= 1
         player.actionTime = 0
         player.acted = false
         player.guarding = false
@@ -1861,32 +3602,50 @@ final class PracticeEngine {
     }
 
     func update(deltaTime rawDeltaTime: Double) {
+        guard !isPaused, rawDeltaTime.isFinite else { return }
         let deltaTime = min(0.05, max(0, rawDeltaTime))
         guard deltaTime > 0 else { return }
         updateFacing()
         updatePlayerMovement(deltaTime)
+        player.duckMotion.advance(direction: player.duckDirection, deltaTime: deltaTime)
+        player.guardAmount = DefensiveMotion.guardBlend(current: player.guardAmount,
+            raised: player.guarding, deltaTime: deltaTime, reducedMotion: false)
+        let retreat = player.backstep.advance(deltaTime)
+        if retreat.x != 0 || retreat.y != 0 { moveToClamped(x: player.x + retreat.x, y: player.y + retreat.y) }
+        let step = player.advanceWeave(deltaTime)
+        if step.x != 0 || step.y != 0 { moveToClamped(x: player.x + step.x, y: player.y + step.y) }
         player.invulnerable = max(0, player.invulnerable - deltaTime)
+        player.exhausted = max(0, player.exhausted - deltaTime)
+        player.exposed = max(0, player.exposed - deltaTime)
         player.stagger = max(0, player.stagger - deltaTime)
         player.hitReaction = max(0, player.hitReaction - deltaTime)
-        player.stamina = 100
+        player.stamina = 100 // Free training, including active defense, weaves and linked hooks.
 
         if let punch = player.attack, let spec = CombatData.attacks[punch] {
             let previous = player.actionTime
             player.actionTime += deltaTime
+            let swingTime = PunchSwingTiming.cueTime(spec: spec)
+            if previous < swingTime, player.actionTime >= swingTime {
+                onPunchSwing?(punch)
+            }
             if !player.acted, previous < spec.activeStart, player.actionTime >= spec.activeStart {
                 player.acted = attemptHitBag(punch: punch, spec: spec)
             }
             if player.actionTime >= spec.duration {
                 player.attack = nil
+                player.attackAim = nil
+                player.attackEntryPose = nil
                 player.actionTime = 0
                 player.acted = false
             }
         }
+        launchWeaveHook()
     }
 
     /// Player always faces the fixed bag (there's no opponent to track), recomputed every frame the same
     /// way `CombatEngine.updateFacing()` keeps the two live fighters looking at each other.
     private func updateFacing() {
+        guard player.attack == nil else { return }
         let dx = Self.bagX - player.x
         let dy = Self.bagY - player.y
         let magnitude = max(0.001, hypot(dx, dy))
@@ -1899,8 +3658,12 @@ final class PracticeEngine {
         let dx = Self.bagX - player.x
         let dy = Self.bagY - player.y
         let distance = hypot(dx, dy)
-        let effectiveRange = spec.range * player.style.reachMultiplier
-        guard distance <= effectiveRange + 17 else { return false }
+        guard distance <= CombatData.hitRange(punch, style: player.style,
+                             targetRadius: CombatData.bagContactRadius) else { return false }
+        let glove = PunchContactGeometry.glove(player, punch: punch)
+        let bagCenter = SIMD2<Float>(Float(Self.bagX * CombatData.sceneScale), Float(Self.bagY * CombatData.sceneScale))
+        guard simd_distance(SIMD2<Float>(glove.x, glove.z), bagCenter)
+            <= Float(CombatData.bagContactRadius + spec.fistRadius * CombatData.sceneScale) else { return false }
         let damage = max(1, Int((Double(spec.damage) * player.style.damageMultiplier).rounded()))
         player.hitReaction = 0.16
         onHit?(punch, damage)
@@ -1908,7 +3671,8 @@ final class PracticeEngine {
     }
 
     private func updatePlayerMovement(_ deltaTime: Double) {
-        guard player.attack == nil, player.stagger <= 0, !player.guarding else { return }
+          guard player.attack == nil, !playerLocked, !player.guarding,
+              !player.weave.isActive, !player.backstep.isActive else { return }
         let magnitude = hypot(moveX, moveY)
         guard magnitude > 0.01 else { return }
         let forward = moveX / max(1, magnitude)
