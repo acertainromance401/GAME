@@ -3,20 +3,22 @@ import Foundation
 import simd
 
 enum StoryOpponent: String, Codable, CaseIterable, Identifiable, Sendable {
-    case pressure, outboxer, counter, slugger, rival
+    case basic, pressure, outboxer, counter, southpaw, slugger, rival
 
     var id: String { rawValue }
     var maximumRounds: Int {
         switch self {
+        case .basic: 2
         case .pressure: 4
         case .outboxer: 6
         case .counter: 8
+        case .southpaw: 8
         case .slugger: 10
         case .rival: 12
         }
     }
     var isAvailable: Bool { true }
-    var hasAppearance: Bool { true }
+    var hasAppearance: Bool { self != .basic }
 }
 
 enum StorySide: String, Codable, Sendable {
@@ -42,8 +44,10 @@ struct StoryIntroduction: Sendable {
 
     var dialogueStartTime: Double {
         switch opponent {
+        case .basic: 5.8
         case .outboxer: 4.8
         case .counter: 4.95
+        case .southpaw: 5.8
         case .slugger: 6.0
         case .rival: 4.5
         default: 4.3
@@ -55,6 +59,7 @@ struct StoryRivalScene: Sendable {
     let chapter: StoryOpponent
     let duration: Double
     var elapsed: Double = 0
+    var sparringKnockout = false
 }
 
 struct StoryIntroVector: Decodable, Sendable {
@@ -142,7 +147,174 @@ struct StoryIntroSample: Sendable {
     let pose: FightPose
 }
 
+enum GymSparringMotion {
+    static let introductionDuration = 9.0
+    static let aftermathDuration = 6.4
+    static let rematchDuration = 4.8
+
+    static func approach(at elapsed: Double) -> Float {
+        smooth((elapsed - 2.0) / 1.6) * (1 - smooth((elapsed - 7.5) / 1.5))
+    }
+
+    static func introduction(at elapsed: Double, player: Bool = false, walkDistance: Float = 1.0) -> StoryIntroSample {
+        let time = min(introductionDuration, max(0, elapsed))
+        var pose = greeting(at: time - 4.0)
+        if !player, time < 2.0 {
+            let adjustment = Float(sin(time / 2.0 * .pi))
+            pose.applyGuard(style: .standard, amount: 0.45)
+            pose.rightGlove = mix(pose.rightGlove, SIMD3<Float>(-0.16, 1.70, 0.57), adjustment)
+            pose.rightElbow = mix(pose.rightElbow, SIMD3<Float>(0.22, 1.52, 0.28), adjustment)
+        }
+        if !player, time >= 5.8, time <= 6.6 {
+            pose.headBob -= Float(sin((time - 5.8) / 0.8 * .pi)) * 0.045
+        }
+        if time >= 2.0, time < 3.6 {
+            applySteps(to: &pose, progress: smooth((time - 2.0) / 1.6), distance: walkDistance)
+        } else if time >= 7.5, time < introductionDuration {
+            applySteps(to: &pose, progress: smooth((time - 7.5) / 1.5), distance: -walkDistance)
+        }
+        pose.resolveStraightPunch(leftContact: pose.leftFoot, rightContact: pose.rightFoot)
+        return StoryIntroSample(root: .zero, heading: 0, pose: pose)
+    }
+
+    static func aftermath(at elapsed: Double, knockout: Bool = false) -> StoryIntroSample {
+        let time = min(aftermathDuration, max(0, elapsed))
+        var pose = knockout ? FightPose.neutral(stride: 0) : greeting(at: time - 0.55)
+        pose.headBob -= Float(sin(min(1, time / 1.2) * .pi)) * 0.05
+        if knockout, time < 2.8 {
+            pose.torsoPitch += (1 - smooth(time / 2.8)) * 0.10
+            pose.applyGuard(style: .standard, amount: 0.20)
+        }
+        let watching = smooth((time - 2.2) / 0.7) * (1 - smooth((time - 3.4) / 0.6))
+        let heading = -watching * 0.25
+        if !knockout, let spec = CombatData.attacks[.jab], time >= 4.35, time < 4.35 + spec.duration {
+            let target = SIMD3<Float>(0.06, 2.17, Float(spec.range * CombatData.sceneScale) + 0.20)
+            pose.applyAttack(.jab, progress: Float((time - 4.35) / spec.duration),
+                targetRadius: 0, contactTarget: target)
+        }
+        pose.resolveStraightPunch(leftContact: pose.leftFoot, rightContact: pose.rightFoot)
+        return StoryIntroSample(root: .zero, heading: heading, pose: pose)
+    }
+
+    static func departingPlayer(at elapsed: Double) -> StoryIntroSample {
+        let time = min(aftermathDuration, max(0, elapsed))
+        var pose = greeting(at: time - 0.55)
+        let turn = smooth((time - 2.2) / 0.55)
+        let departure = smooth((time - 2.75) / 1.05)
+        let exitHeading: Float = -2.0
+        if time >= 2.2 {
+            pose = FightPose.neutral(stride: 0)
+            pose.applyGuard(style: .standard, amount: 0.70 * (1 - turn))
+            if time < 2.75 {
+                applyTurn(to: &pose, progress: turn, angle: exitHeading)
+            } else {
+                applySteps(to: &pose, progress: departure, distance: 0.65)
+            }
+        }
+        let rotation = simd_quatf(angle: exitHeading, axis: SIMD3<Float>(0, 1, 0))
+        return StoryIntroSample(root: rotation.act(SIMD3<Float>(0, 0, departure * 0.65)),
+            heading: exitHeading * turn, pose: pose)
+    }
+
+    static func rematchApproach(at elapsed: Double) -> Float {
+        smooth(elapsed / 1.3) * (1 - smooth((elapsed - 3.2) / 1.6))
+    }
+
+    static func rematch(at elapsed: Double, walkDistance: Float = 1.0) -> StoryIntroSample {
+        var pose = greeting(at: elapsed - 1.3)
+        if elapsed >= 0, elapsed < 1.3 {
+            applySteps(to: &pose, progress: smooth(elapsed / 1.3), distance: walkDistance)
+        } else if elapsed >= 3.2, elapsed < rematchDuration {
+            applySteps(to: &pose, progress: smooth((elapsed - 3.2) / 1.6), distance: -walkDistance)
+        }
+        return StoryIntroSample(root: .zero, heading: 0, pose: pose)
+    }
+
+    private static func applySteps(to pose: inout FightPose, progress: Float, distance: Float) {
+        guard abs(distance) > 0.001 else { return }
+        let count = max(1, Int((abs(distance) / 0.65).rounded(.up)))
+        let cycle = progress * Float(count)
+        let completed = cycle.rounded(.down)
+        let phase = cycle - completed
+        let leftPhase = min(1, max(0, (phase - (distance < 0 ? 0.5 : 0)) * 2))
+        let rightPhase = min(1, max(0, (phase - (distance < 0 ? 0 : 0.5)) * 2))
+        let stride = distance / Float(count)
+        let rootTravel = distance * progress
+        let leftTravel = stride * (completed + smooth(Double(leftPhase))) - rootTravel
+        let rightTravel = stride * (completed + smooth(Double(rightPhase))) - rootTravel
+        let leftLift = max(0, Float(sin(Double(leftPhase) * .pi))) * 0.07
+        let rightLift = max(0, Float(sin(Double(rightPhase) * .pi))) * 0.07
+        let leftOffset = SIMD3<Float>(0, leftLift, leftTravel)
+        let rightOffset = SIMD3<Float>(0, rightLift, rightTravel)
+        pose.leftFoot += leftOffset
+        pose.rightFoot += rightOffset
+        pose.leftKnee += leftOffset * 0.55
+        pose.rightKnee += rightOffset * 0.55
+        let direction: Float = distance < 0 ? -1 : 1
+        pose.leftFootPitch += Float(sin(Double(leftPhase) * .pi * 2)) * direction * 0.10
+        pose.rightFootPitch += Float(sin(Double(rightPhase) * .pi * 2)) * direction * 0.10
+        pose.headBob -= (leftLift + rightLift) * 0.15
+    }
+
+    private static func applyTurn(to pose: inout FightPose, progress: Float, angle: Float) {
+        let leftPhase = min(1, progress * 2)
+        let rightPhase = max(0, progress * 2 - 1)
+        let leftAmount = smooth(Double(leftPhase))
+        let rightAmount = smooth(Double(rightPhase))
+        let rotation = simd_quatf(angle: angle, axis: SIMD3<Float>(0, 1, 0))
+        let inverse = simd_quatf(angle: -angle * progress, axis: SIMD3<Float>(0, 1, 0))
+        let originalLeft = pose.leftFoot
+        let originalRight = pose.rightFoot
+        pose.leftFoot = inverse.act(mix(originalLeft, rotation.act(originalLeft), leftAmount))
+        pose.rightFoot = inverse.act(mix(originalRight, rotation.act(originalRight), rightAmount))
+        pose.leftFoot.y += max(0, Float(sin(Double(leftPhase) * .pi))) * 0.06
+        pose.rightFoot.y += max(0, Float(sin(Double(rightPhase) * .pi))) * 0.06
+        pose.leftKnee += (pose.leftFoot - originalLeft) * 0.55
+        pose.rightKnee += (pose.rightFoot - originalRight) * 0.55
+        pose.leftFootYaw += angle * (leftAmount - progress)
+        pose.rightFootYaw += angle * (rightAmount - progress)
+    }
+
+    private static func greeting(at elapsed: Double) -> FightPose {
+        var pose = FightPose.neutral(stride: 0)
+        pose.applyGuard(style: .standard, amount: 0.70)
+        let amount = smooth(elapsed / 0.55) * (1 - smooth((elapsed - 1.1) / 0.55))
+        pose.torsoYaw *= 1 - amount
+        pose.leftGlove = mix(pose.leftGlove, SIMD3<Float>(0, 1.75, 1.10), amount)
+        pose.leftElbow = mix(pose.leftElbow, SIMD3<Float>(-0.23, 1.72, 0.56), amount)
+        return pose
+    }
+
+    private static func smooth(_ value: Double) -> Float {
+        let amount = Float(min(1, max(0, value)))
+        return amount * amount * (3 - 2 * amount)
+    }
+
+    private static func mix(_ start: SIMD3<Float>, _ end: SIMD3<Float>, _ amount: Float) -> SIMD3<Float> {
+        start + (end - start) * amount
+    }
+}
+
+private extension StoryIntroPose {
+    init(_ pose: FightPose) {
+        func vector(_ value: SIMD3<Float>) -> StoryIntroVector {
+            StoryIntroVector(x: value.x, y: value.y, z: value.z)
+        }
+        self.init(torsoY: pose.torsoY, torsoYaw: pose.torsoYaw, torsoPitch: pose.torsoPitch,
+            torsoLean: pose.torsoLean, hipYaw: pose.hipYaw, headBob: pose.headBob,
+            leftFootYaw: pose.leftFootYaw, rightFootYaw: pose.rightFootYaw,
+            leftFootPitch: pose.leftFootPitch, rightFootPitch: pose.rightFootPitch,
+            leftShoulder: vector(pose.leftShoulder), rightShoulder: vector(pose.rightShoulder),
+            leftElbow: vector(pose.leftElbow), rightElbow: vector(pose.rightElbow),
+            leftGlove: vector(pose.leftGlove), rightGlove: vector(pose.rightGlove),
+            leftHip: vector(pose.leftHip), rightHip: vector(pose.rightHip),
+            leftKnee: vector(pose.leftKnee), rightKnee: vector(pose.rightKnee),
+            leftFoot: vector(pose.leftFoot), rightFoot: vector(pose.rightFoot))
+    }
+}
+
 enum ChampionshipEndingTiming {
+    static let applauseOpponents: [StoryOpponent] = [.pressure, .outboxer, .counter, .southpaw, .slugger, .rival]
     static let beltAward = 6.8
     static let ceremonyStart = 8.0
     static let coachCongratulations = 11.4
@@ -194,7 +366,12 @@ struct StoryIntroClip: Decodable, Sendable {
     let version: Int
     let duration: Double
     let frames: [StoryIntroFrame]
+    var southpawAftermath: Bool? = nil
 
+    @MainActor static let basic = sparringClip(aftermath: false)
+    @MainActor static let basicAftermath = sparringClip(aftermath: true)
+    @MainActor static let southpaw = southpawClip(aftermath: false)
+    @MainActor static let rivalSouthpawWin = southpawClip(aftermath: true)
     @MainActor static let pressure = load(resource: "story_pressure_intro")
     @MainActor static let outboxer = load(resource: "story_outboxer_intro")
     @MainActor static let counter = load(resource: "story_counter_intro")
@@ -209,6 +386,8 @@ struct StoryIntroClip: Decodable, Sendable {
 
     @MainActor static func rivalScene(for opponent: StoryOpponent) -> StoryIntroClip? {
         switch opponent {
+        case .basic: basicAftermath
+        case .southpaw: rivalSouthpawWin
         case .pressure: rivalPressureWin
         case .outboxer: rivalOutboxerWin
         case .counter: rivalCounterWin
@@ -219,13 +398,65 @@ struct StoryIntroClip: Decodable, Sendable {
 
     @MainActor static func clip(for opponent: StoryOpponent?) -> StoryIntroClip? {
         switch opponent {
+        case .basic: basic
         case .pressure: pressure
         case .outboxer: outboxer
         case .counter: counter
+        case .southpaw: southpaw
         case .slugger: slugger
         case .rival: championship
         default: nil
         }
+    }
+
+    private static func southpawClip(aftermath: Bool) -> StoryIntroClip {
+        let duration = aftermath ? 8.0 : 9.0
+        let count = Int(duration * 60)
+        let frames = (0...count).map { index in
+            let time = duration * Double(index) / Double(count)
+            let stance: BoxingStance = !aftermath || (time >= 2 && time < 4) ? .southpaw : .orthodox
+            var pose = FightPose.neutral(stride: 0, stance: stance)
+            pose.applyGuard(style: .standard, amount: 0.70)
+            let attacks: [(Punch, Double)] = aftermath ? [(.jab, 6.1)] : [(.jab, 2.4), (.cross, 3.15)]
+            for (punch, start) in attacks {
+                guard let spec = CombatData.attacks[punch], time >= start, time < start + spec.duration else { continue }
+                let progress = Float((time - start) / spec.duration)
+                pose.applyAttack(punch, progress: progress)
+                pose.applyPunchRecovery(punch, progress: progress, landed: false, reducedMotion: false)
+            }
+            let stepStart = aftermath ? 4.7 : 5.0
+            let step = Float(min(1, max(0, (time - stepStart) / 0.65)))
+            let travel: Float = 0.30 * (step * step * (3 - 2 * step))
+            pose.leftFoot.x -= travel
+            pose.rightFoot.x -= travel
+            if step > 0, step < 0.5 {
+                pose.rightFoot.x += travel * 2
+                pose.rightFoot.y += sin(step * 2 * .pi) * 0.045
+            } else if step >= 0.5, step < 1 {
+                pose.rightFoot.x += 0.30
+                pose.leftFoot.x += (travel - 0.15) * 2
+                pose.leftFoot.y += sin((step - 0.5) * 2 * .pi) * 0.045
+            } else if step >= 1 {
+                pose.leftFoot.x += 0.30
+                pose.rightFoot.x += 0.30
+            }
+            return StoryIntroFrame(time: time, root: StoryIntroVector(x: travel, y: 0, z: 0),
+                heading: 0, pose: StoryIntroPose(pose))
+        }
+        return StoryIntroClip(version: 1, duration: duration, frames: frames, southpawAftermath: aftermath)
+    }
+
+    private static func sparringClip(aftermath: Bool) -> StoryIntroClip {
+        let duration = aftermath ? GymSparringMotion.aftermathDuration : GymSparringMotion.introductionDuration
+        let count = Int(duration * 60)
+        let frames = (0...count).map { index in
+            let time = duration * Double(index) / Double(count)
+            let sample = aftermath ? GymSparringMotion.aftermath(at: time) : GymSparringMotion.introduction(at: time)
+            return StoryIntroFrame(time: time,
+                root: StoryIntroVector(x: sample.root.x, y: sample.root.y, z: sample.root.z),
+                heading: sample.heading, pose: StoryIntroPose(sample.pose))
+        }
+        return StoryIntroClip(version: 1, duration: duration, frames: frames)
     }
 
     @MainActor private static func load(resource: String) -> StoryIntroClip? {
@@ -252,9 +483,13 @@ struct StoryIntroClip: Decodable, Sendable {
         let first = frames[lower]
         let second = frames[upper]
         let amount = Float(min(1, max(0, (time - first.time) / (second.time - first.time))))
+        var pose = first.pose.blended(with: second.pose, amount: amount)
+        if let aftermath = southpawAftermath {
+            pose.setAuthoredStance(!aftermath || (time >= 2 && time < 4) ? .southpaw : .orthodox)
+        }
         return StoryIntroSample(root: first.root.blended(with: second.root, amount: amount),
             heading: first.heading + (second.heading - first.heading) * amount,
-            pose: first.pose.blended(with: second.pose, amount: amount))
+            pose: pose)
     }
 }
 
@@ -462,6 +697,7 @@ struct StoryFighterCheckpoint: Codable, Sendable {
     var invulnerable: Double = 0
     var repeatedPunch: String?
     var repetitionCount = 0
+    var stance = BoxingStance.orthodox
 }
 
 struct StoryLearningState: Codable, Sendable {
@@ -522,12 +758,14 @@ struct StoryCheckpoint: Codable, Sendable {
     var focusGrade: String?
     var learning: StoryLearningState?
     var observations: StoryRoundObservations?
+    var rivalStaminaRecovering = false
 }
 
 extension StoryFighterCheckpoint {
     private enum CodingKeys: String, CodingKey {
         case health, stamina, positionX, positionY, facingX, facingY, exhausted, stagger, exposed
         case invulnerable, repeatedPunch, repetitionCount
+        case stance
     }
 
     init(from decoder: Decoder) throws {
@@ -544,13 +782,14 @@ extension StoryFighterCheckpoint {
         invulnerable = try values.decodeIfPresent(Double.self, forKey: .invulnerable) ?? 0
         repeatedPunch = try values.decodeIfPresent(String.self, forKey: .repeatedPunch)
         repetitionCount = try values.decodeIfPresent(Int.self, forKey: .repetitionCount) ?? 0
+        stance = try values.decodeIfPresent(BoxingStance.self, forKey: .stance) ?? .orthodox
     }
 }
 
 extension StoryCheckpoint {
     private enum CodingKeys: String, CodingKey {
         case bout, remainingTime, player, opponent, playerStyle, counterWindow, lastDodgeGrade, focusTime, focusGrade
-        case learning, observations
+        case learning, observations, rivalStaminaRecovering
     }
 
     init(from decoder: Decoder) throws {
@@ -566,17 +805,21 @@ extension StoryCheckpoint {
         focusGrade = try values.decodeIfPresent(String.self, forKey: .focusGrade)
         learning = try values.decodeIfPresent(StoryLearningState.self, forKey: .learning)
         observations = try values.decodeIfPresent(StoryRoundObservations.self, forKey: .observations)
+        rivalStaminaRecovering = try values.decodeIfPresent(Bool.self, forKey: .rivalStaminaRecovering)
+            ?? (opponent.stamina < 25 || opponent.exhausted > 0)
     }
 }
 
 struct StoryProgress: Codable, Sendable {
-    var version = 1
+    var version = 3
     var clearedOpponents: Set<StoryOpponent> = []
+    var retainedUnlocks: Set<StoryOpponent> = []
     var legacyRivalUnlocked = false
     var championOutfitUnlocked = false
     var championBeltUnlocked = false
     var championBeltEquipped = false
     var equippedAppearance: StoryOpponent?
+    var equippedStance = BoxingStance.orthodox
     var seenIntroductions: Set<StoryOpponent> = []
     var seenRivalScenes: Set<StoryOpponent> = []
     var activeBout: StoryCheckpoint?
@@ -590,30 +833,55 @@ struct StoryProgress: Codable, Sendable {
     #endif
 
     static var temporarilyUnlockCutscenes: Bool { temporarilyUnlockStory }
+    static var temporarilyUnlockEquipment: Bool {
+        // Isolated menu fixtures exercise real equipment gates, not the developer unlock.
+        temporarilyUnlockStory && ProcessInfo.processInfo.environment["RIVAL_PRESENTATION_TEST"] != "menu"
+    }
 
     func canReplayIntroduction(_ opponent: StoryOpponent) -> Bool {
-        Self.temporarilyUnlockCutscenes || seenIntroductions.contains(opponent)
+        opponent.isAvailable && (Self.temporarilyUnlockCutscenes || seenIntroductions.contains(opponent))
     }
 
     func canReplayRivalScene(_ opponent: StoryOpponent) -> Bool {
-        Self.temporarilyUnlockCutscenes || clearedOpponents.contains(opponent)
+        opponent.isAvailable && (Self.temporarilyUnlockCutscenes || clearedOpponents.contains(opponent))
     }
 
     var rivalUnlocked: Bool {
-        legacyRivalUnlocked || StoryOpponent.allCases.filter { $0 != .rival }.allSatisfy(clearedOpponents.contains)
+        legacyRivalUnlocked || retainedUnlocks.contains(.rival) || clearedOpponents.contains(.rival)
+            || StoryOpponent.allCases.filter { $0.isAvailable && $0 != .rival }.allSatisfy(clearedOpponents.contains)
+    }
+
+    var nextOpponent: StoryOpponent {
+        if let opponent = activeBout?.bout.opponent, opponent.isAvailable { return opponent }
+        if let opponent = StoryOpponent.allCases.first(where: {
+            $0.isAvailable && retainedUnlocks.contains($0) && !clearedOpponents.contains($0)
+        }) { return opponent }
+        return StoryOpponent.allCases.first(where: {
+            $0.isAvailable && isUnlocked($0) && !clearedOpponents.contains($0)
+        }) ?? .basic
     }
 
     func isUnlocked(_ opponent: StoryOpponent) -> Bool {
+        guard opponent.isAvailable else { return false }
         #if DEBUG
         if Self.temporarilyUnlockStory { return true }
         #endif
+        if opponent == .rival { return rivalUnlocked }
+        if retainedUnlocks.contains(opponent) || clearedOpponents.contains(opponent)
+            || activeBout?.bout.opponent == opponent { return true }
         guard let index = StoryOpponent.allCases.firstIndex(of: opponent) else { return false }
-        return StoryOpponent.allCases.prefix(index).allSatisfy(clearedOpponents.contains)
+        return StoryOpponent.allCases.prefix(index).filter(\.isAvailable).allSatisfy(clearedOpponents.contains)
     }
 
     func canEquipAppearance(_ opponent: StoryOpponent?) -> Bool {
         guard let opponent else { return true }
-        return opponent.hasAppearance && clearedOpponents.contains(opponent)
+        return opponent.isAvailable && opponent.hasAppearance
+            && (Self.temporarilyUnlockEquipment || clearedOpponents.contains(opponent))
+    }
+
+    func canEquipStance(_ stance: BoxingStance) -> Bool {
+        stance == .orthodox || (StoryOpponent.southpaw.isAvailable
+            && (Self.temporarilyUnlockEquipment || clearedOpponents.contains(.southpaw)))
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -621,6 +889,8 @@ struct StoryProgress: Codable, Sendable {
         case championBeltEquipped
         case equippedAppearance, seenIntroductions, seenRivalScenes, activeBout, lastResult
         case learning
+        case retainedUnlocks
+        case equippedStance
     }
 
     init(legacyRivalUnlocked: Bool = false) {
@@ -631,16 +901,45 @@ struct StoryProgress: Codable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         version = try values.decodeIfPresent(Int.self, forKey: .version) ?? 1
         clearedOpponents = try values.decodeIfPresent(Set<StoryOpponent>.self, forKey: .clearedOpponents) ?? []
+        retainedUnlocks = try values.decodeIfPresent(Set<StoryOpponent>.self, forKey: .retainedUnlocks) ?? []
         legacyRivalUnlocked = try values.decodeIfPresent(Bool.self, forKey: .legacyRivalUnlocked) ?? false
         championOutfitUnlocked = try values.decodeIfPresent(Bool.self, forKey: .championOutfitUnlocked) ?? false
         championBeltUnlocked = try values.decodeIfPresent(Bool.self, forKey: .championBeltUnlocked) ?? false
         championBeltEquipped = try values.decodeIfPresent(Bool.self, forKey: .championBeltEquipped) ?? false
         equippedAppearance = try values.decodeIfPresent(StoryOpponent.self, forKey: .equippedAppearance)
+        equippedStance = try values.decodeIfPresent(BoxingStance.self, forKey: .equippedStance) ?? .orthodox
         seenIntroductions = try values.decodeIfPresent(Set<StoryOpponent>.self, forKey: .seenIntroductions) ?? clearedOpponents
         seenRivalScenes = try values.decodeIfPresent(Set<StoryOpponent>.self, forKey: .seenRivalScenes) ?? []
         activeBout = try values.decodeIfPresent(StoryCheckpoint.self, forKey: .activeBout)
         lastResult = try values.decodeIfPresent(StoryBoutState.self, forKey: .lastResult)
         learning = try values.decodeIfPresent(StoryLearningState.self, forKey: .learning) ?? StoryLearningState()
+        if version < 2 {
+            let oldOrder: [StoryOpponent] = [.pressure, .outboxer, .counter, .slugger, .rival]
+            if !clearedOpponents.isEmpty || !seenIntroductions.isEmpty || activeBout != nil || lastResult != nil {
+                for (index, opponent) in oldOrder.enumerated()
+                    where oldOrder.prefix(index).allSatisfy(clearedOpponents.contains) {
+                    retainedUnlocks.insert(opponent)
+                }
+            }
+            retainedUnlocks.formUnion(clearedOpponents)
+            if let opponent = activeBout?.bout.opponent { retainedUnlocks.insert(opponent) }
+            if legacyRivalUnlocked || championOutfitUnlocked || championBeltUnlocked {
+                retainedUnlocks.insert(.rival)
+            }
+            version = 2
+        }
+        if version < 3 {
+            let oldOrder: [StoryOpponent] = [.basic, .pressure, .outboxer, .counter, .slugger, .rival]
+            if !clearedOpponents.isEmpty || !seenIntroductions.isEmpty || activeBout != nil || lastResult != nil {
+                for (index, opponent) in oldOrder.enumerated()
+                    where oldOrder.prefix(index).allSatisfy(clearedOpponents.contains) {
+                    retainedUnlocks.insert(opponent)
+                }
+            }
+            retainedUnlocks.formUnion(clearedOpponents)
+            if let opponent = activeBout?.bout.opponent { retainedUnlocks.insert(opponent) }
+            version = 3
+        }
     }
 }
 
@@ -650,6 +949,13 @@ final class StoryProgressStore: ObservableObject {
     @Published private(set) var progress: StoryProgress
     private let defaults: UserDefaults?
     var persistsProgress: Bool { defaults != nil }
+
+    #if DEBUG
+    static func developerPreview(defaults: UserDefaults? = UserDefaults(suiteName: "rival.story.preview.v1")) -> StoryProgressStore {
+        // Developer access unlocks content, not the player's equipment selection.
+        StoryProgressStore(defaults: defaults)
+    }
+    #endif
 
     init(defaults: UserDefaults? = .standard) {
         self.defaults = defaults
@@ -662,8 +968,8 @@ final class StoryProgressStore: ObservableObject {
                 "pixelBoxingPlayerStyle", "pixelBoxingEquippedOutfit", "pixelBoxingPlayerStats",
                 "pixelBoxingSoundMuted", "pixelBoxingHapticsEnabled", "pixelBoxingLanguage"]
             progress = StoryProgress(legacyRivalUnlocked: defaults == nil || legacyKeys.contains { defaults?.object(forKey: $0) != nil })
-            persist()
         }
+        persist()
     }
 
     func save(_ checkpoint: StoryCheckpoint) {
@@ -690,8 +996,14 @@ final class StoryProgressStore: ObservableObject {
         persist()
     }
 
+    func equipStance(_ stance: BoxingStance) {
+        guard progress.canEquipStance(stance) else { return }
+        progress.equippedStance = stance
+        persist()
+    }
+
     func equipChampionBelt(_ equipped: Bool) {
-        guard !equipped || progress.championBeltUnlocked else { return }
+        guard !equipped || StoryProgress.temporarilyUnlockEquipment || progress.championBeltUnlocked else { return }
         progress.championBeltEquipped = equipped
         persist()
     }

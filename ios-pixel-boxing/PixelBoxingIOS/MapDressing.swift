@@ -212,7 +212,7 @@ public enum MapDressing {
 
     static func regionalHall(opponent: StoryOpponent = .outboxer) -> SCNNode {
         switch opponent {
-        case .counter: return counterHall()
+        case .counter, .southpaw: return counterHall()
         case .slugger: return sluggerArena()
         case .rival: return championshipArena()
         default: break

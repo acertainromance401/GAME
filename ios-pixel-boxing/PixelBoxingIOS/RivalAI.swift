@@ -138,16 +138,16 @@ struct RivalDifficulty: Equatable {
         self.championship = championship
     }
 
-    var decisionInterval: Double { championship ? min(0.28, 1.0 - 0.80 * experience) : 1.0 - 0.80 * experience }
-    var decisionJitter: Double { championship ? min(0.07, 0.16 - 0.10 * experience) : 0.16 - 0.10 * experience }
-    var reactionDelay: Double { championship ? min(0.025, 0.24 - 0.18 * experience) : 0.24 - 0.18 * experience }
-    var reactionChance: Double { championship ? max(0.66, 0.08 + 0.62 * experience) : 0.08 + 0.62 * experience }
-    var learningWeight: Double { championship ? max(1.75, 0.45 + 1.85 * experience) : 0.45 + 1.85 * experience }
+    var decisionInterval: Double { championship ? min(0.07, 1.0 - 0.80 * experience) : 1.0 - 0.80 * experience }
+    var decisionJitter: Double { championship ? min(0.012, 0.16 - 0.10 * experience) : 0.16 - 0.10 * experience }
+    var reactionDelay: Double { championship ? min(0.008, 0.24 - 0.18 * experience) : 0.24 - 0.18 * experience }
+    var reactionChance: Double { championship ? max(0.92, 0.08 + 0.62 * experience) : 0.08 + 0.62 * experience }
+    var learningWeight: Double { championship ? max(2.65, 0.45 + 1.85 * experience) : 0.45 + 1.85 * experience }
     /// Fraction of the same movement speed budget the player has; never faster than that budget.
-    var movementEffort: Double { championship ? max(0.84, 0.36 + 0.57 * experience) : 0.36 + 0.57 * experience }
-    var combinationChance: Double { championship ? max(0.68, 0.04 + 0.66 * experience) : 0.04 + 0.66 * experience }
-    var attackCommitment: Double { championship ? max(1.40, 0.24 + 1.36 * experience) : 0.24 + 1.36 * experience }
-    var tacticDuration: Double { championship ? 0.85 : 0.9 + 0.8 * experience }
+    var movementEffort: Double { championship ? 1.0 : 0.36 + 0.57 * experience }
+    var combinationChance: Double { championship ? max(0.98, 0.04 + 0.66 * experience) : 0.04 + 0.66 * experience }
+    var attackCommitment: Double { championship ? max(3.40, 0.24 + 1.36 * experience) : 0.24 + 1.36 * experience }
+    var tacticDuration: Double { championship ? 0.32 : 0.9 + 0.8 * experience }
 
     func preferredDistance(read: RivalRead, stamina: Double, style: FightStyle = .standard) -> Double {
         // Between exchanges, stay near jab range instead of parking at a body/uppercut distance.
@@ -231,7 +231,7 @@ struct RivalDifficulty: Equatable {
     func recoveryChoice(after punch: Punch, outcome: RivalAttackOutcome, read: RivalRead,
                         stamina: Double, style: FightStyle) -> String? {
         let leading = [.jab, .leftBody, .leftHook, .leftUppercut].contains(punch)
-        let reserve = CombatData.dodgeStaminaCost
+        let reserve = championship ? 6.0 : 17.0
         func attackChoice(_ next: Punch) -> String {
             let cost = (CombatData.attacks[next]?.staminaCost ?? 100) * style.punchStaminaMultiplier
             return stamina >= cost + reserve ? next.rawValue : "retreat"

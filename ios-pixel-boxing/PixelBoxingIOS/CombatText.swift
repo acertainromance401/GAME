@@ -54,6 +54,11 @@ extension CombatSignature {
 }
 
 enum CombatText {
+    static func roundTime(_ remainingTime: Double) -> String {
+        let seconds = max(0, Int(ceil(remainingTime)))
+        return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+
     static func clock(_ snapshot: CombatSnapshot, language: AppLanguage) -> String {
         let seconds = Int(ceil(snapshot.time))
         return L.pick(
@@ -72,6 +77,7 @@ enum CombatText {
         let rival = L.rivalAccessibility.text(for: language)
         let none = L.roundStatsNoAttack.text(for: language)
         var parts = [
+            "\(L.roundLabel.text(for: language)) \(snapshot.round)",
             snapshot.lastRoundOutcome.title(knockout: snapshot.lastRoundWasKnockout, language: language),
             "\(L.scoreLabel.text(for: language)) \(snapshot.playerScore) : \(snapshot.enemyScore)",
             "\(player), \(L.roundStatsDodgeLabel.text(for: language)) \(snapshot.roundPlayerDodgeCount), \(L.roundStatsTopAttackLabel.text(for: language)) \(snapshot.roundPlayerTopAttack?.localizedName(for: language) ?? none)",

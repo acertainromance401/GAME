@@ -11,12 +11,14 @@ struct ReviewTestAttachments: Decodable {
     let attachments: [ReviewAttachment]
 }
 
-guard CommandLine.arguments.count == 3 else {
-    fatalError("Usage: export_review_screenshots.swift INPUT_DIRECTORY OUTPUT_DIRECTORY")
+guard CommandLine.arguments.count == 3
+        || (CommandLine.arguments.count == 4 && CommandLine.arguments[3] == "--by-device") else {
+    fatalError("Usage: export_review_screenshots.swift INPUT_DIRECTORY OUTPUT_DIRECTORY [--by-device]")
 }
 
 let inputDirectory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
 let outputDirectory = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+let splitsDevices = CommandLine.arguments.count == 4
 let manifest = try Data(contentsOf: inputDirectory.appendingPathComponent("manifest.json"))
 let tests = try JSONDecoder().decode([ReviewTestAttachments].self, from: manifest)
 let locales = ["en": "en-US", "ko": "ko-KR", "ja": "ja"]
@@ -43,7 +45,19 @@ for attachment in tests.flatMap(\.attachments) {
           image.width > image.height else {
         fatalError("Screenshot is not landscape: \(inputURL.path)")
     }
-    let localeDirectory = outputDirectory.appendingPathComponent(locale, isDirectory: true)
+    let deviceDirectory: URL
+    if splitsDevices {
+        let device: String
+        switch (image.width, image.height) {
+        case (2868, 1320): device = "iphone-6.9"
+        case (2752, 2064): device = "ipad-13"
+        default: fatalError("Unexpected native screenshot size: \(image.width)x\(image.height)")
+        }
+        deviceDirectory = outputDirectory.appendingPathComponent(device, isDirectory: true)
+    } else {
+        deviceDirectory = outputDirectory
+    }
+    let localeDirectory = deviceDirectory.appendingPathComponent(locale, isDirectory: true)
     try FileManager.default.createDirectory(at: localeDirectory, withIntermediateDirectories: true)
     let outputURL = localeDirectory.appendingPathComponent("\(components[2])-\(components[3]).png")
     guard let destination = CGImageDestinationCreateWithURL(outputURL as CFURL,

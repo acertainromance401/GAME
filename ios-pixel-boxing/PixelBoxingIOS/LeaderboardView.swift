@@ -28,20 +28,20 @@ struct LeaderboardView: View {
 
     var body: some View {
         ZStack {
-            MainMenuPalette.background.ignoresSafeArea()
+            PreparationPalette.paper.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 14) {
                 RivalScreenHeader(kicker: loc.t(.leaderboardKicker), title: loc.t(.leaderboardTitle),
-                                  closeTitle: loc.t(.close), closeID: "leaderboardClose", onClose: onClose)
+                                  closeTitle: loc.t(.close), closeID: "leaderboardClose", onClose: onClose, onPaper: true)
                 HStack(spacing: 12) {
                     Text(loc.t(.leaderboardSubtitle))
                         .font(.system(size: detailSize, weight: .medium))
-                        .foregroundStyle(MainMenuPalette.secondary)
+                        .foregroundStyle(PreparationPalette.secondary)
                     Spacer(minLength: 8)
                     if gameCenter.isAuthenticated {
                         Button { Task { await load() } } label: {
                             Image(systemName: "arrow.clockwise")
                         }
-                        .buttonStyle(RivalMenuButtonStyle())
+                        .buttonStyle(RivalMenuButtonStyle(onPaper: true))
                         .disabled(isLoading)
                         .accessibilityLabel(loc.t(.leaderboardRefreshButton))
                         .accessibilityIdentifier("leaderboardRefresh")
@@ -67,17 +67,17 @@ struct LeaderboardView: View {
         if !gameCenter.isAuthenticated {
             signInPrompt
         } else if isLoading {
-            ProgressView().tint(MainMenuPalette.paper)
+            ProgressView().tint(PreparationPalette.ink)
         } else if let loadError {
             Text(loadError == .notConfigured ? loc.t(.leaderboardNotConfigured) : loc.t(.leaderboardLoadError))
                 .font(.system(size: labelSize, weight: .medium))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
         } else if rows.isEmpty {
             Text(loc.t(.leaderboardEmptyState))
                 .font(.system(size: labelSize, weight: .medium))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
         } else {
@@ -89,7 +89,7 @@ struct LeaderboardView: View {
                     Text(loc.t(.menuTotalWins))
                 }
                 .font(.system(size: detailSize, weight: .semibold))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 10)
                 ScrollView {
@@ -107,31 +107,31 @@ struct LeaderboardView: View {
             VStack(spacing: 16) {
                 Image(systemName: "person.crop.circle")
                     .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(MainMenuPalette.secondary)
+                    .foregroundStyle(PreparationPalette.secondary)
                     .accessibilityHidden(true)
                 Text(loc.t(.leaderboardSignInPrompt))
                     .font(.system(size: labelSize, weight: .medium))
-                    .foregroundStyle(MainMenuPalette.secondary)
+                    .foregroundStyle(PreparationPalette.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 if let error = gameCenter.authenticationError {
                     Text(error)
                         .font(.system(size: detailSize, weight: .medium))
-                        .foregroundStyle(MainMenuPalette.rival)
+                        .foregroundStyle(PreparationPalette.rival)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Button { gameCenter.authenticate() } label: {
                     HStack(spacing: 8) {
                         if gameCenter.isAuthenticating {
-                            ProgressView().tint(MainMenuPalette.background).frame(width: 16, height: 16)
+                            ProgressView().tint(PreparationPalette.paper).frame(width: 16, height: 16)
                         } else {
                             Image(systemName: "person.crop.circle.badge.checkmark").frame(width: 16, height: 16)
                         }
                         Text(loc.t(.leaderboardSignInButton))
                     }
                 }
-                .buttonStyle(RivalMenuButtonStyle(primary: true))
+                .buttonStyle(RivalMenuButtonStyle(primary: true, onPaper: true))
                 .accessibilityIdentifier("leaderboardSignIn")
             }
             .padding(.top, 16)
@@ -144,26 +144,26 @@ struct LeaderboardView: View {
         HStack(spacing: 10) {
             Text("#\(row.rank)")
                 .font(.system(size: 23, weight: .bold))
-                .fontWidth(.condensed)
                 .monospacedDigit()
-                .foregroundStyle(MainMenuPalette.paper)
+                .lineLimit(1).minimumScaleFactor(0.6)
+                .foregroundStyle(PreparationPalette.ink)
                 .frame(width: 54, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.isLocalPlayer ? "\(row.displayName) (\(loc.t(.leaderboardYouLabel)))" : row.displayName)
                     .font(.system(size: labelSize, weight: .semibold))
-                    .foregroundStyle(MainMenuPalette.paper)
+                    .foregroundStyle(PreparationPalette.ink)
                     .lineLimit(2)
                 HStack(spacing: 4) {
                     if let style = row.style {
                         Text(style.label(for: loc.language))
                     }
                     if row.highestRound > 0 {
-                        Text("· ROUND \(row.highestRound)")
+                        Text("· \(loc.t(.roundLabel)) \(row.highestRound)")
                     }
                 }
                 .font(.system(size: detailSize, weight: .regular))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
             }
 
             Spacer(minLength: 4)
@@ -171,13 +171,13 @@ struct LeaderboardView: View {
             Text("\(row.wins) \(loc.t(.leaderboardWinsLabel))")
                 .font(.system(size: labelSize, weight: .bold))
                 .monospacedDigit()
-                .foregroundStyle(MainMenuPalette.paper)
+                .foregroundStyle(PreparationPalette.ink)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity)
-        .background(row.isLocalPlayer ? MainMenuPalette.surface : .clear)
-        .overlay(alignment: .bottom) { Rectangle().fill(MainMenuPalette.rule).frame(height: 1) }
+        .background(row.isLocalPlayer ? PreparationPalette.selected : .clear)
+        .overlay(alignment: .bottom) { Rectangle().fill(PreparationPalette.rule).frame(height: 1) }
     }
 
     @MainActor private func load() async {

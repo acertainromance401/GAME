@@ -9,13 +9,13 @@
  - 이 모듈의 수치 변경은 애니메이션 타이밍과 타격의 시각적 체감에 직접적 영향을 줍니다.
  - 디버깅 시 실제 프레임 단위 변화를 확인하세요.
 */
-// - 이 파일의 값들은 물리/데미지에 영향을 주지 않으며, 오직 렌더 연출용입니다.
+// - 펀치 포즈/궤적은 렌더와 접촉 판정이 공유하므로 변경 시 두 경로를 함께 검증합니다.
 
 import Foundation
 import simd
 
 /// A shared visual clock for every punch. Contact is the existing activeStart, never a second hit timer.
-/// The lower body leads the torso; the hand returns before the existing attack duration expires.
+/// The lower body leads the torso and settles after the hand, within the existing attack duration.
 struct PunchMotion: Equatable {
     var reach: Float = 0
     var hipDrive: Float = 0
@@ -26,6 +26,8 @@ struct PunchMotion: Equatable {
     var hipLoad: Float = 0
     var torsoLoad: Float = 0
     var followThrough: Float = 0
+    var defensiveRise: Float = 0
+    var legDrop: Float = 0
 
     static func contactReach(_ punch: Punch, opponentDistance: Float?, reachMultiplier: Float = 1, targetRadius: Float = 0.34) -> Float {
         guard let spec = CombatData.attacks[punch] else { return 0 }
@@ -46,17 +48,21 @@ struct PunchMotion: Equatable {
         return min(maximum, max(0, target - baseReach))
     }
 
-    static func sample(_ punch: Punch, progress: Float) -> PunchMotion {
+    static func sample(_ punch: Punch, progress: Float, defensiveCrouch: Float = 0) -> PunchMotion {
         guard progress.isFinite, let spec = CombatData.attacks[punch] else { return PunchMotion() }
         let t = min(1, max(0, progress))
         let contact = Float(spec.activeStart / spec.duration)
         let start = Float(spec.deliveryStart / spec.duration)
         let followEnd = Float(spec.followThroughEnd / spec.duration)
         let recoveryEnd = Float(spec.recoveryEnd / spec.duration)
+        // Low entries keep their existing leg/rise timing; standing support settles after the hand.
+        let standingSupport = 1 - ease(defensiveCrouch / 0.04)
+        let supportEnd = recoveryEnd + (1 - recoveryEnd) * standingSupport
         let reach: Float
         if spec.family == .straight || spec.family == .hook {
             let delivery = min(1, max(0, (t - start) / max(0.001, contact - start)))
-            reach = t <= contact ? delivery * delivery
+            let extensionReach = punch == .jab ? delivery * delivery * (2 - delivery) : delivery * delivery
+            reach = t <= contact ? extensionReach
                 : 1 - ease((t - followEnd) / max(0.001, recoveryEnd - followEnd))
         } else {
             reach = pulse(t, start: start, peak: contact,
@@ -65,12 +71,12 @@ struct PunchMotion: Equatable {
         if punch == .cross {
             return PunchMotion(
                 reach: reach,
-                hipDrive: pulse(t, start: start * 0.25, peak: start + (contact - start) * 0.62,
-                                release: followEnd, end: recoveryEnd),
+                hipDrive: pulse(t, start: start * 0.25, peak: start + (contact - start) * 0.42,
+                                release: followEnd, end: supportEnd),
                 torsoDrive: pulse(t, start: start * 0.70, peak: contact * 0.92,
                                   release: followEnd, end: 1),
-                footDrive: pulse(t, start: 0, peak: start + (contact - start) * 0.30,
-                                 release: followEnd, end: recoveryEnd),
+                footDrive: pulse(t, start: 0, peak: start,
+                                 release: followEnd, end: supportEnd),
                 shoulderDrive: pulse(t, start: start, peak: contact,
                                      release: followEnd, end: recoveryEnd),
                 load: pulse(t, start: 0, peak: start, release: start, end: contact),
@@ -86,11 +92,11 @@ struct PunchMotion: Equatable {
             return PunchMotion(
                 reach: reach,
                 hipDrive: pulse(t, start: 0, peak: contact * 0.60,
-                                release: contact, end: recoveryEnd),
+                                release: contact, end: supportEnd),
                 torsoDrive: pulse(t, start: 0, peak: contact * 0.82,
                                   release: contact, end: recoveryEnd),
                 footDrive: pulse(t, start: 0, peak: contact * 0.45,
-                                 release: contact, end: recoveryEnd),
+                                 release: contact, end: supportEnd),
                 shoulderDrive: pulse(t, start: start, peak: contact,
                                      release: contact, end: recoveryEnd),
                 load: pulse(t, start: 0, peak: start, release: start, end: contact) * 0.25,
@@ -105,41 +111,66 @@ struct PunchMotion: Equatable {
         let loadRelease: Float
         switch spec.family {
         case .hook:
-            footPeak = 0.62
-            hipPeak = leading ? 0.82 : 0.86
+            footPeak = 0.62 - 0.22 * standingSupport
+            hipPeak = (leading ? 0.82 : 0.86) - 0.10 * standingSupport
             torsoPeak = 1
             loadRelease = start * 0.65
         case .uppercut:
-            footPeak = 0.35
-            hipPeak = leading ? 0.62 : 0.70
+            footPeak = 0.35 - 0.10 * standingSupport
+            hipPeak = (leading ? 0.62 : 0.70) - 0.12 * standingSupport
             torsoPeak = 0.94
             loadRelease = start
         case .body:
-            footPeak = 0.25
-            hipPeak = leading ? 0.50 : 0.60
+            footPeak = 0.25 - 0.05 * standingSupport
+            hipPeak = (leading ? 0.50 : 0.60) - 0.12 * standingSupport
             torsoPeak = 0.90
             loadRelease = start
         case .straight:
             return PunchMotion()
         }
         let deliverySpan = contact - start
+        let torsoDrive = pulse(t, start: start * 0.75, peak: start + deliverySpan * torsoPeak,
+                               release: followEnd, end: 1)
+        let hipLoad = pulse(t, start: 0, peak: start * 0.55,
+            release: loadRelease, end: start + deliverySpan * (spec.family == .hook ? 0.35 : 0.75))
+        let legDrop: Float
+        switch spec.family {
+        case .body:
+            let previous = max(0, 0.18 - defensiveCrouch) * max(hipLoad, torsoDrive * 0.65)
+            // Load once at the existing contact level, instead of dipping twice under delivery.
+            let loaded = max(0, 0.18 * 0.65 - defensiveCrouch)
+                * pulse(t, start: 0, peak: start * 0.55, release: followEnd, end: 1)
+            legDrop = previous + (loaded - previous) * standingSupport
+        case .uppercut:
+            let previous = max(0, 0.16 - defensiveCrouch) * hipLoad
+            let loaded = max(0, 0.16 - defensiveCrouch)
+                * pulse(t, start: 0, peak: start * 0.55,
+                        release: loadRelease, end: start + deliverySpan * 0.55)
+            legDrop = previous + (loaded - previous) * standingSupport
+        case .hook:
+            legDrop = max(0, 0.045 - defensiveCrouch) * hipLoad
+        case .straight:
+            legDrop = 0
+        }
         return PunchMotion(
             reach: reach,
             hipDrive: pulse(t, start: start * 0.35, peak: start + deliverySpan * hipPeak,
-                            release: followEnd, end: recoveryEnd),
-            torsoDrive: pulse(t, start: start * 0.75, peak: start + deliverySpan * torsoPeak,
-                              release: followEnd, end: 1),
+                            release: followEnd, end: supportEnd),
+            torsoDrive: torsoDrive,
             footDrive: pulse(t, start: start * 0.10, peak: start + deliverySpan * footPeak,
-                             release: followEnd, end: recoveryEnd),
+                             release: followEnd, end: supportEnd),
             shoulderDrive: pulse(t, start: start, peak: contact,
                                  release: followEnd, end: recoveryEnd),
             load: pulse(t, start: 0, peak: start, release: start, end: contact),
-            hipLoad: pulse(t, start: 0, peak: start * 0.55,
-                                                     release: loadRelease, end: start + deliverySpan * (spec.family == .hook ? 0.35 : 0.75)),
+            hipLoad: hipLoad,
             torsoLoad: pulse(t, start: start * 0.25, peak: start,
                                                          release: start, end: start + deliverySpan * (spec.family == .hook ? 0.45 : 0.85)),
             followThrough: pulse(t, start: contact, peak: followEnd,
-                                 release: followEnd, end: recoveryEnd)
+                                 release: followEnd, end: recoveryEnd),
+            defensiveRise: spec.family == .hook || spec.family == .uppercut
+                ? pulse(t, start: start, peak: start + deliverySpan * (spec.family == .hook ? 0.82 : 0.70),
+                        release: followEnd, end: 1) : 0,
+            legDrop: legDrop
         )
     }
 
@@ -159,6 +190,8 @@ typealias StraightPunchMotion = PunchMotion
 
 struct PunchRecoveryMotion {
     var handOffset = SIMD3<Float>.zero
+    var elbowOffset = SIMD3<Float>.zero
+    var offhandGuard: Float = 0
     var torsoTurn: Float = 0
     var hipTurn: Float = 0
     var chestAdvance: Float = 0
@@ -173,7 +206,9 @@ struct PunchRecoveryMotion {
         return progress + (landed ? 0.16 : -0.12) * (end - contact) * pulse * pulse
     }
 
-    static func sample(_ punch: Punch, progress: Float, landed: Bool, reducedMotion: Bool) -> PunchRecoveryMotion {
+    static func sample(_ punch: Punch, progress: Float, landed: Bool, reducedMotion: Bool,
+                       outcome: RivalAttackOutcome? = nil, clockProgress: Float? = nil,
+                       stance: BoxingStance = .orthodox) -> PunchRecoveryMotion {
         guard progress.isFinite, let spec = CombatData.attacks[punch] else { return PunchRecoveryMotion() }
         let contact = Float(spec.activeStart / spec.duration)
         let end = Float(spec.recoveryEnd / spec.duration)
@@ -181,11 +216,11 @@ struct PunchRecoveryMotion {
         let phase = (progress - contact) / (end - contact)
         let pulse = sin(.pi * phase)
         let weight = pulse * pulse * (reducedMotion ? 0.30 : 1)
-        let side: Float = [.jab, .leftBody, .leftHook, .leftUppercut].contains(punch) ? 1 : -1
+        let side: Float = stance.usesLeftHand(for: punch) ? 1 : -1
         var motion = PunchRecoveryMotion()
         switch spec.family {
         case .straight:
-            motion.handOffset = SIMD3<Float>(0, 0, landed ? -0.065 : 0.040)
+            motion.handOffset = SIMD3<Float>(-side * 0.035, 0.075, landed ? -0.065 : 0.040)
         case .hook:
             motion.handOffset = landed ? SIMD3<Float>(side * 0.015, -0.010, -0.040)
                 : SIMD3<Float>(-side * 0.045, -0.015, -0.010)
@@ -201,6 +236,32 @@ struct PunchRecoveryMotion {
             motion.torsoTurn = -side * (spec.family == .hook ? 0.10 : 0.055) * weight
             motion.hipTurn = -side * 0.035 * weight
             motion.chestAdvance = 0.015 * weight
+        }
+        // Outcome-specific settling starts after the entire contact window, not at the first hit.
+        let clock = clockProgress ?? progress
+        let activeEnd = Float(spec.activeEnd / spec.duration)
+        if clock > activeEnd, clock < end {
+            let phase = (clock - activeEnd) / (end - activeEnd)
+            let settle = pow(sin(.pi * phase), 2) * (reducedMotion ? 0.30 : 1)
+            switch outcome ?? (landed ? .hit : .missed(.contact)) {
+            case .hit:
+                motion.elbowOffset = SIMD3<Float>(-side * 0.012, 0.025, -0.040) * settle
+                motion.torsoTurn -= side * 0.025 * settle
+                motion.hipTurn -= side * 0.015 * settle
+                motion.chestAdvance -= 0.012 * settle
+                motion.offhandGuard = 0.20 * settle
+            case .guarded:
+                motion.handOffset += SIMD3<Float>(side * 0.018, 0.020, -0.040) * settle
+                motion.elbowOffset = SIMD3<Float>(side * 0.020, 0.015, -0.065) * settle
+                motion.torsoTurn -= side * 0.035 * settle
+                motion.hipTurn -= side * 0.018 * settle
+                motion.chestAdvance -= 0.020 * settle
+                motion.offhandGuard = 0.30 * settle
+            case .evaded, .missed:
+                motion.elbowOffset = SIMD3<Float>(-side * 0.020, 0.010, -0.025) * settle
+                motion.chestAdvance -= 0.025 * settle
+                motion.offhandGuard = 0.18 * settle
+            }
         }
         return motion
     }
@@ -291,11 +352,12 @@ enum PunchContactGeometry {
     static func stance(_ fighter: FighterModel, defended: Bool = true) -> FightPose {
         var pose = FightPose.neutral(stride: 0, style: fighter.style,
             stanceWidth: fighter.style.stanceWidth, leanBias: fighter.style.leanBias,
-            pitchBias: fighter.style.pitchBias)
+            pitchBias: fighter.style.pitchBias, stance: fighter.stance)
         if defended {
             pose.applyGuard(style: fighter.style, amount: fighter.guardAmount)
             let weave = WeaveMotion.sample(direction: fighter.weave.direction, elapsed: fighter.weave.elapsed)
-            pose.applyDuck(direction: fighter.duckMotion.direction * (1 - weave.amount), style: fighter.style)
+            pose.applyDuck(direction: fighter.duckMotion.direction * (1 - weave.amount),
+                postureAmount: fighter.duckMotion.postureAmount * (1 - weave.amount), style: fighter.style)
             pose.applyWeave(weave, style: fighter.style)
             pose.applyBackstep(BackstepMotion.sample(elapsed: fighter.backstep.elapsed))
         }
@@ -324,14 +386,16 @@ enum PunchContactGeometry {
         var pose = stance(fighter)
         if let punch = forcedPunch ?? fighter.attack, let spec = CombatData.attacks[punch] {
             let landed = fighter.attack == punch && fighter.acted
+            let clock = clockProgress ?? Float(min(1, fighter.actionTime / spec.duration))
             let progress = PunchRecoveryMotion.progress(punch,
-                progress: clockProgress ?? Float(min(1, fighter.actionTime / spec.duration)), landed: landed)
+                progress: clock, landed: landed)
             if let entry = entryPose ?? (aimWorld == nil ? fighter.attackEntryPose : nil) {
                 pose.blendAttackEntry(entry, punch: punch, progress: progress)
             }
             pose.applyAttack(punch, progress: progress, reachMultiplier: Float(fighter.reachMultiplier(for: punch)),
                              contactTarget: aim(fighter, punch: punch, world: aimWorld))
-            pose.applyPunchRecovery(punch, progress: progress, landed: landed, reducedMotion: false)
+            pose.applyPunchRecovery(punch, progress: progress, landed: landed, reducedMotion: false,
+                outcome: fighter.attack == punch ? fighter.attackOutcome : nil, clockProgress: clock)
         }
         fighter.poseTransition?.apply(to: &pose, facingAngle: Float(atan2(fighter.facingX, fighter.facingY)))
         return pose
@@ -480,7 +544,34 @@ enum PunchContactGeometry {
 
     static func begin(_ fighter: FighterModel, target: SIMD3<Float>, radius: Float) {
         fighter.attackAim = surface(target, fighter: fighter, radius: radius)
+        fighter.attackInitialAim = fighter.attackAim
+        fighter.attackAimOrigin = worldPoint(.zero, fighter: fighter)
         fighter.attackEntryPose = stance(fighter)
+    }
+
+    static func correctWindupAim(_ fighter: FighterModel, target: SIMD3<Float>, radius: Float,
+                                 previousTime: Double) {
+        guard let punch = fighter.attack, let spec = CombatData.attacks[punch],
+              !fighter.acted, let initialAim = fighter.attackInitialAim,
+              let origin = fighter.attackAimOrigin, let currentAim = fighter.attackAim else { return }
+        let correctionEnd = spec.activeStart * 0.70
+        let elapsed = min(fighter.actionTime, correctionEnd) - max(0, previousTime)
+        guard elapsed.isFinite, elapsed > 0 else { return }
+        let initial = initialAim - origin
+        let desired = surface(target, fighter: fighter, radius: radius) - origin
+        let current = currentAim - origin
+        let distance = hypot(initial.x, initial.z)
+        guard distance > 0.0001, hypot(desired.x, desired.z) > 0.0001 else { return }
+        let initialAngle = atan2(initial.x, initial.z)
+        let desiredAngle = atan2(desired.x, desired.z)
+        let currentAngle = atan2(current.x, current.z)
+        let limit = Float(spec.family == .hook ? 12.0 : 10.0) * .pi / 180
+        let offset = atan2(sin(desiredAngle - initialAngle), cos(desiredAngle - initialAngle))
+        let boundedAngle = initialAngle + min(limit, max(-limit, offset))
+        let difference = atan2(sin(boundedAngle - currentAngle), cos(boundedAngle - currentAngle))
+        let maximumStep = Float(elapsed) * .pi * 2 / 3
+        let angle = currentAngle + min(maximumStep, max(-maximumStep, difference))
+        fighter.attackAim = origin + SIMD3<Float>(sin(angle) * distance, initial.y, cos(angle) * distance)
     }
 
     static func alignCrossWindup(_ fighter: FighterModel, target: SIMD3<Float>, radius: Float) {
@@ -510,7 +601,7 @@ enum PunchContactGeometry {
         pose.applyImpact(reaction)
         let root = FighterPoseRoot(pose: pose, reaction: reaction)
         pose.resolveContactSupport(rootPosition: root.position, rootRotation: root.rotation)
-        let leading = punch == .jab || punch == .leftBody || punch == .leftHook || punch == .leftUppercut
+        let leading = fighter.stance.usesLeftHand(for: punch)
         let hand = pose.facingPoint(leading ? pose.leftGlove : pose.rightGlove)
         return worldPoint(root.point(hand), fighter: fighter)
     }
@@ -615,9 +706,20 @@ struct StraightPunchAnatomy: Sendable {
     })
 
     init(pose: FightPose) {
-        self = Self.restingAnatomies[pose.style] ?? Self(rest: FightPose.neutral(stride: 0,
+        let anatomy = Self.restingAnatomies[pose.style] ?? Self(rest: FightPose.neutral(stride: 0,
             style: pose.style, stanceWidth: pose.style.stanceWidth,
             leanBias: pose.style.leanBias, pitchBias: pose.style.pitchBias))
+        self = pose.stance == .southpaw ? anatomy.mirrored() : anatomy
+    }
+
+    private init(arm: TwoBoneLimb, leftLeg: TwoBoneLimb, rightLeg: TwoBoneLimb) {
+        self.arm = arm
+        self.leftLeg = leftLeg
+        self.rightLeg = rightLeg
+    }
+
+    func mirrored() -> StraightPunchAnatomy {
+        StraightPunchAnatomy(arm: arm, leftLeg: rightLeg, rightLeg: leftLeg)
     }
 
     private init(rest: FightPose) {
@@ -790,6 +892,9 @@ struct FighterImpactMotion: Equatable {
     var fold: Float = 0
     var headOffset = SIMD3<Float>.zero
     var guardCompression: Float = 0
+    var elbowLag: Float = 0
+    var guardOffset = SIMD3<Float>.zero
+    var guardTracking: Float = 0
     var roll: Float = 0
     var shoulderYaw: Float = 0
     var brace: Float = 0
@@ -819,8 +924,12 @@ struct FighterImpactMotion: Equatable {
         // and Reduced Motion amplitudes; a block compresses the gloves without snapping the head.
         let responseGain: Float = reducedMotion || impact.knockout ? 1 : (blocked ? 1.06 : 1.18)
         let amount = envelope * strength * (reducedMotion ? 0.4 : 1) * responseGain
+        let tracksGuard = !reducedMotion && !impact.knockout
+        let guardEnvelope = tracksGuard ? 0.45 * spring(9) + 0.55 * spring(4) : envelope
+        let guardAmount = guardEnvelope * strength * (reducedMotion ? 0.4 : 1) * responseGain
         if blocked {
-            return FighterImpactMotion(guardCompression: 0.18 * amount, brace: 0.025 * amount)
+            return FighterImpactMotion(guardCompression: 0.18 * amount,
+                elbowLag: 0.072 * (guardAmount - amount), brace: 0.025 * amount)
         }
         let authoredSide: Float = [.jab, .leftBody, .leftHook, .leftUppercut].contains(impact.punch) ? -1 : 1
         let lateral = impact.incomingDirection?.x ?? 0
@@ -828,6 +937,9 @@ struct FighterImpactMotion: Equatable {
         if CombatData.attacks[impact.punch]?.targetZone == .body {
             return FighterImpactMotion(recoil: 0.045 * amount, fold: 0.30 * amount,
                                        headOffset: SIMD3<Float>(side * 0.012, -0.065, 0.045) * amount,
+                                       guardOffset: tracksGuard
+                                           ? SIMD3<Float>(side * 0.012, -0.065, 0.045) * guardAmount * 0.55 : .zero,
+                                       guardTracking: tracksGuard ? 1 : 0,
                                        shoulderYaw: side * 0.045 * amount,
                                        brace: 0.08 * amount, headPitch: -0.08 * amount)
         }
@@ -836,6 +948,9 @@ struct FighterImpactMotion: Equatable {
         return FighterImpactMotion(recoil: (impact.punch == .jab ? 0.055 : 0.105) * amount,
                                    fold: (uppercut ? -0.13 : -0.095) * amount,
                                    headOffset: SIMD3<Float>(side * (hook ? 0.14 : 0.016), uppercut ? 0.09 : 0.012, -0.11) * amount,
+                                   guardOffset: tracksGuard
+                                       ? SIMD3<Float>(side * (hook ? 0.14 : 0.016), uppercut ? 0.09 : 0.012, -0.11) * guardAmount * 0.55 : .zero,
+                                   guardTracking: tracksGuard ? 1 : 0,
                                    roll: hook ? side * 0.07 * amount : 0,
                                    shoulderYaw: side * (hook ? 0.085 : 0.025) * amount,
                                    headPitch: (uppercut ? 0.20 : 0.10) * amount,
@@ -911,7 +1026,7 @@ extension FightPose {
     }
 
     mutating func applyStraightPunch(_ punch: Punch, progress: Float, opponentDistance: Float? = nil, reachMultiplier: Float = 1, targetRadius: Float = 0.34, anatomy: StraightPunchAnatomy? = nil, contactTarget: SIMD3<Float>? = nil) {
-        let motion = StraightPunchMotion.sample(punch, progress: progress)
+        let motion = StraightPunchMotion.sample(punch, progress: progress, defensiveCrouch: defensiveCrouch)
         guard motion != PunchMotion() else { return }
         let jab = punch == .jab
         let side: Float = jab ? 1 : -1
@@ -935,15 +1050,11 @@ extension FightPose {
         if jab { leftShoulder.z += shoulderAdvance } else { rightShoulder.z += shoulderAdvance }
 
         let shoulder = jab ? leftShoulder : rightShoulder
-        let baseGlove = jab ? leftGlove : rightGlove
-        let baseElbow = jab ? leftElbow : rightElbow
-        let chamber: SIMD3<Float>
-        if jab {
-            chamber = baseGlove + SIMD3<Float>(0.012, -0.012, -0.018) * motion.load
-        } else {
-            chamber = torsoPoint(base.facingPoint(baseGlove)
-                + SIMD3<Float>(-0.008, -0.008, -0.025) * motion.load)
-        }
+        let baseGlove = jab ? base.leftGlove : base.rightGlove
+        let baseElbow = jab ? base.leftElbow : base.rightElbow
+        let guardPosition = base.facingPoint(baseGlove)
+        let chamber = guardPosition
+            + SIMD3<Float>(jab ? 0.012 : -0.008, jab ? -0.012 : -0.008, jab ? -0.018 : -0.025) * motion.load
         // Account for the advanced chest/shoulder before spending the arm's fixed reach.
         // The extension is carried by the upper body, not a longer arm or enlarged glove.
         let contactTarget = (contactTarget ?? SIMD3<Float>(
@@ -952,17 +1063,13 @@ extension FightPose {
         )) - SIMD3<Float>(rootX, rootY, rootZ)
         let target = anatomy.arm.solve(root: shoulder, target: torsoPoint(contactTarget), pole: baseElbow,
                                        fallback: SIMD3<Float>(side * 0.25, -1, 0)).end
-        let glove = chamber + (target - chamber) * motion.reach
-        let elbow: SIMD3<Float>
-        if jab {
-            let extendedElbow = (shoulder + glove) * 0.5 + SIMD3<Float>(0.07, -0.045, 0)
-            elbow = baseElbow + (extendedElbow - baseElbow) * motion.reach
-        } else {
-            let guardedElbow = base.facingPoint(baseElbow)
-            let extendedElbow = (facingPoint(shoulder) + facingPoint(glove)) * 0.5
-                + SIMD3<Float>(-0.025, -0.085, 0)
-            elbow = torsoPoint(guardedElbow + (extendedElbow - guardedElbow) * motion.reach)
-        }
+        // The chest drives the shoulder, not a sideways sweep of the launching fist.
+        let facingGlove = chamber + (facingPoint(target) - chamber) * motion.reach
+        let glove = torsoPoint(facingGlove)
+        let guardedElbow = base.facingPoint(baseElbow)
+        let tuckedElbow = (facingPoint(shoulder) + facingGlove) * 0.5
+            + SIMD3<Float>(side * 0.10, -0.24, -0.015)
+        let elbow = torsoPoint(guardedElbow + (tuckedElbow - guardedElbow) * motion.reach)
         let guardAmount = motion.torsoDrive * 0.85
         if jab {
             leftGlove = glove
@@ -1023,7 +1130,7 @@ extension FightPose {
     @discardableResult
     mutating func resolveContactSupport(rootPosition: SIMD3<Float>, rootRotation: simd_quatf)
         -> (left: SIMD3<Float>, right: SIMD3<Float>) {
-        let rest = FightPose.neutral(stride: 0, style: style)
+        let rest = FightPose.neutral(stride: 0, style: style, stance: stance)
         let leftPivot = DefensiveMotion.pivotedFoot(leftFoot, restYaw: rest.leftFootYaw,
             yaw: leftFootYaw, pitch: leftFootPitch)
         let rightPivot = DefensiveMotion.pivotedFoot(rightFoot, restYaw: rest.rightFootYaw,
@@ -1077,9 +1184,10 @@ extension FightPose {
         resolveArmLengths()
     }
 
-    mutating func applyPowerPunch(_ punch: Punch, progress: Float, opponentDistance: Float?, reachMultiplier: Float, targetRadius: Float, anatomy: StraightPunchAnatomy? = nil, contactTarget: SIMD3<Float>? = nil) {
-        guard let spec = CombatData.attacks[punch], spec.family != .straight else { return }
-        let motion = PunchMotion.sample(punch, progress: progress)
+    mutating func applyPowerPunch(_ punch: Punch, progress: Float, opponentDistance: Float?, reachMultiplier: Float, targetRadius: Float, anatomy: StraightPunchAnatomy? = nil, contactTarget: SIMD3<Float>? = nil, timingPunch: Punch? = nil) {
+        let rulePunch = timingPunch ?? punch
+        guard let spec = CombatData.attacks[rulePunch], spec.family != .straight else { return }
+        let motion = PunchMotion.sample(rulePunch, progress: progress, defensiveCrouch: defensiveCrouch)
         guard motion != PunchMotion() else { return }
         let lead = [.leftBody, .leftHook, .leftUppercut].contains(punch)
         let side: Float = lead ? 1 : -1
@@ -1106,18 +1214,13 @@ extension FightPose {
         }
         torsoLean += side * (hook ? 0.045 : 0.025) * motion.torsoDrive
 
-        // Reuse an existing duck/weave load instead of crouching twice or resetting upright.
-        // A hook may rise at most .055 from that posture; every delta is zero at attack endpoints.
-        let bodyDip = body ? max(0, 0.18 - defensiveCrouch)
-            * max(motion.hipLoad, motion.torsoDrive * 0.65) : 0
-        let upperDip = uppercut ? max(0, 0.16 - defensiveCrouch) * motion.hipLoad : 0
-        let upperRise = uppercut ? min(0.045, defensiveCrouch * 0.10) * motion.torsoDrive : 0
-        let hookDip = hook ? max(0, 0.045 - defensiveCrouch) * motion.hipLoad : 0
-        let hookRise = hook ? min(0.055, defensiveCrouch * 0.15) * motion.torsoDrive : 0
-        lowerBody(by: bodyDip + upperDip + hookDip - hookRise - upperRise)
+        // Head punches unload the legs before the glove arrives; body shots retain their level.
+        let rise = min(defensiveCrouch * (hook ? 0.72 : 0.80), hook ? 0.28 : 0.30) * motion.defensiveRise
+        lowerBody(by: motion.legDrop)
+        riseFromDefense(by: rise)
         driveChest(forwardLean: (body ? 0.18 : (hook ? 0.08 : 0.04)) * motion.torsoDrive)
         if uppercut { torsoPitch += 0.03 * motion.torsoDrive }
-        extendChestForPunch(punch, motion: motion, opponentDistance: opponentDistance,
+        extendChestForPunch(rulePunch, motion: motion, opponentDistance: opponentDistance,
                     reachMultiplier: reachMultiplier, targetRadius: targetRadius, contactTarget: contactTarget)
 
         let shoulderAdvance = (body ? Float(0.035) : (uppercut ? 0.025 : 0.015)) * motion.shoulderDrive
@@ -1130,7 +1233,7 @@ extension FightPose {
         let shoulder = lead ? leftShoulder : rightShoulder
         let contact = (contactTarget ?? SIMD3<Float>(
             side * (hook ? 0.16 : 0.10), body ? 1.35 : (uppercut ? 2.13 : 2.08),
-            PunchMotion.contactReach(punch, opponentDistance: opponentDistance, reachMultiplier: reachMultiplier, targetRadius: targetRadius)
+            PunchMotion.contactReach(rulePunch, opponentDistance: opponentDistance, reachMultiplier: reachMultiplier, targetRadius: targetRadius)
         )) - SIMD3<Float>(rootX, rootY, rootZ)
         let guardPosition = base.facingPoint(lead ? base.leftGlove : base.rightGlove)
         let glove: SIMD3<Float>
@@ -1148,7 +1251,7 @@ extension FightPose {
             elbow = torsoPoint(restingElbow + (compactElbow - restingElbow) * armBlend)
         } else {
             let shoulderPosition = facingPoint(shoulder)
-            let facingGlove = CurvedPunchMotion.glove(punch: punch, progress: progress,
+            let facingGlove = CurvedPunchMotion.glove(punch: rulePunch, progress: progress,
                 contactProgress: Float(spec.activeStart / spec.duration), guardPosition: guardPosition,
                 shoulder: shoulderPosition, contact: contact, side: side)
             glove = torsoPoint(facingGlove)
@@ -1184,18 +1287,30 @@ extension FightPose {
         protectChin(side: -side, base: base, amount: guardAmount)
     }
 
-    mutating func applyPunchRecovery(_ punch: Punch, progress: Float, landed: Bool, reducedMotion: Bool) {
+    mutating func applyPunchRecovery(_ punch: Punch, progress: Float, landed: Bool, reducedMotion: Bool,
+                                    outcome: RivalAttackOutcome? = nil, clockProgress: Float? = nil) {
         let motion = PunchRecoveryMotion.sample(punch, progress: progress, landed: landed,
-                                                reducedMotion: reducedMotion)
+            reducedMotion: reducedMotion, outcome: outcome, clockProgress: clockProgress, stance: stance)
         torsoYaw += motion.torsoTurn
         hipYaw += motion.hipTurn
         torsoOffset.z += motion.chestAdvance
-        if [.jab, .leftBody, .leftHook, .leftUppercut].contains(punch) {
+        let leading = stance.usesLeftHand(for: punch)
+        if leading {
             leftGlove = torsoPoint(facingPoint(leftGlove) + motion.handOffset)
             leftElbow.z += motion.handOffset.z * 0.35
+            if motion.elbowOffset != .zero {
+                leftElbow = torsoPoint(facingPoint(leftElbow) + motion.elbowOffset)
+            }
         } else {
             rightGlove = torsoPoint(facingPoint(rightGlove) + motion.handOffset)
             rightElbow.z += motion.handOffset.z * 0.35
+            if motion.elbowOffset != .zero {
+                rightElbow = torsoPoint(facingPoint(rightElbow) + motion.elbowOffset)
+            }
+        }
+        if motion.offhandGuard > 0 {
+            let recoveryBase = self
+            protectChin(side: leading ? -1 : 1, base: recoveryBase, amount: motion.offhandGuard)
         }
     }
 
@@ -1222,6 +1337,11 @@ extension FightPose {
     }
 
     mutating func applyImpact(_ motion: FighterImpactMotion) {
+        let head = headFacingPosition
+        let leftHand = facingPoint(leftGlove)
+        let rightHand = facingPoint(rightGlove)
+        let leftArm = facingPoint(leftElbow)
+        let rightArm = facingPoint(rightElbow)
         separatesTorsoRotation = true
         lowerBody(by: motion.brace)
         torsoYaw += motion.shoulderYaw
@@ -1233,11 +1353,17 @@ extension FightPose {
         rightShoulder.y -= dip
         leftElbow.y -= dip * 0.5
         rightElbow.y -= dip * 0.5
+        let follow = (headFacingPosition - head) * 0.65 + motion.guardOffset
         let gloveRetraction = SIMD3<Float>(0, 0, motion.guardCompression)
-        leftGlove = torsoPoint(facingPoint(leftGlove) - gloveRetraction)
-        rightGlove = torsoPoint(facingPoint(rightGlove) - gloveRetraction)
-        leftElbow = torsoPoint(facingPoint(leftElbow) - gloveRetraction * 0.4)
-        rightElbow = torsoPoint(facingPoint(rightElbow) - gloveRetraction * 0.4)
+        let elbowRetraction = SIMD3<Float>(0, 0, motion.guardCompression * 0.4 + motion.elbowLag)
+        func tracked(_ current: SIMD3<Float>, _ original: SIMD3<Float>, _ amount: Float) -> SIMD3<Float> {
+            let point = facingPoint(current)
+            return point + (original + follow * amount - point) * motion.guardTracking
+        }
+        leftGlove = torsoPoint(tracked(leftGlove, leftHand, 1) - gloveRetraction)
+        rightGlove = torsoPoint(tracked(rightGlove, rightHand, 1) - gloveRetraction)
+        leftElbow = torsoPoint(tracked(leftElbow, leftArm, 0.65) - elbowRetraction)
+        rightElbow = torsoPoint(tracked(rightElbow, rightArm, 0.65) - elbowRetraction)
     }
 
     mutating func applyKnockdown(_ motion: FighterKnockdownMotion) {

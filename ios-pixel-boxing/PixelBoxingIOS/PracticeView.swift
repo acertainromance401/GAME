@@ -10,7 +10,13 @@
 */
 import SwiftUI
 
-/// The gym keeps its existing space and bag; its title/navigation and combat controls use the shared UI.
+private enum PracticeControlPalette {
+    static let left = PreparationPalette.player
+    static let right = Color(red: 0.49, green: 0.24, blue: 0.32)
+    static let defense = Color(red: 0.55, green: 0.435, blue: 0.227)
+}
+
+/// The gym keeps its original scene; poster artwork belongs to the optional practice guide.
 struct PracticeView: View {
     @StateObject private var controller: PracticeController
     @ObservedObject private var loc = LocalizationManager.shared
@@ -18,26 +24,37 @@ struct PracticeView: View {
     @Binding var screen: AppScreen
     let recordGymSeconds: (Double) -> Void
     @State private var activeStartedAt: Date?
+    @State private var showsGymGuide = false
 
-    init(style: FightStyle, screen: Binding<AppScreen>, recordGymSeconds: @escaping (Double) -> Void) {
-        _controller = StateObject(wrappedValue: PracticeController(style: style))
+    init(style: FightStyle, stance: BoxingStance = .orthodox, screen: Binding<AppScreen>, recordGymSeconds: @escaping (Double) -> Void) {
+        _controller = StateObject(wrappedValue: PracticeController(style: style, stance: stance))
         _screen = screen
         self.recordGymSeconds = recordGymSeconds
     }
 
     var body: some View {
         GeometryReader { proxy in
-            VStack(spacing: 0) {
-                topBar
-                ZStack(alignment: .bottom) {
-                    PracticeSceneView(controller: controller)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                    controls(safeAreaInsets: proxy.safeAreaInsets)
+            ZStack {
+                VStack(spacing: 0) {
+                    topBar
+                    ZStack(alignment: .bottom) {
+                        PracticeSceneView(controller: controller)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                        if !showsGymGuide {
+                            controls(safeAreaInsets: proxy.safeAreaInsets)
+                        }
+                    }
+                }
+                .allowsHitTesting(!showsGymGuide)
+                .accessibilityHidden(showsGymGuide)
+
+                if showsGymGuide {
+                    GymGuideView { showsGymGuide = false }
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
-            .background(MainMenuPalette.background)
+            .background(GymGuideView.paper)
         }
         .task {
             guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
@@ -45,6 +62,14 @@ struct PracticeView: View {
             windowScene.requestGeometryUpdate(preferences)
         }
         .onAppear { startActivePracticeTime() }
+        .onChange(of: showsGymGuide) { _, showing in
+            controller.releaseHeldControls()
+            if showing {
+                recordActivePracticeTime()
+            } else {
+                startActivePracticeTime()
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 startActivePracticeTime()
@@ -60,7 +85,7 @@ struct PracticeView: View {
     }
 
     private func startActivePracticeTime() {
-        guard scenePhase == .active, activeStartedAt == nil else { return }
+        guard scenePhase == .active, !showsGymGuide, activeStartedAt == nil else { return }
         activeStartedAt = Date()
     }
 
@@ -73,27 +98,104 @@ struct PracticeView: View {
     private var topBar: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(loc.t(.trainingKicker))
-                    .font(.system(size: 8, weight: .semibold)).tracking(2)
-                    .foregroundStyle(MainMenuPalette.secondary)
+                RivalWordmark(width: 44, color: PreparationPalette.rival)
+                    .accessibilityHidden(true)
                 Text(loc.t(.menuGymTitle))
-                    .font(.system(size: 22, weight: .black)).fontWidth(.condensed)
-                    .foregroundStyle(MainMenuPalette.paper)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(PreparationPalette.ink)
             }
             Text(loc.t(.gymFreePractice))
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
             Spacer()
-            Button { screen = .mainMenu } label: {
-                Label(loc.t(.exitButton), systemImage: "arrow.left")
+            if !showsGymGuide {
+                Button { showsGymGuide = true } label: {
+                    HStack(spacing: 8) {
+                        Image("GymPosterArt")
+                            .resizable().scaledToFit()
+                            .frame(width: 28, height: 28)
+                            .accessibilityHidden(true)
+                        Text(loc.t(.gymGuideTitle))
+                    }
+                }
+                .buttonStyle(RivalMenuButtonStyle(onPaper: true))
+                .accessibilityIdentifier("gymGuide")
+                Button { screen = .mainMenu } label: {
+                    Label(loc.t(.exitButton), systemImage: "arrow.left")
+                }
+                    .buttonStyle(RivalMenuButtonStyle(onPaper: true))
+                    .accessibilityLabel(loc.t(.exitGymAccessibility))
+                    .accessibilityIdentifier("gymExit")
             }
-                .buttonStyle(RivalMenuButtonStyle())
-                .accessibilityLabel(loc.t(.exitGymAccessibility))
-                .accessibilityIdentifier("gymExit")
         }
+        .frame(minHeight: 44)
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
-        .background(MainMenuPalette.background.opacity(0.96))
+        .background(GymGuideView.paper)
+    }
+
+    private struct GymGuideView: View {
+        static let paper = Color(red: 233 / 255, green: 224 / 255, blue: 202 / 255)
+        @ObservedObject private var loc = LocalizationManager.shared
+        let onClose: () -> Void
+
+        var body: some View {
+            GeometryReader { proxy in
+                ZStack {
+                    Self.paper.ignoresSafeArea()
+                    Image("GymPosterArt")
+                        .resizable().scaledToFit()
+                        .frame(width: proxy.size.width * 0.46, height: max(0, proxy.size.height - 64))
+                        .position(x: proxy.size.width * 0.77, y: proxy.size.height * 0.57)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            RivalWordmark(width: 84, color: PreparationPalette.rival)
+                                .accessibilityHidden(true)
+                            Spacer()
+                            Button(action: onClose) {
+                                Label(loc.t(.gymGuideResume), systemImage: "arrow.left")
+                            }
+                            .buttonStyle(RivalMenuButtonStyle(onPaper: true))
+                            .accessibilityIdentifier("gymGuideClose")
+                        }
+                        .frame(minHeight: 44)
+
+                        HStack(alignment: .top) {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 18) {
+                                    Text(loc.t(.gymGuideTitle))
+                                        .font(.system(size: 32, weight: .semibold))
+                                        .accessibilityAddTraits(.isHeader)
+                                        .accessibilityIdentifier("gymGuideTitle")
+                                    Text(loc.t(.gymGuideIntroduction))
+                                        .font(.system(size: 20, weight: .semibold))
+                                    Text(loc.t(.gymGuideDistance))
+                                    Text(loc.t(.gymGuideDefense))
+                                    Text(loc.t(.gymGuideCombinations))
+                                    Text(loc.t(.gymFreePractice))
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(PreparationPalette.secondary)
+                                }
+                                .font(.system(size: 15))
+                                .foregroundStyle(PreparationPalette.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.bottom, 16)
+                            }
+                            .scrollIndicators(.visible)
+                            .frame(width: proxy.size.width * 0.50)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxHeight: .infinity)
+                    }
+                    .padding(.horizontal, 20).padding(.vertical, 12)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+        }
     }
 
     private func controls(safeAreaInsets: EdgeInsets) -> some View {
@@ -111,29 +213,29 @@ struct PracticeView: View {
         let locked = controller.playerLocked
         return Grid(horizontalSpacing: 5, verticalSpacing: 5) {
             GridRow {
-                HoldButton(text: loc.t(.weaveLeftControl), label: loc.t(.weaveLeftAccessibility), accent: Color(red: 0.035, green: 0.29, blue: 0.70), locked: locked) {
+                HoldButton(text: loc.t(.weaveLeftControl), label: loc.t(.weaveLeftAccessibility), accent: PracticeControlPalette.left, locked: locked) {
                     controller.weaveButton(direction: -1, active: $0)
                 }
                 .accessibilityIdentifier("WEAVE_LEFT")
                 HoldButton(symbol: "arrow.up", label: loc.t(.moveForwardAccessibility), locked: locked) { controller.move(x: 1, y: 0, active: $0) }
-                HoldButton(text: loc.t(.weaveRightControl), label: loc.t(.weaveRightAccessibility), accent: Color(red: 0.62, green: 0.03, blue: 0.28), locked: locked) {
+                HoldButton(text: loc.t(.weaveRightControl), label: loc.t(.weaveRightAccessibility), accent: PracticeControlPalette.right, locked: locked) {
                     controller.weaveButton(direction: 1, active: $0)
                 }
                 .accessibilityIdentifier("WEAVE_RIGHT")
             }
             GridRow {
                 HoldButton(symbol: "arrow.left", label: loc.t(.moveLeftAccessibility), locked: locked) { controller.move(x: 0, y: -1, active: $0) }
-                HoldButton(symbol: "shield.fill", label: loc.t(.guardAccessibility), accent: Color(red: 0.72, green: 0.50, blue: 0.02), locked: locked, isHeld: controller.modifiers.guarding) {
+                HoldButton(symbol: "shield.fill", label: loc.t(.guardAccessibility), accent: PracticeControlPalette.defense, locked: locked, isHeld: controller.modifiers.guarding) {
                     controller.guardButton(active: $0)
                 }
                 HoldButton(symbol: "arrow.right", label: loc.t(.moveRightAccessibility), locked: locked) { controller.move(x: 0, y: 1, active: $0) }
             }
             GridRow {
-                HoldButton(text: "L\nDUCK", label: loc.t(.duckLeftAccessibility), accent: Color(red: 0.035, green: 0.29, blue: 0.70), locked: locked, isHeld: controller.modifiers.duckDirection == -1) {
+                HoldButton(text: loc.t(.duckLeftControl), label: loc.t(.duckLeftAccessibility), accent: PracticeControlPalette.left, locked: locked, isHeld: controller.modifiers.duckDirection == -1) {
                     controller.duckButton(direction: -1, active: $0)
                 }
                 HoldButton(symbol: "arrow.down", label: loc.t(.moveBackAccessibility), locked: locked) { controller.move(x: -1, y: 0, active: $0) }
-                HoldButton(text: "R\nDUCK", label: loc.t(.duckRightAccessibility), accent: Color(red: 0.62, green: 0.03, blue: 0.28), locked: locked, isHeld: controller.modifiers.duckDirection == 1) {
+                HoldButton(text: loc.t(.duckRightControl), label: loc.t(.duckRightAccessibility), accent: PracticeControlPalette.right, locked: locked, isHeld: controller.modifiers.duckDirection == 1) {
                     controller.duckButton(direction: 1, active: $0)
                 }
             }
@@ -143,39 +245,46 @@ struct PracticeView: View {
 
     private var attackPad: some View {
         let locked = controller.playerLocked
+        let leftBase: Punch = controller.engine.player.stance.usesLeftHand(for: .jab) ? .jab : .cross
+        let rightBase: Punch = leftBase == .jab ? .cross : .jab
+        let leftPunch = controller.selectedPunch(base: leftBase)
+        let rightPunch = controller.selectedPunch(base: rightBase)
+        let leftIdentifier = leftBase == .jab ? "JAB" : "CROSS"
+        let rightIdentifier = rightBase == .jab ? "JAB" : "CROSS"
         return VStack(spacing: 6) {
             ActionButton(
-                text: "BACKSTEP",
+                text: loc.t(.backstepAccessibility),
                 symbol: "arrow.down.backward",
-                color: Color(red: 0.72, green: 0.50, blue: 0.02),
+                color: PracticeControlPalette.defense,
                 width: 163,
                 height: 44,
                 locked: locked,
                 accessibility: loc.t(.backstepAccessibility),
+                identifier: "BACKSTEP",
                 action: controller.backstep
             )
             HStack(spacing: 7) {
                 ActionButton(
-                    text: controller.selectedPunch(base: .jab).controlLabel(for: loc.language),
-                    color: Color(red: 0.035, green: 0.29, blue: 0.70),
+                    text: leftPunch.controlLabel(for: loc.language),
+                    color: PracticeControlPalette.left,
                     width: 78,
                     height: 72,
                     locked: locked,
-                    accessibility: controller.selectedPunch(base: .jab).localizedName(for: loc.language),
-                    identifier: "JAB",
-                    subtitle: controller.selectedPunch(base: .jab) == .jab ? nil : "JAB",
-                    action: { controller.comboAttack(base: .jab) }
+                    accessibility: leftPunch.localizedName(for: loc.language),
+                    identifier: leftIdentifier,
+                    subtitle: leftPunch == leftBase ? nil : "\(loc.t(.combinationControl)) · \(leftBase.controlLabel(for: loc.language))",
+                    action: { controller.comboAttack(base: leftBase) }
                 )
                 ActionButton(
-                    text: controller.selectedPunch(base: .cross).controlLabel(for: loc.language),
-                    color: Color(red: 0.62, green: 0.03, blue: 0.28),
+                    text: rightPunch.controlLabel(for: loc.language),
+                    color: PracticeControlPalette.right,
                     width: 78,
                     height: 72,
                     locked: locked,
-                    accessibility: controller.selectedPunch(base: .cross).localizedName(for: loc.language),
-                    identifier: "CROSS",
-                    subtitle: controller.selectedPunch(base: .cross) == .cross ? nil : "CROSS",
-                    action: { controller.comboAttack(base: .cross) }
+                    accessibility: rightPunch.localizedName(for: loc.language),
+                    identifier: rightIdentifier,
+                    subtitle: rightPunch == rightBase ? nil : "\(loc.t(.combinationControl)) · \(rightBase.controlLabel(for: loc.language))",
+                    action: { controller.comboAttack(base: rightBase) }
                 )
             }
         }

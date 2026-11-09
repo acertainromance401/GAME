@@ -63,13 +63,13 @@ struct GameView: View {
                 .animation(.easeOut(duration: reducedMotion ? UIStyleKit.microDuration : 0.16),
                            value: controller.isPlayingStoryScene)
                 .allowsHitTesting(!controller.isPlayingStoryScene)
-                .accessibilityHidden(controller.isPlayingStoryScene || (controller.storyBout != nil
-                    && (showsSettings || controller.snapshot.phase == .paused
-                        || (controller.storyBout?.phase == .finished && controller.snapshot.showsRoundResult))))
+                .accessibilityHidden(controller.isPlayingStoryScene || showsSettings
+                    || controller.snapshot.phase == .paused || controller.snapshot.showsRoundResult)
 
-                CombatSignatureView(presentation: controller.presentation)
+                CombatFeedbackView(presentation: controller.presentation, message: fightCommentary)
                     .opacity(controller.isPlayingStoryScene ? 0 : 1)
-                    .padding(.top, max(68, proxy.safeAreaInsets.top + 64))
+                    .padding(.top, CombatFeedbackView.topInset(safeAreaTop: proxy.safeAreaInsets.top,
+                                                              isStory: controller.storyBout != nil))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .allowsHitTesting(false)
 
@@ -92,7 +92,7 @@ struct GameView: View {
                         StoryBoutOverlay(bout: bout, showsResult: controller.snapshot.showsRoundResult,
                             onContinue: controller.continueToNextRound, onRetry: controller.retryStoryBout,
                             onExit: { screen = .storySelection },
-                            onRivalScene: storyRivalSceneAction)
+                            onRivalScene: storyRivalSceneAction, roundRecord: controller.snapshot)
                     } else if controller.snapshot.showsRoundResult {
                         roundResultOverlay
                             .transition(reducedMotion ? .opacity : .opacity.combined(with: .offset(y: 12)))
@@ -179,6 +179,7 @@ struct GameView: View {
             if menuPausedFight { controller.pause() }
             showsSettings = true
         }
+        .accessibilityIdentifier("combatSettings")
         .padding(.trailing, max(14, safeAreaInsets.trailing + 8))
         .padding(.top, max(6, safeAreaInsets.top + 4))
     }
@@ -186,7 +187,7 @@ struct GameView: View {
     private func battleHUD(safeAreaInsets: EdgeInsets) -> some View {
             /// 상단 전투 HUD
             /// - 왼쪽/오른쪽에 체력(HP)·스태미나 바(`FighterMeter`)
-            /// - 중앙에 라운드/타이머/스코어/토스트 메시지를 표시
+            /// - 중앙에 라운드/타이머/스코어를 표시
             /// - 접근성 라벨은 HUD의 핵심 정보(라운드/남은 시간/스코어)를 음성으로 읽을 수 있게 구성
         VStack(spacing: 0) {
             HStack(spacing: 12) {
@@ -194,144 +195,50 @@ struct GameView: View {
                     health: controller.snapshot.playerHP,
                     maximumHealth: controller.engine.player.maximumHealth,
                     stamina: controller.snapshot.playerStamina,
-                    color: Color(red: 0.18, green: 0.82, blue: 1),
+                    color: FightNightPalette.blue,
                     reverse: false,
-                    displayName: "ME",
-                    accessibilityName: loc.t(.playerAccessibility)
+                    displayName: loc.t(.leaderboardYouLabel),
+                    accessibilityName: loc.t(.playerAccessibility),
+                    onRing: true
                 )
-                if let bout = controller.storyBout {
-                    StoryRoundClock(bout: bout, remainingTime: controller.snapshot.time, presentation: controller.presentation)
-                } else {
-                    CombatRoundClock(snapshot: controller.snapshot, presentation: controller.presentation)
+                Group {
+                    if let bout = controller.storyBout {
+                        StoryRoundClock(bout: bout, remainingTime: controller.snapshot.time, presentation: controller.presentation)
+                    } else {
+                        CombatRoundClock(snapshot: controller.snapshot, presentation: controller.presentation)
+                    }
                 }
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(FightNightPalette.ink, in: RoundedRectangle(cornerRadius: 3))
                 FighterMeter(
                     health: controller.snapshot.enemyHP,
                     maximumHealth: controller.engine.enemy.maximumHealth,
                     stamina: controller.snapshot.enemyStamina,
-                    color: Color(red: 1, green: 0.25, blue: 0.40),
+                    color: FightNightPalette.red,
                     reverse: true,
-                    displayName: controller.storyBout?.opponent.title(for: loc.language) ?? "RIVAL",
-                    accessibilityName: controller.storyBout?.opponent.title(for: loc.language) ?? loc.t(.rivalAccessibility)
+                    displayName: controller.storyBout?.opponent.fighterName(for: loc.language) ?? "RIVAL",
+                    accessibilityName: controller.storyBout?.opponent.fighterName(for: loc.language) ?? loc.t(.rivalAccessibility),
+                    onRing: true
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.trailing, 48)
-            .padding(.bottom, 6)
 
-            Text(controller.snapshot.message)
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.white.opacity(0.92))
-                .frame(maxWidth: 410, minHeight: 18)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 3)
-                .background(.black.opacity(0.42))
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, max(64, max(safeAreaInsets.leading, safeAreaInsets.trailing) + 64))
         .padding(.top, max(5, safeAreaInsets.top + 2))
         // Live values never crossfade. Only the clock's KO label and separate counter cue animate.
         .transaction { $0.animation = nil }
     }
 
-    /// Revealed after the KO fall (or a short decision break), never over the finishing impact itself.
-    private var roundResultOverlay: some View {
-            /// 라운드 결과 패널
-            /// - KO 또는 판정으로 라운드가 끝난 뒤 보여지는 오버레이
-            /// - 승/패/무에 따라 색상과 텍스트가 달라지며, 회피·상대의 주요 공격·결정타 등의 통계를 표시
-            /// - `controller.continueToNextRound()`가 버튼 액션으로 연결되어 다음 라운드로 진행
-        let outcome = controller.snapshot.lastRoundOutcome
-        let knockout = controller.snapshot.lastRoundWasKnockout
-        let title = outcome.title(knockout: knockout, language: loc.language)
-        let color: Color
-        let titleColor: Color
-        switch outcome {
-        case .playerWin:
-            color = Color(red: 0.035, green: 0.29, blue: 0.70)
-            titleColor = Color(red: 0.20, green: 0.62, blue: 1.0)
-        case .playerLoss:
-            color = Color(red: 0.68, green: 0.035, blue: 0.11)
-            titleColor = Color(red: 1.0, green: 0.20, blue: 0.26)
-        case .draw:
-            color = Color(red: 0.72, green: 0.50, blue: 0.02)
-            titleColor = Color(red: 1.0, green: 0.78, blue: 0.12)
-        }
-        let snapshot = controller.snapshot
-        let rivalRead = snapshot.rivalRead.cornerReport(for: loc.language)
-        return VStack(spacing: 14) {
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(.system(size: 32, weight: .black, design: .default))
-                    .fontWidth(.condensed)
-                    .foregroundStyle(titleColor)
-                Text("\(snapshot.playerScore) : \(snapshot.enemyScore)")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.85))
-                HStack(spacing: 26) {
-                    roundStatColumn(name: "ME", dodgeCount: snapshot.roundPlayerDodgeCount, topAttack: snapshot.roundPlayerTopAttack)
-                    roundStatColumn(name: "RIVAL", dodgeCount: snapshot.roundEnemyDodgeCount, topAttack: snapshot.roundEnemyTopAttack)
-                }
-                .padding(.top, 2)
-                if knockout, let finishingPunch = snapshot.roundFinishingPunch {
-                    Text("\(loc.t(.roundStatsFinishingBlowLabel)) · \(snapshot.roundFinishingBlowByPlayer ? "ME" : "RIVAL") \(finishingPunch.localizedName(for: loc.language))")
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(titleColor.opacity(0.9))
-                        .padding(.top, 2)
-                }
-                if let rivalRead {
-                    VStack(spacing: 3) {
-                        Capsule()
-                            .fill(titleColor.opacity(0.45))
-                            .frame(width: 28, height: 2)
-                        Text(loc.t(.roundStatsRivalCornerLabel))
-                            .font(.system(size: 9, weight: .black, design: .rounded))
-                            .foregroundStyle(titleColor.opacity(0.9))
-                        Text(rivalRead)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.white.opacity(0.72))
-                            .frame(maxWidth: 280)
-                    }
-                    .padding(.top, 3)
-                }
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(CombatText.roundResult(snapshot, language: loc.language))
-
-            Button(loc.t(.nextRoundButton)) {
-                controller.continueToNextRound()
-            }
-            .buttonStyle(FightButtonStyle())
-            .accessibilityIdentifier("nextRound")
-            .disabled(!snapshot.canAdvanceRound)
-            .opacity(snapshot.canAdvanceRound ? 1 : 0.45)
-            .animation(.easeOut(duration: 0.2), value: snapshot.canAdvanceRound)
-            .accessibilityLabel(loc.t(.nextRoundButton))
-        }
-        .padding(.horizontal, 42)
-        .padding(.vertical, 20)
-        .glowPanel(accent: color)
+    private var fightCommentary: String? {
+        guard controller.snapshot.phase == .fight, !showsSettings, !controller.isPlayingStoryScene,
+              controller.presentation.knockoutClockPhase == .inactive,
+              controller.storyBout == nil || controller.storyBout?.phase == .fighting else { return nil }
+        return controller.snapshot.message
     }
 
-    private func roundStatColumn(name: String, dodgeCount: Int, topAttack: Punch?) -> some View {
-            /// 라운드 결과 내의 통계 열(플레이어 또는 라이벌)
-            /// - `name`: 컬럼 상단 이름("ME" / "RIVAL")
-            /// - `dodgeCount`: 해당 플레이어의 회피 성공 횟수
-            /// - `topAttack`: 가장 많이 사용된 공격(없으면 `nil`)
-        VStack(spacing: 4) {
-            Text(name)
-                .font(.system(size: 11, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.9))
-            Text("\(loc.t(.roundStatsDodgeLabel)) \(dodgeCount)")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.68))
-            Text("\(loc.t(.roundStatsTopAttackLabel)) \(topAttack?.localizedName(for: loc.language) ?? loc.t(.roundStatsNoAttack))")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.68))
-        }
-        .frame(minWidth: 96)
+    private var roundResultOverlay: some View {
+        CombatRoundResultView(snapshot: controller.snapshot, onContinue: controller.continueToNextRound)
     }
 
     private func controls(size: CGSize, safeAreaInsets: EdgeInsets) -> some View {
@@ -350,8 +257,8 @@ struct GameView: View {
             attackPad(width: attackWidth, height: attackHeight)
         }
         .frame(maxWidth: .infinity)
-        .padding(.leading, max(4, safeAreaInsets.leading))
-        .padding(.trailing, max(4, safeAreaInsets.trailing))
+        // GeometryReader already respects the horizontal safe area.
+        .padding(.horizontal, 4)
         .padding(.top, compact ? 10 : 16)
         .padding(.bottom, max(10, safeAreaInsets.bottom + 5))
     }
@@ -364,29 +271,29 @@ struct GameView: View {
         return VStack(spacing: 0) {
             Grid(horizontalSpacing: 5, verticalSpacing: 5) {
                 GridRow {
-                    HoldButton(text: loc.t(.weaveLeftControl), label: loc.t(.weaveLeftAccessibility), accent: Color(red: 0.035, green: 0.29, blue: 0.70), width: width, height: height, locked: locked) {
+                    HoldButton(text: loc.t(.weaveLeftControl), label: loc.t(.weaveLeftAccessibility), accent: FightNightPalette.blue, width: width, height: height, locked: locked, onRing: true) {
                         controller.weaveButton(direction: -1, active: $0)
                     }
                     .accessibilityIdentifier("WEAVE_LEFT")
-                    HoldButton(symbol: "arrow.up", label: loc.t(.moveForwardAccessibility), width: width, height: height, locked: locked) { controller.move(x: 1, y: 0, active: $0) }
-                    HoldButton(text: loc.t(.weaveRightControl), label: loc.t(.weaveRightAccessibility), accent: Color(red: 0.62, green: 0.03, blue: 0.28), width: width, height: height, locked: locked) {
+                    HoldButton(symbol: "arrow.up", label: loc.t(.moveForwardAccessibility), accent: FightNightPalette.paper, width: width, height: height, locked: locked, onRing: true) { controller.move(x: 1, y: 0, active: $0) }
+                    HoldButton(text: loc.t(.weaveRightControl), label: loc.t(.weaveRightAccessibility), accent: FightNightPalette.red, width: width, height: height, locked: locked, onRing: true) {
                         controller.weaveButton(direction: 1, active: $0)
                     }
                     .accessibilityIdentifier("WEAVE_RIGHT")
                 }
                 GridRow {
-                    HoldButton(symbol: "arrow.left", label: loc.t(.moveLeftAccessibility), width: width, height: height, locked: locked) { controller.move(x: 0, y: -1, active: $0) }
-                    HoldButton(symbol: "shield.fill", label: loc.t(.guardAccessibility), accent: Color(red: 0.72, green: 0.50, blue: 0.02), width: width, height: height, locked: locked, isHeld: controller.modifiers.guarding) {
+                    HoldButton(symbol: "arrow.left", label: loc.t(.moveLeftAccessibility), accent: FightNightPalette.paper, width: width, height: height, locked: locked, onRing: true) { controller.move(x: 0, y: -1, active: $0) }
+                    HoldButton(symbol: "shield.fill", label: loc.t(.guardAccessibility), accent: FightNightPalette.gold, width: width, height: height, locked: locked, isHeld: controller.modifiers.guarding, onRing: true) {
                         controller.guardButton(active: $0)
                     }
-                    HoldButton(symbol: "arrow.right", label: loc.t(.moveRightAccessibility), width: width, height: height, locked: locked) { controller.move(x: 0, y: 1, active: $0) }
+                    HoldButton(symbol: "arrow.right", label: loc.t(.moveRightAccessibility), accent: FightNightPalette.paper, width: width, height: height, locked: locked, onRing: true) { controller.move(x: 0, y: 1, active: $0) }
                 }
                 GridRow {
-                    HoldButton(text: "L\nDUCK", label: loc.t(.duckLeftAccessibility), accent: Color(red: 0.035, green: 0.29, blue: 0.70), width: width, height: height, locked: locked, isHeld: controller.modifiers.duckDirection == -1) {
+                    HoldButton(text: loc.t(.duckLeftControl), label: loc.t(.duckLeftAccessibility), accent: FightNightPalette.blue, width: width, height: height, locked: locked, isHeld: controller.modifiers.duckDirection == -1, onRing: true) {
                         controller.duckButton(direction: -1, active: $0)
                     }
-                    HoldButton(symbol: "arrow.down", label: loc.t(.moveBackAccessibility), width: width, height: height, locked: locked) { controller.move(x: -1, y: 0, active: $0) }
-                    HoldButton(text: "R\nDUCK", label: loc.t(.duckRightAccessibility), accent: Color(red: 0.62, green: 0.03, blue: 0.28), width: width, height: height, locked: locked, isHeld: controller.modifiers.duckDirection == 1) {
+                    HoldButton(symbol: "arrow.down", label: loc.t(.moveBackAccessibility), accent: FightNightPalette.paper, width: width, height: height, locked: locked, onRing: true) { controller.move(x: -1, y: 0, active: $0) }
+                    HoldButton(text: loc.t(.duckRightControl), label: loc.t(.duckRightAccessibility), accent: FightNightPalette.red, width: width, height: height, locked: locked, isHeld: controller.modifiers.duckDirection == 1, onRing: true) {
                         controller.duckButton(direction: 1, active: $0)
                     }
                 }
@@ -398,41 +305,53 @@ struct GameView: View {
     private func attackPad(width: CGFloat, height: CGFloat) -> some View {
             /// 공격 버튼 패드
             /// - 상단: 백스텝(ActionButton) — 길게 눌러도 동작은 즉시 트리거
-            /// - 하단: 잽/크로스 버튼 — `controller.comboAttack(base:)` 호출
+            /// - 하단: 잽/크로스 버튼 — `controller.comboAttack(base:)`가 터치다운에 호출됨
         let locked = controller.snapshot.playerLocked
+        let leftBase: Punch = controller.playerStance.usesLeftHand(for: .jab) ? .jab : .cross
+        let rightBase: Punch = leftBase == .jab ? .cross : .jab
+        let leftPunch = controller.selectedPunch(base: leftBase)
+        let rightPunch = controller.selectedPunch(base: rightBase)
+        let leftIdentifier = leftBase == .jab ? "JAB" : "CROSS"
+        let rightIdentifier = rightBase == .jab ? "JAB" : "CROSS"
         return VStack(spacing: 6) {
             ActionButton(
-                text: "BACKSTEP",
+                text: loc.t(.backstepAccessibility),
                 symbol: "arrow.down.backward",
-                color: Color(red: 0.72, green: 0.50, blue: 0.02),
+                color: RingControlPalette.surface,
                 width: width * 2 + 8,
                 height: 44,
                 locked: locked,
                 accessibility: loc.t(.backstepAccessibility),
+                identifier: "BACKSTEP",
+                onRing: true,
                 action: controller.backstep
             )
             HStack(spacing: 7) {
                 ActionButton(
-                    text: controller.selectedPunch(base: .jab).controlLabel(for: loc.language),
-                    color: Color(red: 0.035, green: 0.29, blue: 0.70),
+                    text: leftPunch.controlLabel(for: loc.language),
+                    color: RingControlPalette.jab,
+                    foreground: FightNightPalette.ink,
                     width: width,
                     height: height,
                     locked: locked,
-                    accessibility: controller.selectedPunch(base: .jab).localizedName(for: loc.language),
-                    identifier: "JAB",
-                    subtitle: controller.selectedPunch(base: .jab) == .jab ? nil : "JAB",
-                    action: { controller.comboAttack(base: .jab) }
+                    accessibility: leftPunch.localizedName(for: loc.language),
+                    identifier: leftIdentifier,
+                    subtitle: leftPunch == leftBase ? nil : "\(loc.t(.combinationControl)) · \(leftBase.controlLabel(for: loc.language))",
+                    onRing: true,
+                    action: { controller.comboAttack(base: leftBase) }
                 )
                 ActionButton(
-                    text: controller.selectedPunch(base: .cross).controlLabel(for: loc.language),
-                    color: Color(red: 0.62, green: 0.03, blue: 0.28),
+                    text: rightPunch.controlLabel(for: loc.language),
+                    color: RingControlPalette.cross,
+                    foreground: FightNightPalette.ink,
                     width: width,
                     height: height,
                     locked: locked,
-                    accessibility: controller.selectedPunch(base: .cross).localizedName(for: loc.language),
-                    identifier: "CROSS",
-                    subtitle: controller.selectedPunch(base: .cross) == .cross ? nil : "CROSS",
-                    action: { controller.comboAttack(base: .cross) }
+                    accessibility: rightPunch.localizedName(for: loc.language),
+                    identifier: rightIdentifier,
+                    subtitle: rightPunch == rightBase ? nil : "\(loc.t(.combinationControl)) · \(rightBase.controlLabel(for: loc.language))",
+                    onRing: true,
+                    action: { controller.comboAttack(base: rightBase) }
                 )
             }
         }
@@ -443,20 +362,17 @@ struct GameView: View {
             /// - 재개 버튼은 `controller.pause()`를 트리거하여 토글 방식으로 동작
         VStack(spacing: 12) {
             Text(loc.t(.pausedTitle))
-                .font(.system(size: 28, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(PreparationPalette.ink)
             Button(loc.t(.resumeButton), action: controller.pause)
-                .buttonStyle(FightButtonStyle())
+                .buttonStyle(RivalMenuButtonStyle(primary: true, onPaper: true))
         }
         .padding(24)
-        .glowPanel(accent: Color(red: 0.72, green: 0.50, blue: 0.02))
+        .rivalPaperSurface()
     }
 
     private func iconButton(_ symbol: String, accessibility: String, action: @escaping () -> Void) -> some View {
-            /// 상단/우측의 작은 아이콘 버튼(원형)
-            /// - `symbol`: SF Symbol 이름
-            /// - `accessibility`: 음성 안내용 라벨
-            /// - `action`: 탭 이벤트 핸들러
+            /// 상단/우측의 작은 액션 버튼을 반환
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .bold))
@@ -468,9 +384,100 @@ struct GameView: View {
     }
 }
 
+/// The caller preserves the existing KO/decision reveal timing; this view only presents confirmed data.
+struct CombatRoundResultView: View {
+    let snapshot: CombatSnapshot
+    let onContinue: () -> Void
+    @ObservedObject private var loc = LocalizationManager.shared
+
+    var body: some View {
+        let knockout = snapshot.lastRoundWasKnockout
+        let title = snapshot.lastRoundOutcome.title(knockout: knockout, language: loc.language)
+        let titleColor: Color
+        switch snapshot.lastRoundOutcome {
+        case .playerWin:
+            titleColor = PreparationPalette.player
+        case .playerLoss:
+            titleColor = PreparationPalette.rival
+        case .draw:
+            titleColor = PreparationPalette.ink
+        }
+        let rivalRead = snapshot.rivalRead.cornerReport(for: loc.language)
+        return GeometryReader { proxy in
+            Color.black.opacity(0.42).ignoresSafeArea().allowsHitTesting(false)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(loc.t(.roundLabel)) \(snapshot.round)")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(PreparationPalette.secondary)
+                                Text(title)
+                                    .font(.title.weight(.semibold))
+                                    .foregroundStyle(titleColor)
+                            }
+                            Spacer(minLength: 8)
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text(loc.t(.scoreLabel))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(PreparationPalette.secondary)
+                                Text("\(snapshot.playerScore) : \(snapshot.enemyScore)")
+                                    .font(.title2.weight(.bold)).monospacedDigit()
+                                    .foregroundStyle(PreparationPalette.ink)
+                            }
+                        }
+                        RoundRecordTable(snapshot: snapshot)
+                        if knockout, let finishingPunch = snapshot.roundFinishingPunch {
+                            Text("\(loc.t(.roundStatsFinishingBlowLabel)) · \(snapshot.roundFinishingBlowByPlayer ? loc.t(.leaderboardYouLabel) : "RIVAL") \(finishingPunch.localizedName(for: loc.language))")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(PreparationPalette.ink)
+                        }
+                        if let rivalRead {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(loc.t(.roundStatsRivalCornerLabel))
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(PreparationPalette.ink)
+                                Text(rivalRead)
+                                    .font(.subheadline)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .foregroundStyle(PreparationPalette.secondary)
+                            }
+                        }
+                    }
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(CombatText.roundResult(snapshot, language: loc.language))
+                    .accessibilityIdentifier("roundSummary")
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                Button(action: onContinue) {
+                    Text(loc.t(.nextRoundButton)).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(RivalMenuButtonStyle(primary: true, onPaper: true))
+                .accessibilityIdentifier("nextRound")
+                .disabled(!snapshot.canAdvanceRound)
+                .opacity(snapshot.canAdvanceRound ? 1 : 0.45)
+                .animation(.easeOut(duration: UIStyleKit.microDuration), value: snapshot.canAdvanceRound)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
+            }
+            .frame(maxWidth: 600, maxHeight: min(340, proxy.size.height - 24))
+            .rivalPaperSurface()
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("roundResult")
+        }
+    }
+
+}
+
 /// Observes the presentation directly rather than waiting for the 0.08s HUD snapshot cadence.
 /// The timer slot stays reserved through the KO break; it never overlaps the fading KO text.
-private struct CombatRoundClock: View {
+struct CombatRoundClock: View {
     let snapshot: CombatSnapshot
     @ObservedObject var presentation: CombatPresentation
     @ObservedObject private var loc = LocalizationManager.shared
@@ -479,19 +486,26 @@ private struct CombatRoundClock: View {
         let phase = presentation.knockoutClockPhase
         let showsKnockout = phase == .visible
         VStack(spacing: 0) {
-            Text("ROUND \(snapshot.round)")
-                .font(.system(size: 8, weight: .black, design: .rounded))
-                .foregroundStyle(Color(red: 1.0, green: 0.78, blue: 0.12))
-            Text(String(format: "%02d", Int(ceil(snapshot.time))))
-                .font(.system(size: 19, weight: .black, design: .rounded))
+            HStack(spacing: 4) {
+                Text("\(loc.t(.roundLabel)) \(snapshot.round)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(FightNightPalette.paper.opacity(0.7))
+                Spacer(minLength: 0)
+                Text("\(snapshot.playerScore) : \(snapshot.enemyScore)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .lineLimit(1).minimumScaleFactor(0.8)
+            Text(CombatText.roundTime(snapshot.time))
+                .font(.system(size: 26, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(.white)
                 .opacity(phase == .inactive ? 1 : 0)
-                .frame(width: 50, height: 26)
+                .frame(width: 100, height: 32)
                 .overlay {
                     Text(CombatSignature.knockout.title(for: loc.language))
-                        .font(.system(size: 22, weight: .black))
-                        .fontWidth(.condensed)
+                        .font(.system(size: 26, weight: .bold))
                         .lineLimit(1)
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.55), radius: 1, y: 1)
@@ -499,12 +513,8 @@ private struct CombatRoundClock: View {
                         // Opacity only, including Reduce Motion; reset cancels any residual fade.
                         .animation(phase == .inactive ? nil : .easeOut(duration: 0.10), value: showsKnockout)
                 }
-            Text("\(snapshot.playerScore) : \(snapshot.enemyScore)")
-                .font(.system(size: 8, weight: .black, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(.white.opacity(0.7))
         }
-        .frame(width: 50)
+        .frame(width: 100)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(showsKnockout
             ? "\(CombatText.clock(snapshot, language: loc.language)), \(CombatSignature.knockout.title(for: loc.language))"
@@ -513,8 +523,16 @@ private struct CombatRoundClock: View {
     }
 }
 
-private struct CombatSignatureView: View {
+struct CombatFeedbackView: View {
+    static let height: CGFloat = 18
+    static let maximumWidth: CGFloat = 500
+
+    static func topInset(safeAreaTop: CGFloat, isStory: Bool) -> CGFloat {
+        max(isStory ? 77 : 61, safeAreaTop + (isStory ? 74 : 58))
+    }
+
     @ObservedObject var presentation: CombatPresentation
+    let message: String?
     @ObservedObject private var loc = LocalizationManager.shared
     @RivalReducedMotion private var reducedMotion
 
@@ -522,12 +540,10 @@ private struct CombatSignatureView: View {
         Group {
             if let signature = presentation.signature, signature != .knockout {
                 Text(signature.title(for: loc.language))
-                    .font(.system(size: 19, weight: .black))
-                    .fontWidth(.condensed)
-                    .tracking(1.4)
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 1)
                     .background(Color(red: 0.025, green: 0.030, blue: 0.040).opacity(0.94))
                     .overlay(alignment: .bottom) {
                         Rectangle()
@@ -537,9 +553,26 @@ private struct CombatSignatureView: View {
                     .id(signature)
                     .transition(reducedMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                     .accessibilityIdentifier("combatSignature")
+            } else if presentation.signature == nil, let message,
+                      !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(message)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 10)
+                    .frame(maxWidth: Self.maximumWidth, minHeight: Self.height, maxHeight: Self.height)
+                    .background(FightNightPalette.ink.opacity(0.86), in: RoundedRectangle(cornerRadius: 3))
+                    .accessibilityIdentifier("combatCommentary")
+                    .accessibilityLabel(message)
+                    .transaction { $0.animation = nil }
             }
         }
-        .animation(.easeOut(duration: UIStyleKit.microDuration), value: presentation.signature)
+        .frame(height: Self.height)
+        // Two calls share one lane; switching to commentary must not crossfade overlapping text.
+        .animation(message == nil ? .easeOut(duration: UIStyleKit.microDuration) : nil,
+                   value: presentation.signature)
     }
 }
 
@@ -565,37 +598,47 @@ struct FighterMeter: View {
     let reverse: Bool
     let displayName: String
     let accessibilityName: String
+    var onRing = false
 
     var body: some View {
-        VStack(alignment: reverse ? .trailing : .leading, spacing: 3) {
+        VStack(alignment: reverse ? .trailing : .leading, spacing: onRing ? 2 : 3) {
             HStack(spacing: 4) {
                 if reverse {
-                    Text("HP \(health)")
+                    Text(onRing ? "\(health)" : "HP \(health)")
                     Spacer(minLength: 0)
                     Text(displayName)
                 } else {
                     Text(displayName)
                     Spacer(minLength: 0)
-                    Text("HP \(health)")
+                    Text(onRing ? "\(health)" : "HP \(health)")
                 }
             }
-            .font(.system(size: 8, weight: .black, design: .rounded))
+            .font(.system(size: 11, weight: .bold))
+            .lineLimit(1).minimumScaleFactor(0.8)
             .monospacedDigit()
             .foregroundStyle(.white.opacity(0.82))
-            meter(value: Double(health) / Double(max(1, maximumHealth)), color: color, height: 6)
-            meter(value: stamina / 100, color: Color(red: 0.35, green: 0.92, blue: 0.52), height: 3)
+            meter(value: Double(health) / Double(max(1, maximumHealth)), color: color, height: onRing ? 6 : 8)
+            meter(value: stamina / 100, color: FightNightPalette.paper.opacity(0.8), height: onRing ? 2 : 3)
+            Text("\(loc.t(.staminaLabel)) \(Int(stamina))")
+                .font(.system(size: 9, weight: .medium)).monospacedDigit()
+                .foregroundStyle(FightNightPalette.paper.opacity(0.65))
+                .lineLimit(1).minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: 178)
+        .padding(.horizontal, onRing ? 6 : 0)
+        .padding(.vertical, onRing ? 3 : 0)
+        .background(onRing ? FightNightPalette.ink : .clear)
+        .frame(maxWidth: onRing ? .infinity : 210)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(CombatText.fighter(name: accessibilityName, health: health, stamina: stamina, language: loc.language))
+        .accessibilityIdentifier(reverse ? "combatRivalMeter" : "combatPlayerMeter")
     }
 
     private func meter(value: Double, color: Color, height: CGFloat) -> some View {
         GeometryReader { proxy in
             let width = proxy.size.width * min(1, max(0, value))
             ZStack(alignment: reverse ? .trailing : .leading) {
-                Capsule(style: .continuous).fill(Color(red: 0.07, green: 0.11, blue: 0.17))
-                Capsule(style: .continuous).fill(color).frame(width: width)
+                Rectangle().fill(Color(red: 0.14, green: 0.16, blue: 0.19))
+                Rectangle().fill(color).frame(width: width)
             }
         }
         .frame(height: height)
@@ -612,13 +655,14 @@ struct HoldButton: View {
     let height: CGFloat
     let locked: Bool
     let isHeld: Bool?
+    let onRing: Bool
     let onPress: (Bool) -> Void
     @State private var isPressed = false
     @RivalReducedMotion private var reducedMotion
     @Environment(\.scenePhase) private var scenePhase
     private var highlighted: Bool { !locked && (isHeld ?? isPressed) }
 
-    init(symbol: String, label: String, accent: Color = .white.opacity(0.28), width: CGFloat = 56, height: CGFloat = 50, locked: Bool = false, isHeld: Bool? = nil, onPress: @escaping (Bool) -> Void) {
+    init(symbol: String, label: String, accent: Color = .white.opacity(0.28), width: CGFloat = 56, height: CGFloat = 50, locked: Bool = false, isHeld: Bool? = nil, onRing: Bool = false, onPress: @escaping (Bool) -> Void) {
         self.symbol = symbol
         text = nil
         self.label = label
@@ -627,10 +671,11 @@ struct HoldButton: View {
         self.height = height
         self.locked = locked
         self.isHeld = isHeld
+        self.onRing = onRing
         self.onPress = onPress
     }
 
-    init(text: String, label: String, accent: Color = .white.opacity(0.28), width: CGFloat = 56, height: CGFloat = 50, locked: Bool = false, isHeld: Bool? = nil, onPress: @escaping (Bool) -> Void) {
+    init(text: String, label: String, accent: Color = .white.opacity(0.28), width: CGFloat = 56, height: CGFloat = 50, locked: Bool = false, isHeld: Bool? = nil, onRing: Bool = false, onPress: @escaping (Bool) -> Void) {
         symbol = nil
         self.text = text
         self.label = label
@@ -639,37 +684,52 @@ struct HoldButton: View {
         self.height = height
         self.locked = locked
         self.isHeld = isHeld
+        self.onRing = onRing
         self.onPress = onPress
     }
 
     var body: some View {
-        Group {
+        let cornerRadius: CGFloat = onRing ? RingControlPalette.cornerRadius : UIStyleKit.combatControlCornerRadius
+        let foreground: Color = onRing ? (highlighted ? FightNightPalette.ink : FightNightPalette.paper) : .white
+        let background: Color = highlighted ? accent
+            : (onRing ? RingControlPalette.surface : Color(red: 0.075, green: 0.085, blue: 0.105))
+        let outline: Color = highlighted ? .white.opacity(0.8)
+            : (onRing ? .white.opacity(0.12) : accent.opacity(0.6))
+        let heldMark: Color = onRing ? FightNightPalette.ink : .white
+        return Group {
             if let symbol {
                 Image(systemName: symbol)
                     .font(.system(size: 18, weight: .black))
             } else {
                 Text(text ?? "")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .fontWidth(.condensed)
                     .multilineTextAlignment(.center)
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(foreground)
         .frame(width: width, height: height)
         .background(
-            RoundedRectangle(cornerRadius: UIStyleKit.combatControlCornerRadius, style: .continuous)
-                .fill(
-                    highlighted
-                        ? accent
-                        : Color(red: 0.075, green: 0.085, blue: 0.105)
-                )
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(background)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: UIStyleKit.combatControlCornerRadius, style: .continuous)
-                .stroke(highlighted ? Color.white.opacity(0.8) : accent.opacity(0.6), lineWidth: highlighted ? 2 : 1)
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(outline, lineWidth: highlighted ? 2 : 1)
         )
-        .shadow(color: .black.opacity(0.28), radius: 3, y: 2)
-        .opacity(locked ? 0.4 : 1)
+        .overlay(alignment: .bottom) {
+            Capsule().fill(heldMark).frame(width: 18, height: 3)
+                .padding(.bottom, 5).opacity(highlighted ? 1 : 0)
+                .accessibilityHidden(true)
+        }
+        .overlay(alignment: .topTrailing) {
+            if locked {
+                Image(systemName: "lock.fill").font(.system(size: 9, weight: .bold))
+                    .padding(5).accessibilityHidden(true)
+            }
+        }
+        .shadow(color: .black.opacity(onRing ? 0 : 0.28), radius: 3, y: 2)
+        .opacity(locked ? 0.55 : 1)
         .saturation(locked ? 0.3 : 1)
         .scaleEffect(highlighted && !reducedMotion ? 0.98 : 1)
         .animation(.easeOut(duration: 0.07), value: highlighted)
@@ -690,10 +750,12 @@ struct HoldButton: View {
             if isPressed { onPress(false) }
             isPressed = false
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
         .accessibilityValue(loc.t(locked ? .inputUnavailable : ((isHeld ?? isPressed) ? .controlHeld : .controlReleased)))
         .accessibilityHint(loc.t(.holdControlHint))
         .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(highlighted ? .isSelected : [])
         .accessibilityAction {
             guard !locked else { return }
             isPressed.toggle()
@@ -707,24 +769,28 @@ struct ActionButton: View {
     let text: String
     let symbol: String?
     let color: Color
+    let foreground: Color
     let width: CGFloat
     let height: CGFloat
     let locked: Bool
     let accessibility: String?
     let identifier: String
     let subtitle: String?
+    let onRing: Bool
     let action: () -> Void
 
-    init(text: String, symbol: String? = nil, color: Color, width: CGFloat = 60, height: CGFloat = 44, locked: Bool = false, accessibility: String? = nil, identifier: String? = nil, subtitle: String? = nil, action: @escaping () -> Void) {
+    init(text: String, symbol: String? = nil, color: Color, foreground: Color = .white, width: CGFloat = 60, height: CGFloat = 44, locked: Bool = false, accessibility: String? = nil, identifier: String? = nil, subtitle: String? = nil, onRing: Bool = false, action: @escaping () -> Void) {
         self.text = text
         self.symbol = symbol
         self.color = color
+        self.foreground = foreground
         self.width = width
         self.height = height
         self.locked = locked
         self.accessibility = accessibility
         self.identifier = identifier ?? text
         self.subtitle = subtitle
+        self.onRing = onRing
         self.action = action
     }
 
@@ -742,18 +808,18 @@ struct ActionButton: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.system(size: 9, weight: .medium))
-                        .tracking(1)
+                        .lineLimit(1).minimumScaleFactor(0.75)
                         .opacity(0.72)
                         .accessibilityHidden(true)
                 }
             }
-                .foregroundStyle(.white)
+                .foregroundStyle(foreground)
                 .frame(width: width, height: height)
         }
-        .buttonStyle(AttackButtonStyle(color: color, locked: locked, combination: subtitle != nil))
+        .buttonStyle(AttackButtonStyle(color: color, foreground: foreground, locked: locked, combination: subtitle != nil, onRing: onRing))
         .disabled(locked)
         .accessibilityLabel(accessibility ?? text)
-        .accessibilityValue(locked ? loc.t(.inputUnavailable) : "")
+        .accessibilityValue(locked ? loc.t(.inputUnavailable) : (subtitle != nil ? loc.t(.combinationControl) : ""))
         .accessibilityHint(symbol == nil ? loc.t(.comboAccessibilityHint) : "")
         .accessibilityIdentifier(identifier)
     }
@@ -761,12 +827,14 @@ struct ActionButton: View {
 
 private struct AttackButtonStyle: PrimitiveButtonStyle {
     let color: Color
+    let foreground: Color
     let locked: Bool
     let combination: Bool
+    let onRing: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        ImmediateAttackSurface(label: configuration.label, color: color, locked: locked,
-                               combination: combination, trigger: configuration.trigger)
+        ImmediateAttackSurface(label: configuration.label, color: color, foreground: foreground, locked: locked,
+                               combination: combination, onRing: onRing, trigger: configuration.trigger)
     }
 }
 
@@ -775,8 +843,10 @@ private struct AttackButtonStyle: PrimitiveButtonStyle {
 private struct ImmediateAttackSurface<Label: View>: View {
     let label: Label
     let color: Color
+    let foreground: Color
     let locked: Bool
     let combination: Bool
+    let onRing: Bool
     let trigger: () -> Void
     @GestureState private var touching = false
     @State private var fired = false
@@ -786,15 +856,22 @@ private struct ImmediateAttackSurface<Label: View>: View {
         let pressed = touching && !locked
         label
             .background(
-                RoundedRectangle(cornerRadius: UIStyleKit.combatControlCornerRadius, style: .continuous)
-                    .fill(pressed ? color : color.opacity(0.76))
+                RoundedRectangle(cornerRadius: onRing ? RingControlPalette.cornerRadius : UIStyleKit.combatControlCornerRadius, style: .continuous)
+                    .fill(color)
+                    .brightness(pressed ? 0.12 : 0)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: UIStyleKit.combatControlCornerRadius, style: .continuous)
-                    .stroke(.white.opacity(pressed ? 0.85 : (combination ? 0.65 : 0.24)), lineWidth: pressed || combination ? 2 : 1)
+                RoundedRectangle(cornerRadius: onRing ? RingControlPalette.cornerRadius : UIStyleKit.combatControlCornerRadius, style: .continuous)
+                    .stroke(foreground.opacity(pressed ? 0.85 : (combination ? 0.65 : 0.24)), lineWidth: pressed || combination ? 2 : 1)
             )
-            .shadow(color: .black.opacity(0.3), radius: 3, y: 2)
-            .opacity(locked ? 0.4 : 1)
+            .overlay(alignment: .topTrailing) {
+                if locked {
+                    Image(systemName: "lock.fill").font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(foreground).padding(6).accessibilityHidden(true)
+                }
+            }
+            .shadow(color: .black.opacity(onRing ? 0 : 0.3), radius: 3, y: 2)
+            .opacity(locked ? 0.55 : 1)
             .saturation(locked ? 0.3 : 1)
             .scaleEffect(pressed && !reducedMotion ? 0.98 : 1)
             .animation(.easeOut(duration: 0.07), value: pressed)
@@ -809,31 +886,34 @@ private struct ImmediateAttackSurface<Label: View>: View {
                 .onEnded { _ in fired = false })
             .onChange(of: touching) { _, value in if !value { fired = false } }
             .onDisappear { fired = false }
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits(.isButton)
             .accessibilityAction { if !locked { trigger() } }
     }
 }
 
-private struct FightButtonStyle: ButtonStyle {
+struct FightButtonStyle: ButtonStyle {
     @RivalReducedMotion private var reducedMotion
 
     func makeBody(configuration: Configuration) -> some View {
-        let accent = Color(red: 0.035, green: 0.29, blue: 0.70)
         configuration.label
-            .font(.system(size: 14, weight: .black, design: .rounded))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 34)
-            .frame(height: 44)
+            .font(.headline.weight(.bold))
+            .lineLimit(2).minimumScaleFactor(0.8)
+            .foregroundStyle(FightNightPalette.ink)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .frame(minHeight: 48)
             .background(
                 RoundedRectangle(cornerRadius: UIStyleKit.controlCornerRadius, style: .continuous)
-                    .fill(accent)
+                    .fill(FightNightPalette.paper)
+                    .brightness(configuration.isPressed ? -0.10 : 0)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: UIStyleKit.controlCornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.22), lineWidth: 1)
             )
-            .shadow(color: accent.opacity(configuration.isPressed ? 0.15 : 0.3), radius: configuration.isPressed ? 4 : 10, y: configuration.isPressed ? 2 : 5)
-            .scaleEffect(configuration.isPressed && !reducedMotion ? 0.96 : 1)
-            .brightness(configuration.isPressed ? -0.06 : 0)
+            .shadow(color: .black.opacity(0.24), radius: 3, y: 2)
+            .scaleEffect(configuration.isPressed && !reducedMotion ? 0.98 : 1)
             .animation(.easeOut(duration: UIStyleKit.microDuration), value: configuration.isPressed)
     }
 }
@@ -841,17 +921,27 @@ private struct FightButtonStyle: ButtonStyle {
 /// The style/outfit selection screen. Reused both from the in-fight settings menu and directly from the
 /// main menu (so players can gear up before ever starting a fight) — extracted out of `GameView` so both
 /// call sites share one implementation instead of two copies.
+extension OutfitID {
+    var lockerSampleAssetName: String { "LockerOutfit-\(rawValue)" }
+}
+
+extension FightStyle {
+    var lockerSampleAssetName: String { "LockerStyle-\(rawValue)" }
+}
+
 struct WaitingRoomView: View {
     @ObservedObject var controller: GameController
     @ObservedObject private var loc = LocalizationManager.shared
     @ObservedObject private var purchases = StoryPurchaseStore.shared
     let onClose: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicType
+    @RivalReducedMotion private var reducedMotion
     @ScaledMetric(relativeTo: .subheadline) private var labelSize: CGFloat = 14
     @ScaledMetric(relativeTo: .caption) private var detailSize: CGFloat = 12
-    private enum LockerTab { case styles, outfits, storyRewards }
+    private enum LockerTab { case styles, outfits, stances, storyRewards }
     @State private var tab = LockerTab.styles
     @State private var previewAppearance: StoryOpponent?
+    @State private var previewsSouthpawStance = false
     @State private var showsStoryPurchase = false
 
     // Decoupled from `controller.equippedOutfit` so tapping a LOCKED outfit can preview its look in the 3D
@@ -874,102 +964,241 @@ struct WaitingRoomView: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                MainMenuPalette.background.ignoresSafeArea()
-                VStack(spacing: 14) {
-                    RivalScreenHeader(kicker: storyOpponent?.title(for: loc.language) ?? loc.t(.lockerKicker), title: loc.t(.waitingRoomButton),
-                                      closeTitle: loc.t(.close), closeID: "waitingRoomClose", onClose: onClose)
-                    HStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            StylePreviewView(style: controller.playerStyle, outfit: previewOutfit, appearance: previewAppearance,
-                                championBelt: controller.championBeltEquipped)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(MainMenuPalette.surface)
-                                .overlay(Rectangle().stroke(MainMenuPalette.rule, lineWidth: 1))
-                                .clipped()
-                                .accessibilityLabel(loc.t(.previewCharacterAccessibility))
-                            if !dynamicType.isAccessibilitySize { previewSummary }
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        VStack(spacing: 12) {
-                            Picker(loc.t(.waitingRoomButton), selection: $tab) {
-                                Text(loc.t(.styleTabLabel)).tag(LockerTab.styles)
-                                Text(loc.t(.outfitLabel)).tag(LockerTab.outfits)
-                                Text(loc.story(.title)).tag(LockerTab.storyRewards)
-                            }
-                            .pickerStyle(.segmented)
-                            .accessibilityIdentifier("lockerTabs")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            ScrollView {
+                PreparationPalette.paper.ignoresSafeArea()
+                if !showsStoryPurchase {
+                    VStack(spacing: 10) {
+                        preparationHeader
+                        if dynamicType.isAccessibilitySize {
+                            lockerTabs
+                            lockerChoices
+                        } else {
+                            HStack(alignment: .top, spacing: 20) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    StylePreviewView(style: controller.playerStyle, outfit: previewOutfit, appearance: previewAppearance,
+                                        championBelt: controller.championBeltEquipped, southpawPreview: previewsSouthpawStance,
+                                        preparationBackground: UIColor(PreparationPalette.paper), enlargedPreview: true)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .clipped()
+                                        .accessibilityLabel(loc.t(.previewCharacterAccessibility))
+                                        .accessibilityIdentifier("lockerBoxerPreview")
+                                    previewSummary
+                                }
+                                .frame(width: max(0, (proxy.size.width - 60) * 0.40))
                                 VStack(spacing: 8) {
-                                    if dynamicType.isAccessibilitySize { previewSummary.padding(.bottom, 8) }
-                                    switch tab {
-                                    case .outfits:
-                                        rewardHeader(.freeRewards, detail: .freeRewardsDetail)
-                                        ForEach(OutfitID.allCases.filter { $0 != .storyStarter && $0 != .storyChampion }, id: \.self) {
-                                            outfitButton($0)
-                                        }
-                                    case .storyRewards:
-                                        rewardHeader(.storyRewards, detail: .storyRewardsDetail)
-                                        if !purchases.hasStoryAccess {
-                                            Button { showsStoryPurchase = true } label: {
-                                                Label(loc.purchase(.purchaseToEarn), systemImage: "lock.open")
-                                                    .lineLimit(2).minimumScaleFactor(0.75)
-                                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                            }
-                                            .buttonStyle(RivalMenuButtonStyle())
-                                            .foregroundStyle(MainMenuPalette.story)
-                                            .accessibilityIdentifier("lockerStoryPurchase")
-                                        }
-                                        rewardHeader(.instantRewards, detail: .starterOutfitDetail)
-                                        ForEach(StoryPurchaseReward.purchaseRewards) { storyRewardRow($0) }
-                                        Rectangle().fill(MainMenuPalette.rule).frame(height: 1).padding(.vertical, 4)
-                                        rewardHeader(.earnedRewards, detail: .rewardsRequireVictory)
-                                        ForEach(StoryPurchaseReward.victoryRewards) { storyRewardRow($0) }
-                                    case .styles:
-                                        ForEach(FightStyle.allCases, id: \.self) { styleButton($0) }
-                                    }
+                                    lockerTabs
+                                    lockerChoices
                                 }
-                            }
-                            .scrollIndicators(.hidden)
-                            if let onChallenge {
-                                Button(action: onChallenge) {
-                                    Label(loc.story(.challenge), systemImage: "arrow.right")
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(RivalMenuButtonStyle(primary: true))
-                                .accessibilityIdentifier("storyStartFresh")
+                                .frame(maxWidth: .infinity)
                             }
                         }
-                        .frame(width: max(260, (proxy.size.width - 60) * (dynamicType.isAccessibilitySize ? 0.58 : 0.48)))
+                        preparationActions
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .foregroundStyle(PreparationPalette.ink)
+                    .rivalPanelTransition()
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-                .allowsHitTesting(!showsStoryPurchase)
-                .accessibilityHidden(showsStoryPurchase)
                 if showsStoryPurchase {
                     StoryPurchaseView(store: purchases, onClose: { showsStoryPurchase = false },
                         onUnlocked: { showsStoryPurchase = false })
+                        .rivalPanelTransition()
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
-        .onAppear { controller.refreshStoryEquipment() }
+        .animation(.easeOut(duration: reducedMotion ? UIStyleKit.microDuration : UIStyleKit.fastDuration),
+                   value: showsStoryPurchase)
+        .onAppear {
+            controller.refreshStoryEquipment()
+            previewsSouthpawStance = controller.playerStance == .southpaw
+        }
         .task { await purchases.refreshAccess() }
+    }
+
+    private var preparationHeader: some View {
+        HStack(spacing: 12) {
+            Text("RIVAL")
+                .font(.system(size: 18, weight: .bold))
+                .accessibilityHidden(true)
+            Text(storyOpponent?.title(for: loc.language) ?? loc.t(.waitingRoomButton))
+                .font(.system(size: labelSize, weight: .semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+                .layoutPriority(-1)
+                .accessibilityIdentifier("lockerTitle")
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            Button(action: onClose) {
+                Label(loc.t(.close), systemImage: "arrow.left")
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(RivalMenuButtonStyle(onPaper: true))
+            .accessibilityIdentifier("waitingRoomClose")
+        }
+        .padding(.bottom, 8)
+        .overlay(alignment: .bottom) { Rectangle().fill(PreparationPalette.rule).frame(height: 1) }
+    }
+
+    private var preparationActions: some View {
+        HStack(spacing: 12) {
+            if !dynamicType.isAccessibilitySize {
+                Text(storyOpponent == nil ? loc.t(.waitingRoomSubtitle) : loc.t(.lockerPreparation))
+                    .font(.system(size: detailSize, weight: .medium))
+                    .foregroundStyle(PreparationPalette.secondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            Button(action: onChallenge ?? onClose) {
+                Label(loc.t(onChallenge == nil ? .lockerReady : .menuFightAction), systemImage: "arrow.right")
+                    .lineLimit(2)
+                    .frame(maxWidth: dynamicType.isAccessibilitySize ? .infinity : nil)
+            }
+            .buttonStyle(RivalMenuButtonStyle(primary: true, onPaper: true))
+            .accessibilityIdentifier(onChallenge == nil ? "lockerDone" : "storyStartFresh")
+        }
+        .padding(.top, 8)
+        .overlay(alignment: .top) { Rectangle().fill(PreparationPalette.rule).frame(height: 1) }
+    }
+
+    private var lockerTabs: some View {
+        HStack(spacing: 2) {
+            lockerTab(.styles, title: loc.t(.styleTabLabel), identifier: "lockerStyleTab")
+            lockerTab(.outfits, title: loc.t(.outfitLabel), identifier: "lockerOutfitTab")
+            lockerTab(.stances, title: loc.story(.stance).localizedCapitalized, identifier: "lockerStanceTab")
+            lockerTab(.storyRewards, title: loc.story(.title), identifier: "lockerStoryTab")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("lockerTabs")
+    }
+
+    private func lockerTab(_ candidate: LockerTab, title: String, identifier: String) -> some View {
+        Button { tab = candidate } label: {
+            Text(title)
+                .font(.system(size: labelSize, weight: .semibold))
+                .foregroundStyle(tab == candidate ? PreparationPalette.ink : PreparationPalette.secondary)
+                .lineLimit(2)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(tab == candidate ? PreparationPalette.ink : PreparationPalette.rule)
+                        .frame(height: tab == candidate ? 2 : 1)
+                }
+                .animation(reducedMotion ? nil : .easeOut(duration: UIStyleKit.fastDuration), value: tab)
+        }
+        .buttonStyle(RivalPlainButtonStyle())
+        .accessibilityAddTraits(tab == candidate ? .isSelected : [])
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var lockerChoices: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                switch tab {
+                case .outfits:
+                    sectionTitle(loc.t(.lockerOutfitsTitle))
+                    selectedOutfitDetails
+                    LazyVGrid(columns: choiceColumns, alignment: .leading, spacing: 8) {
+                        ForEach(OutfitID.allCases.filter { $0 != .storyStarter && $0 != .storyChampion }, id: \.self) {
+                            outfitButton($0)
+                        }
+                    }
+                    Text(loc.t(.lockerSelectionHint))
+                        .font(.system(size: detailSize))
+                        .foregroundStyle(PreparationPalette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                case .storyRewards:
+                    rewardHeader(.storyRewards, detail: .storyRewardsDetail)
+                    if !purchases.hasStoryAccess {
+                        Button { showsStoryPurchase = true } label: {
+                            Label(loc.purchase(.purchaseToEarn), systemImage: "lock.open")
+                                .lineLimit(2).minimumScaleFactor(0.75)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(RivalMenuButtonStyle(onPaper: true))
+                        .accessibilityIdentifier("lockerStoryPurchase")
+                    }
+                    rewardHeader(.instantRewards, detail: .starterOutfitDetail)
+                    ForEach(StoryPurchaseReward.purchaseRewards) { storyRewardRow($0) }
+                    Rectangle().fill(PreparationPalette.rule).frame(height: 1).padding(.vertical, 4)
+                    rewardHeader(.earnedRewards, detail: .rewardsRequireVictory)
+                    ForEach(StoryPurchaseReward.victoryRewards) { storyRewardRow($0) }
+                    southpawStanceReward
+                case .styles:
+                    sectionTitle(loc.t(.lockerStylesTitle))
+                    LazyVGrid(columns: choiceColumns, alignment: .leading, spacing: 8) {
+                        ForEach(FightStyle.allCases, id: \.self) { styleButton($0) }
+                    }
+                    Text(controller.playerStyle.summary(for: loc.language))
+                        .font(.system(size: detailSize))
+                        .foregroundStyle(PreparationPalette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("lockerSelectedStyleDetail")
+                case .stances:
+                    sectionTitle(loc.t(.lockerStancesTitle))
+                    orthodoxStanceButton
+                    southpawStanceReward
+                }
+            }
+            .padding(.bottom, 8)
+            .foregroundStyle(PreparationPalette.ink)
+        }
+        .id(tab)
+        .transition(.opacity)
+        .scrollIndicators(.visible)
+        .accessibilityIdentifier("lockerOptions")
+        .animation(reducedMotion ? nil : .easeOut(duration: UIStyleKit.fastDuration), value: tab)
+    }
+
+    private var choiceColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: dynamicType.isAccessibilitySize ? 1 : 3)
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: labelSize, weight: .semibold))
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func outfitRequirement(_ outfit: OutfitID) -> String {
+        !purchases.hasStoryAccess && controller.championOutfitEarned
+            && (outfit == .champion || outfit == .storyChampion)
+            ? loc.purchase(.storyAccessRequired) : outfit.unlockDescription(for: loc.language)
+    }
+
+    private var selectedOutfitDetails: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if dynamicType.isAccessibilitySize {
+                Text("\(previewAppearance?.title(for: loc.language) ?? previewOutfit.label(for: loc.language)) · \(loc.t(previewIsEquipped ? .outfitEquippedLabel : .outfitPreviewLabel))")
+                    .font(.system(size: labelSize, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("lockerPreviewStatus")
+            } else {
+                Text(previewAppearance?.title(for: loc.language) ?? previewOutfit.label(for: loc.language))
+                    .font(.system(size: labelSize, weight: .semibold))
+            }
+            Text(previewAppearance.map { appearanceRequirement($0) } ?? outfitRequirement(previewOutfit))
+                .font(.system(size: detailSize))
+                .foregroundStyle(PreparationPalette.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("lockerSelectedOutfitRequirement")
+        }
+        .padding(.top, 4)
     }
 
     private func rewardHeader(_ title: StoryPurchaseText, detail: StoryPurchaseText) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(loc.purchase(title))
-                .font(.system(size: labelSize, weight: .bold))
-                .foregroundStyle(title == .storyRewards ? MainMenuPalette.story : MainMenuPalette.paper)
+                .font(.system(size: labelSize, weight: .semibold))
+                .foregroundStyle(PreparationPalette.ink)
                 .accessibilityAddTraits(.isHeader)
-            Text(loc.purchase(detail))
-                .font(.system(size: detailSize, weight: .medium))
-                .foregroundStyle(MainMenuPalette.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if !dynamicType.isAccessibilitySize {
+                Text(loc.purchase(detail))
+                    .font(.system(size: detailSize, weight: .medium))
+                    .foregroundStyle(PreparationPalette.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(.horizontal, 2).padding(.bottom, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -992,39 +1221,121 @@ struct WaitingRoomView: View {
                 set: { equipped in controller.setChampionBeltEquipped(equipped) })) {
                 Label(loc.story(.championBelt), systemImage: "medal.fill")
                     .font(.system(size: labelSize, weight: .semibold))
-                    .foregroundStyle(MainMenuPalette.paper)
+                    .foregroundStyle(PreparationPalette.ink)
             }
-            .tint(MainMenuPalette.story)
+            .tint(PreparationPalette.ink)
             .padding(.horizontal, 14).padding(.vertical, 10)
             .accessibilityIdentifier("lockerChampionBelt")
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 Label(loc.story(.championBelt), systemImage: "lock.fill")
                     .font(.system(size: labelSize, weight: .semibold))
-                    .foregroundStyle(MainMenuPalette.paper)
+                    .foregroundStyle(PreparationPalette.ink)
                 Text(controller.championBeltEarned && !purchases.hasStoryAccess
                     ? loc.purchase(.storyAccessRequired)
                     : StoryPurchaseReward.championBelt.requirement(for: loc.language))
                     .font(.system(size: detailSize, weight: .medium))
-                    .foregroundStyle(MainMenuPalette.secondary)
+                    .foregroundStyle(PreparationPalette.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .rivalSelection(isSelected: false)
+            .rivalSelection(isSelected: false, onPaper: true)
         }
+    }
+
+    private var previewIsEquipped: Bool {
+        previewAppearance == controller.equippedAppearance
+            && (previewAppearance != nil || previewOutfit == controller.equippedOutfit)
     }
 
     private var previewSummary: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(controller.playerStyle.label(for: loc.language))
-                .font(.system(size: labelSize, weight: .bold))
-                .foregroundStyle(MainMenuPalette.paper)
-            Text("\(previewAppearance?.title(for: loc.language) ?? previewOutfit.label(for: loc.language)) · \(loc.t(previewAppearance == controller.equippedAppearance && (previewAppearance != nil || previewOutfit == controller.equippedOutfit) ? .outfitEquippedLabel : .outfitPreviewLabel))")
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(controller.playerStyle.label(for: loc.language))
+                    .font(.system(size: labelSize, weight: .semibold))
+                    .foregroundStyle(PreparationPalette.ink)
+                    .layoutPriority(1)
+                    .accessibilityIdentifier("lockerSelectedStyle")
+                Spacer(minLength: 0)
+                Text("\(loc.story(.stance)): \(loc.story(previewsSouthpawStance ? .southpawStance : .orthodox)) · \(loc.t(previewsSouthpawStance == (controller.playerStance == .southpaw) ? .outfitEquippedLabel : .outfitPreviewLabel))")
+                    .font(.system(size: detailSize, weight: .medium))
+                    .foregroundStyle(PreparationPalette.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("lockerStancePreviewStatus")
+            }
+            Text("\(previewAppearance?.title(for: loc.language) ?? previewOutfit.label(for: loc.language)) · \(loc.t(previewIsEquipped ? .outfitEquippedLabel : .outfitPreviewLabel))")
                 .font(.system(size: detailSize, weight: .medium))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("lockerPreviewStatus")
+        }
+    }
+
+    private var orthodoxStanceButton: some View {
+        Button {
+            previewsSouthpawStance = false
+            controller.setPlayerStance(.orthodox)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(loc.story(.orthodox).localizedCapitalized,
+                      systemImage: controller.playerStance == .orthodox ? "checkmark.circle.fill" : "figure.boxing")
+                    .font(.system(size: labelSize, weight: .semibold))
+                if !dynamicType.isAccessibilitySize || !controller.canChangeStance {
+                    Text(controller.canChangeStance ? loc.t(controller.playerStance == .orthodox ? .outfitEquippedLabel : .outfitOwnedLabel)
+                        : loc.story(.stanceBeforeMatch))
+                        .font(.system(size: detailSize))
+                        .foregroundStyle(PreparationPalette.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+            .rivalSelection(isSelected: !previewsSouthpawStance, onPaper: true)
+        }
+        .buttonStyle(RivalPlainButtonStyle())
+        .accessibilityIdentifier("lockerStance-orthodox")
+        .accessibilityAddTraits(!previewsSouthpawStance ? .isSelected : [])
+    }
+
+    private var southpawStanceReward: some View {
+        let unlocked = controller.isStanceUnlocked(.southpaw)
+        let equipped = controller.playerStance == .southpaw
+        let requirementText = Text(loc.purchase(.southpawUnlockRequirement))
+            .font(.system(size: detailSize, weight: .regular))
+            .foregroundStyle(PreparationPalette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        let statusText = Text(!unlocked ? loc.purchase(.stancePreviewOnly) : !controller.canChangeStance ? loc.story(.stanceBeforeMatch)
+            : loc.t(equipped ? .outfitEquippedLabel : .outfitPreviewLabel))
+            .font(.system(size: detailSize, weight: .medium))
+            .foregroundStyle(PreparationPalette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 4) {
+            Button {
+                previewsSouthpawStance = true
+                controller.setPlayerStance(.southpaw)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(loc.story(.southpawStance), systemImage: unlocked ? (equipped ? "checkmark.circle.fill" : "figure.boxing") : "lock.fill")
+                        .font(.system(size: labelSize, weight: .semibold))
+                    if !dynamicType.isAccessibilitySize {
+                        requirementText
+                        statusText
+                    }
+                }
+                .foregroundStyle(PreparationPalette.ink)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .rivalSelection(isSelected: previewsSouthpawStance, onPaper: true)
+            }
+            .buttonStyle(RivalPlainButtonStyle())
+            .accessibilityIdentifier("lockerStance-southpaw")
+            .accessibilityLabel("\(loc.story(.southpawStance)), \(loc.t(equipped ? .outfitEquippedLabel : .outfitPreviewLabel)), \(loc.purchase(.southpawUnlockRequirement))")
+            .accessibilityAddTraits(previewsSouthpawStance ? .isSelected : [])
+            if dynamicType.isAccessibilitySize {
+                requirementText.padding(.horizontal, 14)
+                statusText.padding(.horizontal, 14)
+            }
         }
     }
 
@@ -1034,23 +1345,28 @@ struct WaitingRoomView: View {
             controller.setPlayerStyle(style)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
+                if !dynamicType.isAccessibilitySize {
+                    Image(style.lockerSampleAssetName)
+                        .resizable().scaledToFit()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .accessibilityHidden(true)
+                }
                 HStack {
                     Text(style.label(for: loc.language))
-                        .font(.system(size: labelSize, weight: .bold))
+                        .font(.system(size: labelSize, weight: .semibold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
                     Spacer(minLength: 4)
                     if isSelected { Image(systemName: "checkmark").accessibilityHidden(true) }
                 }
-                Text(style.summary(for: loc.language))
-                    .font(.system(size: detailSize, weight: .regular))
-                    .foregroundStyle(MainMenuPalette.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            .foregroundStyle(MainMenuPalette.paper)
-            .padding(12)
+            .foregroundStyle(PreparationPalette.ink)
+            .padding(8)
             .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-            .rivalSelection(isSelected: isSelected)
+            .rivalSelection(isSelected: isSelected, onPaper: true)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RivalPlainButtonStyle())
         .accessibilityLabel("\(style.label(for: loc.language)), \(style.summary(for: loc.language))")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("lockerStyle-\(style.rawValue)")
@@ -1060,54 +1376,84 @@ struct WaitingRoomView: View {
         let unlocked = controller.isOutfitUnlocked(outfit)
         let isEquipped = controller.equippedOutfit == outfit && controller.equippedAppearance == nil
         let isPreviewing = previewOutfit == outfit && previewAppearance == nil
-        let requirement = !purchases.hasStoryAccess && controller.championOutfitEarned
-            && (outfit == .champion || outfit == .storyChampion)
-            ? loc.purchase(.storyAccessRequired) : outfit.unlockDescription(for: loc.language)
-        return Button {
-            // Always update the live 3D preview, even for a locked outfit -- only actually equip it
-            // (persist as the outfit worn into real matches) once it's unlocked.
-            previewOutfit = outfit
-            previewAppearance = nil
-            if unlocked {
-                controller.setEquippedOutfit(outfit)
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    if !unlocked {
-                        Image(systemName: "lock.fill")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    Text(outfit.label(for: loc.language))
-                        .font(.system(size: labelSize, weight: .semibold))
-                    if isEquipped {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(MainMenuPalette.paper)
-                    }
-                    Spacer(minLength: 0)
+        let requirement = outfitRequirement(outfit)
+        let status = loc.t(isEquipped ? .outfitEquippedLabel : unlocked ? .outfitOwnedLabel : .outfitPreviewLabel)
+        let isStoryOutfit = outfit == .storyStarter || outfit == .storyChampion
+        let requirementText = Text(requirement)
+            .font(.system(size: detailSize, weight: .regular))
+            .foregroundStyle(PreparationPalette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 4) {
+            Button {
+                // Always update the live 3D preview, even for a locked outfit -- only actually equip it
+                // (persist as the outfit worn into real matches) once it's unlocked.
+                previewOutfit = outfit
+                previewAppearance = nil
+                if unlocked {
+                    controller.setEquippedOutfit(outfit)
                 }
-                if !unlocked || outfit == .storyStarter {
-                    Text(requirement)
-                        .font(.system(size: detailSize, weight: .regular))
-                        .foregroundStyle(MainMenuPalette.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    if !dynamicType.isAccessibilitySize {
+                        Image(outfit.lockerSampleAssetName)
+                            .resizable().scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 32)
+                            .accessibilityHidden(true)
+                    }
+                    HStack(spacing: 5) {
+                        if !unlocked {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        Text(outfit.label(for: loc.language))
+                            .font(.system(size: labelSize, weight: .semibold))
+                        if isEquipped {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(PreparationPalette.ink)
+                        }
+                        Spacer(minLength: 0)
+                        if dynamicType.isAccessibilitySize {
+                            Text(!unlocked && !isPreviewing ? loc.story(.locked) : status)
+                                .font(.system(size: detailSize, weight: .medium))
+                                .foregroundStyle(PreparationPalette.secondary)
+                        }
+                    }
+                    if !dynamicType.isAccessibilitySize {
+                        Text(!unlocked && !isPreviewing ? loc.story(.locked) : status)
+                            .font(.system(size: detailSize, weight: .medium))
+                            .foregroundStyle(PreparationPalette.secondary)
+                    }
+                    if isStoryOutfit && !dynamicType.isAccessibilitySize {
+                        requirementText
+                    }
                 }
+                .foregroundStyle(PreparationPalette.ink)
+                .padding(8)
+                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .rivalSelection(isSelected: isPreviewing, onPaper: true)
             }
-            .foregroundStyle(MainMenuPalette.paper)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-            .rivalSelection(isSelected: isPreviewing)
+            .buttonStyle(RivalPlainButtonStyle())
+            .accessibilityAddTraits(isPreviewing ? .isSelected : [])
+            .accessibilityIdentifier("lockerOutfit-\(outfit.rawValue)")
+            .accessibilityLabel(
+                unlocked
+                    ? "\(outfit.label(for: loc.language)), \(status)"
+                    : "\(outfit.label(for: loc.language)), \(loc.story(.locked)), \(loc.t(.outfitPreviewLabel)), \(requirement)"
+            )
+            if isStoryOutfit && dynamicType.isAccessibilitySize {
+                requirementText.padding(.horizontal, 8)
+                    .accessibilityIdentifier("lockerOutfitRequirement-\(outfit.rawValue)")
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isPreviewing ? .isSelected : [])
-        .accessibilityIdentifier("lockerOutfit-\(outfit.rawValue)")
-        .accessibilityLabel(
-            unlocked
-                ? "\(outfit.label(for: loc.language)), \(loc.t(isEquipped ? .outfitEquippedLabel : .outfitPreviewLabel))"
-                : "\(outfit.label(for: loc.language)), \(loc.t(.outfitPreviewLabel)), \(requirement)"
-        )
+    }
+
+    private func appearanceRequirement(_ opponent: StoryOpponent) -> String {
+        opponent == .southpaw ? StoryPurchaseReward.appearance(opponent).requirement(for: loc.language)
+            : controller.clearedStoryOpponents.contains(opponent) && !purchases.hasStoryAccess
+            ? loc.purchase(.storyAccessRequired)
+            : StoryPurchaseReward.appearance(opponent).requirement(for: loc.language)
     }
 
     private func appearanceButton(_ opponent: StoryOpponent) -> some View {
@@ -1116,41 +1462,50 @@ struct WaitingRoomView: View {
         let equipped = controller.equippedAppearance == opponent
         let previewing = previewAppearance == opponent
         let title = StoryPurchaseReward.appearance(opponent).title(for: loc.language)
-        let requirement = controller.clearedStoryOpponents.contains(opponent) && !purchases.hasStoryAccess
-            ? loc.purchase(.storyAccessRequired)
-            : StoryPurchaseReward.appearance(opponent).requirement(for: loc.language)
-        return Button {
-            guard available else { return }
-            previewAppearance = opponent
-            if unlocked { controller.setEquippedAppearance(opponent) }
-        } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    if !unlocked || !available { Image(systemName: "lock.fill").accessibilityHidden(true) }
-                    Text(title).font(.system(size: labelSize, weight: .semibold))
-                        .lineLimit(2).minimumScaleFactor(0.8)
-                    Spacer(minLength: 0)
-                    if equipped { Image(systemName: "checkmark.circle.fill").accessibilityHidden(true) }
+        let requirement = appearanceRequirement(opponent)
+        let requirementText = Text(!available ? loc.story(.unavailable) : requirement)
+            .font(.system(size: detailSize, weight: .regular))
+            .foregroundStyle(PreparationPalette.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        return VStack(alignment: .leading, spacing: 3) {
+            Button {
+                guard available else { return }
+                previewAppearance = opponent
+                if unlocked { controller.setEquippedAppearance(opponent) }
+            } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
+                        if !dynamicType.isAccessibilitySize {
+                            Image(opponent.storyBustAssetName)
+                                .resizable().scaledToFit().frame(width: 36, height: 36)
+                                .accessibilityHidden(true)
+                        }
+                        if !unlocked || !available { Image(systemName: "lock.fill").accessibilityHidden(true) }
+                        Text(title).font(.system(size: labelSize, weight: .semibold))
+                            .lineLimit(2).minimumScaleFactor(0.8)
+                        Spacer(minLength: 0)
+                        if equipped { Image(systemName: "checkmark.circle.fill").accessibilityHidden(true) }
+                    }
+                    if (!unlocked || !available) && !dynamicType.isAccessibilitySize {
+                        requirementText
+                    }
                 }
-                if !unlocked || !available {
-                    Text(!available ? loc.story(.unavailable) : requirement)
-                        .font(.system(size: detailSize, weight: .regular))
-                        .foregroundStyle(MainMenuPalette.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                .foregroundStyle(PreparationPalette.ink)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+                .rivalSelection(isSelected: previewing, onPaper: true)
             }
-            .foregroundStyle(MainMenuPalette.paper)
-            .padding(.horizontal, 14).padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-            .rivalSelection(isSelected: previewing)
+            .buttonStyle(RivalPlainButtonStyle())
+            .disabled(!available)
+            .opacity(available ? 1 : 0.45)
+            .accessibilityAddTraits(previewing ? .isSelected : [])
+            .accessibilityIdentifier("lockerAppearance-\(opponent.rawValue)")
+            .accessibilityLabel("\(title), \(loc.t(equipped ? .outfitEquippedLabel : .outfitPreviewLabel))")
+            .accessibilityHint(unlocked ? "" : requirement)
+            if (!unlocked || !available) && dynamicType.isAccessibilitySize {
+                requirementText.padding(.horizontal, 14)
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(!available)
-        .opacity(available ? 1 : 0.45)
-        .accessibilityAddTraits(previewing ? .isSelected : [])
-        .accessibilityIdentifier("lockerAppearance-\(opponent.rawValue)")
-        .accessibilityLabel("\(title), \(loc.t(equipped ? .outfitEquippedLabel : .outfitPreviewLabel))")
-        .accessibilityHint(unlocked ? "" : requirement)
     }
 }
 
@@ -1173,7 +1528,7 @@ struct SettingsMenuView: View {
                 MainMenuPalette.background.opacity(0.76).ignoresSafeArea()
                 VStack(spacing: 12) {
                     RivalScreenHeader(kicker: loc.t(.settingsKicker), title: loc.t(.settingsTitle),
-                                      closeTitle: loc.t(.close), closeID: "settingsClose", onClose: onClose)
+                                      closeTitle: loc.t(.close), closeID: "settingsClose", onClose: onClose, onPaper: true)
                     ScrollView {
                         VStack(spacing: 8) {
                             settingsRow(
@@ -1197,8 +1552,7 @@ struct SettingsMenuView: View {
                 }
                 .padding(20)
                 .frame(width: min(390, proxy.size.width - 32), height: min(346, proxy.size.height - 24))
-                .background(MainMenuPalette.background, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(MainMenuPalette.rule, lineWidth: 1))
+                .rivalPaperSurface()
             }
         }
         .accessibilityElement(children: .contain)
@@ -1209,7 +1563,7 @@ struct SettingsMenuView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(loc.t(.language))
                 .font(.system(size: labelSize, weight: .medium))
-                .foregroundStyle(MainMenuPalette.secondary)
+                .foregroundStyle(PreparationPalette.secondary)
             HStack(spacing: 8) {
                 ForEach(AppLanguage.allCases, id: \.self) { candidate in
                     let isSelected = loc.language == candidate
@@ -1218,12 +1572,12 @@ struct SettingsMenuView: View {
                     } label: {
                         Text(candidate.nativeName)
                             .font(.system(size: labelSize, weight: .semibold))
-                            .foregroundStyle(MainMenuPalette.paper)
+                            .foregroundStyle(PreparationPalette.ink)
                             .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, minHeight: 44)
-                            .rivalSelection(isSelected: isSelected)
+                            .rivalSelection(isSelected: isSelected, onPaper: true)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(RivalPlainButtonStyle())
                     .accessibilityLabel(candidate.nativeName)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
@@ -1241,17 +1595,18 @@ struct SettingsMenuView: View {
                     .font(.system(size: labelSize, weight: .semibold))
                 Spacer(minLength: 0)
                 Image(systemName: enabled.map { $0 ? "checkmark.circle.fill" : "circle" } ?? "arrow.up.right")
-                    .foregroundStyle(MainMenuPalette.secondary)
+                    .foregroundStyle(PreparationPalette.secondary)
                     .accessibilityHidden(true)
             }
-            .foregroundStyle(MainMenuPalette.paper)
+            .foregroundStyle(PreparationPalette.ink)
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 48)
-            .background(MainMenuPalette.surface, in: RoundedRectangle(cornerRadius: 4))
+            .rivalSelection(isSelected: enabled == true, onPaper: true)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RivalPlainButtonStyle())
         .accessibilityLabel(title)
         .accessibilityIdentifier(id)
+        .accessibilityAddTraits(enabled == true ? .isSelected : [])
     }
 }
 
@@ -1269,15 +1624,15 @@ struct LearningResetConfirmView: View {
                 MainMenuPalette.background.opacity(0.76).ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 16) {
                     RivalScreenHeader(kicker: loc.t(.resetKicker), title: loc.t(.newGameButton),
-                                      closeTitle: loc.t(.cancel), closeID: "resetCancel", onClose: onCancel)
+                                      closeTitle: loc.t(.cancel), closeID: "resetCancel", onClose: onCancel, onPaper: true)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(loc.t(.resetConfirmTitle))
                                 .font(.system(size: bodySize, weight: .semibold))
-                                .foregroundStyle(MainMenuPalette.paper)
+                                .foregroundStyle(PreparationPalette.ink)
                             Text(loc.t(.resetConfirmBody))
                                 .font(.system(size: bodySize, weight: .regular))
-                                .foregroundStyle(MainMenuPalette.secondary)
+                                .foregroundStyle(PreparationPalette.secondary)
                         }
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1286,14 +1641,13 @@ struct LearningResetConfirmView: View {
                     Button(role: .destructive, action: onConfirm) {
                         Text(loc.t(.resetConfirmButton)).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(RivalMenuButtonStyle(destructive: true))
+                    .buttonStyle(RivalMenuButtonStyle(destructive: true, onPaper: true))
                     .accessibilityLabel(loc.t(.resetConfirmButton))
                     .accessibilityIdentifier("resetConfirm")
                 }
                 .padding(20)
                 .frame(width: min(420, proxy.size.width - 32), height: min(326, proxy.size.height - 24))
-                .background(MainMenuPalette.background, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(MainMenuPalette.rule, lineWidth: 1))
+                .rivalPaperSurface()
             }
         }
         .accessibilityElement(children: .contain)

@@ -5,11 +5,16 @@ struct StorySelectionView: View {
     @ObservedObject var controller: GameController
     @ObservedObject private var loc = LocalizationManager.shared
     @ObservedObject private var purchases = StoryPurchaseStore.shared
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var selectedOpponent = StoryOpponent.pressure
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @RivalReducedMotion private var reducedMotion
+    @ScaledMetric(relativeTo: .title3) private var titleSize: CGFloat = 24
+    @ScaledMetric(relativeTo: .subheadline) private var rowSize: CGFloat = 15
+    @ScaledMetric(relativeTo: .caption) private var detailSize: CGFloat = 12
+    @State private var selectedOpponent = StoryOpponent.basic
     @State private var preparingOpponent: StoryOpponent?
     @State private var preparingRematch = false
     @State private var showsStoryPurchase = false
+    @State private var showsLineup = true
     let onClose: () -> Void
     let onChallenge: (StoryOpponent) -> Void
     let onNewChallenge: (StoryOpponent) -> Void
@@ -19,104 +24,36 @@ struct StorySelectionView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            VStack(spacing: 12) {
-                RivalScreenHeader(kicker: "RIVAL", title: loc.story(.title), closeTitle: loc.t(.exitButton),
-                    closeID: "storyBack", onClose: onClose)
-                HStack(spacing: 16) {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(StoryOpponent.allCases) { opponent in opponentRow(opponent) }
-                        }
-                    }
-                    .scrollIndicators(.hidden)
-                    .frame(width: min(290, max(180, proxy.size.width * 0.35)))
-                    ZStack(alignment: .bottomLeading) {
-                        if selectedOpponent.isAvailable || selectedOpponent == .rival {
-                            RivalPortraitView(isActive: scenePhase == .active && preparingOpponent == nil, storyOpponent: selectedOpponent)
-                                .id(selectedOpponent)
-                                .allowsHitTesting(false)
-                                .accessibilityHidden(true)
-                        } else {
-                            Image(systemName: "figure.boxing")
-                                .font(.system(size: 72, weight: .light))
-                                .foregroundStyle(MainMenuPalette.rule)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .accessibilityHidden(true)
-                        }
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(selectedOpponent.title(for: loc.language))
-                                .font(.system(size: 28, weight: .black)).fontWidth(.condensed)
-                                .lineLimit(1).minimumScaleFactor(0.65)
-                            Text("\(selectedOpponent.maximumRounds) \(loc.story(.rounds)) / 60s")
-                                .font(.system(size: 12, weight: .semibold)).monospacedDigit()
-                            if selectedOpponent == .pressure {
-                                Text(loc.story(.firstBout)).font(.system(size: 11, weight: .medium))
+            ZStack {
+                MainMenuPalette.background.ignoresSafeArea()
+                if !dynamicType.isAccessibilitySize { presentationArtwork(size: proxy.size) }
+                VStack(spacing: 8) {
+                    selectionHeader
+                    if dynamicType.isAccessibilitySize {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 12) {
+                                selectedDetails
+                                ForEach(StoryOpponent.allCases) { opponentRow($0) }
                             }
                         }
-                        .foregroundStyle(MainMenuPalette.paper)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(MainMenuPalette.background.opacity(0.86))
+                        .accessibilityIdentifier("storyOpponentList")
+                    } else {
+                        HStack {
+                            ScrollView { selectedDetails }
+                                .scrollIndicators(.visible)
+                                .accessibilityIdentifier("storyOpponentDetails")
+                                .frame(width: proxy.size.width * (showsLineup ? 0.30 : 0.38))
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxHeight: .infinity)
+                        opponentRoster
                     }
-                    .clipped()
+                    storyActions
                 }
-                .frame(maxHeight: .infinity)
-                HStack {
-                    Text("\(store.progress.clearedOpponents.filter { $0 != .rival }.count) / 4")
-                        .font(.system(size: 13, weight: .bold)).monospacedDigit()
-                        .foregroundStyle(MainMenuPalette.secondary)
-                    Spacer()
-                          if selectedOpponent.isAvailable,
-                              store.progress.canReplayIntroduction(selectedOpponent),
-                              StoryIntroClip.clip(for: selectedOpponent) != nil, onReplayIntroduction != nil {
-                        Button { onReplayIntroduction?(selectedOpponent) } label: {
-                            Image(systemName: "play.rectangle")
-                                .frame(width: 24, height: 20)
-                        }
-                        .buttonStyle(RivalMenuButtonStyle())
-                        .accessibilityLabel(loc.story(.replayIntroduction))
-                        .help(loc.story(.replayIntroduction))
-                        .accessibilityIdentifier("storyReplayIntroduction")
-                    }
-                    if store.progress.canReplayRivalScene(selectedOpponent),
-                       StoryIntroClip.rivalScene(for: selectedOpponent) != nil, onReplayRivalScene != nil {
-                        Button { onReplayRivalScene?(selectedOpponent) } label: {
-                            Image(systemName: "film")
-                                .frame(width: 24, height: 20)
-                        }
-                        .buttonStyle(RivalMenuButtonStyle())
-                        .accessibilityLabel(loc.story(.replayRivalScene))
-                        .help(loc.story(.replayRivalScene))
-                        .accessibilityIdentifier("storyReplayRivalScene")
-                    }
-                    if canResume {
-                        Button { onChallenge(selectedOpponent) } label: {
-                            Label(loc.story(.resume), systemImage: "play.fill")
-                                .lineLimit(1).minimumScaleFactor(0.75)
-                        }
-                        .buttonStyle(RivalMenuButtonStyle())
-                        .accessibilityIdentifier("storyResume")
-                    }
-                    Button {
-                        if purchases.hasStoryAccess {
-                            preparingRematch = isRematch
-                            preparingOpponent = selectedOpponent
-                        } else {
-                            showsStoryPurchase = true
-                        }
-                    } label: {
-                        Label(actionTitle, systemImage: canChallenge ? "arrow.right" : "lock.fill")
-                            .lineLimit(1).minimumScaleFactor(0.75)
-                    }
-                    .buttonStyle(RivalMenuButtonStyle(primary: true))
-                    .disabled(purchases.hasStoryAccess && !canChallenge)
-                    .opacity(canChallenge || !purchases.hasStoryAccess ? 1 : 0.45)
-                    .accessibilityIdentifier("storyChallenge")
-                }
+                .foregroundStyle(MainMenuPalette.paper)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(MainMenuPalette.background)
             .allowsHitTesting(preparingOpponent == nil && !showsStoryPurchase)
             .accessibilityHidden(preparingOpponent != nil || showsStoryPurchase)
         }
@@ -124,6 +61,7 @@ struct StorySelectionView: View {
             if showsStoryPurchase {
                 StoryPurchaseView(store: purchases, onClose: { showsStoryPurchase = false },
                     onUnlocked: { showsStoryPurchase = false })
+                    .rivalPanelTransition()
             } else if let opponent = preparingOpponent {
                 WaitingRoomView(controller: controller, storyOpponent: opponent, onChallenge: {
                     let rematch = preparingRematch
@@ -138,13 +76,205 @@ struct StorySelectionView: View {
                     preparingOpponent = nil
                     preparingRematch = false
                 })
+                .rivalPanelTransition()
             }
         }
+        .animation(.easeOut(duration: reducedMotion ? UIStyleKit.microDuration : UIStyleKit.fastDuration),
+                   value: showsStoryPurchase)
+        .animation(.easeOut(duration: reducedMotion ? UIStyleKit.microDuration : UIStyleKit.fastDuration),
+                   value: preparingOpponent)
         .onAppear {
-            selectedOpponent = store.progress.activeBout?.bout.opponent
-                ?? StoryOpponent.allCases.first(where: {
-                    store.progress.isUnlocked($0) && !store.progress.clearedOpponents.contains($0)
-                }) ?? .pressure
+            selectedOpponent = purchases.hasStoryAccess ? store.progress.nextOpponent : .basic
+        }
+    }
+
+    private var selectionHeader: some View {
+        HStack(spacing: 12) {
+            RivalWordmark(width: 56)
+                .accessibilityIdentifier("storyWordmark")
+            Text(loc.story(.opponents))
+                .font(.system(size: titleSize, weight: .semibold))
+                .accessibilityAddTraits(.isHeader)
+                .lineLimit(1).minimumScaleFactor(0.75)
+            Spacer(minLength: 0)
+            replayControls
+            if !dynamicType.isAccessibilitySize {
+                Button { showsLineup = true } label: {
+                    Image(systemName: "person.3")
+                }
+                .buttonStyle(RivalMenuButtonStyle())
+                .accessibilityLabel(loc.story(.showLineup))
+                .accessibilityIdentifier("storyShowLineup")
+            }
+            Button(action: onClose) { Label(loc.t(.exitButton), systemImage: "arrow.left") }
+                .buttonStyle(RivalMenuButtonStyle())
+                .accessibilityIdentifier("storyBack")
+        }
+        .frame(minHeight: 44)
+    }
+
+    private func presentationArtwork(size: CGSize) -> some View {
+        ZStack {
+            Image("StoryArena")
+                .resizable().scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .clipped().opacity(0.26)
+            Image(showsLineup ? "StoryLineup" : selectedOpponent.storyPortraitAssetName)
+                .resizable().scaledToFit()
+                .frame(width: size.width * (showsLineup ? 0.68 : 0.50), height: max(0, size.height - (showsLineup ? 170 : 180)))
+                .position(x: size.width * (showsLineup ? 0.66 : 0.73), y: size.height * (showsLineup ? 0.34 : 0.38))
+                .id(showsLineup ? "lineup" : selectedOpponent.rawValue)
+                .transition(.opacity)
+        }
+        .animation(reducedMotion ? nil : .easeOut(duration: UIStyleKit.fastDuration), value: selectedOpponent)
+        .animation(reducedMotion ? nil : .easeOut(duration: UIStyleKit.fastDuration), value: showsLineup)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var selectedDetails: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if showsLineup && !dynamicType.isAccessibilitySize {
+                Text(loc.story(.lineupTitle))
+                    .font(.system(size: titleSize, weight: .semibold))
+                Text(loc.story(.lineupDetail))
+                    .font(.system(size: rowSize))
+                    .foregroundStyle(MainMenuPalette.secondary)
+            }
+            Text(selectedOpponent.title(for: loc.language))
+                .font(.system(size: rowSize, weight: .semibold))
+                .accessibilityIdentifier("storySelectedOpponent")
+            Text("\(selectedOpponent.maximumRounds) \(loc.story(.rounds)) / 60s")
+                .font(.system(size: detailSize, weight: .medium)).monospacedDigit()
+                .foregroundStyle(MainMenuPalette.secondary)
+            Text(purchases.hasStoryAccess
+                ? "\(store.progress.clearedOpponents.filter { $0.isAvailable && $0 != .rival }.count) / \(StoryOpponent.allCases.filter { $0.isAvailable && $0 != .rival }.count)"
+                : loc.purchase(.previewBouts))
+                .font(.system(size: detailSize, weight: .medium)).monospacedDigit()
+                .foregroundStyle(MainMenuPalette.secondary)
+            if !showsLineup || dynamicType.isAccessibilitySize { opponentAdvice.padding(.top, 4) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var opponentRoster: some View {
+        ScrollViewReader { scroll in
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(StoryOpponent.allCases) { opponent in
+                        opponentRow(opponent).frame(width: 172).id(opponent)
+                    }
+                }
+            }
+            .scrollIndicators(.visible)
+            .frame(height: dynamicType > .large ? 90 : 76)
+            .background(MainMenuPalette.background.opacity(0.97))
+            .accessibilityIdentifier("storyOpponentList")
+            .onAppear { scroll.scrollTo(selectedOpponent, anchor: .center) }
+            .onChange(of: selectedOpponent) { _, opponent in
+                withAnimation(reducedMotion ? nil : .easeOut(duration: UIStyleKit.fastDuration)) {
+                    scroll.scrollTo(opponent, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private var opponentAdvice: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(loc.story(.coachAdvice))
+                .font(.system(size: detailSize, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
+            Text(loc.story(selectedOpponent == .basic ? .basicPreviewProfile : selectedOpponent.coachAdviceText(at: 0)))
+                .foregroundStyle(MainMenuPalette.secondary)
+                .accessibilityIdentifier("storyOpponentAdvice")
+            Text("\(loc.story(.victoryReward)): \(previewVictoryReward)")
+                .foregroundStyle(MainMenuPalette.story)
+            if !selectedOpponent.isAvailable {
+                Text(loc.story(.unavailable))
+                    .foregroundStyle(MainMenuPalette.secondary)
+            } else if !purchases.hasStoryAccess {
+                Text(loc.purchase(.previewAccessRequirement))
+                    .foregroundStyle(MainMenuPalette.secondary)
+            } else if !store.progress.isUnlocked(selectedOpponent) {
+                Text(loc.story(.progressRequired))
+                    .foregroundStyle(MainMenuPalette.secondary)
+            }
+        }
+        .font(.system(size: detailSize, weight: .medium))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var replayControls: some View {
+        if purchases.hasStoryAccess || StoryProgress.temporarilyUnlockCutscenes,
+           selectedOpponent.isAvailable,
+           store.progress.canReplayIntroduction(selectedOpponent),
+           StoryIntroClip.clip(for: selectedOpponent) != nil, onReplayIntroduction != nil {
+            Button { onReplayIntroduction?(selectedOpponent) } label: {
+                Image(systemName: "play.rectangle")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 24, height: 20)
+            }
+            .buttonStyle(RivalMenuButtonStyle())
+            .accessibilityLabel(loc.story(.replayIntroduction))
+            .help(loc.story(.replayIntroduction))
+            .accessibilityIdentifier("storyReplayIntroduction")
+        }
+        if purchases.hasStoryAccess || StoryProgress.temporarilyUnlockCutscenes,
+           store.progress.canReplayRivalScene(selectedOpponent),
+           StoryIntroClip.rivalScene(for: selectedOpponent) != nil, onReplayRivalScene != nil {
+            Button { onReplayRivalScene?(selectedOpponent) } label: {
+                Image(systemName: "film")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 24, height: 20)
+            }
+            .buttonStyle(RivalMenuButtonStyle())
+            .accessibilityLabel(loc.story(.replayRivalScene))
+            .help(loc.story(.replayRivalScene))
+            .accessibilityIdentifier("storyReplayRivalScene")
+        }
+    }
+
+    private var storyActions: some View {
+        HStack(spacing: 8) {
+            if canResume {
+                Button { onChallenge(selectedOpponent) } label: {
+                    Label(loc.story(.resume), systemImage: "play.fill")
+                        .lineLimit(2)
+                }
+                .buttonStyle(RivalMenuButtonStyle())
+                .accessibilityIdentifier("storyResume")
+            }
+            Button {
+                if purchases.hasStoryAccess {
+                    preparingRematch = isRematch
+                    preparingOpponent = selectedOpponent
+                } else {
+                    showsStoryPurchase = true
+                }
+            } label: {
+                Label(actionTitle, systemImage: canChallenge ? "arrow.right" : "lock.fill")
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(RivalMenuButtonStyle(primary: true))
+            .disabled(purchases.hasStoryAccess && !canChallenge)
+            .opacity(canChallenge || !purchases.hasStoryAccess ? 1 : 0.45)
+            .accessibilityIdentifier("storyChallenge")
+        }
+    }
+
+    private var previewVictoryReward: String {
+        switch selectedOpponent {
+        case .basic:
+            loc.story(.nextBoutReward)
+        case .southpaw:
+            "\(StoryPurchaseReward.appearance(.southpaw).title(for: loc.language)) · \(loc.story(.southpawStance))"
+        case .rival:
+            "\(StoryPurchaseReward.appearance(.rival).title(for: loc.language)) · \(StoryPurchaseReward.championOutfit.title(for: loc.language)) · \(StoryPurchaseReward.championBelt.title(for: loc.language))"
+        default:
+            StoryPurchaseReward.appearance(selectedOpponent).title(for: loc.language)
         }
     }
 
@@ -161,43 +291,56 @@ struct StorySelectionView: View {
     }
 
     private var actionTitle: String {
-        if !purchases.hasStoryAccess { return loc.purchase(.purchaseBenefits) }
-        if !store.progress.isUnlocked(selectedOpponent) { return loc.story(.locked) }
+        if !purchases.hasStoryAccess { return loc.purchase(.viewStoryAccess) }
         if !selectedOpponent.isAvailable { return loc.story(.unavailable) }
+        if !store.progress.isUnlocked(selectedOpponent) { return loc.story(.locked) }
         if canResume { return loc.story(.newChallenge) }
-        return loc.story(isRematch ? .replay : .challenge)
+        return loc.story(isRematch ? .replay : .prepare)
     }
 
     private func opponentRow(_ opponent: StoryOpponent) -> some View {
-        let unlocked = store.progress.isUnlocked(opponent)
+        let unlocked = purchases.hasStoryAccess && store.progress.isUnlocked(opponent)
         let cleared = store.progress.clearedOpponents.contains(opponent)
         let index = (StoryOpponent.allCases.firstIndex(of: opponent) ?? 0) + 1
-        return Button { selectedOpponent = opponent } label: {
+        return Button {
+            selectedOpponent = opponent
+            showsLineup = false
+        } label: {
             HStack(spacing: 10) {
-                Text(String(format: "%02d", index))
-                    .font(.system(size: 13, weight: .bold)).monospacedDigit()
-                    .foregroundStyle(MainMenuPalette.secondary)
+                if !dynamicType.isAccessibilitySize {
+                    Image(opponent.storyBustAssetName)
+                        .resizable().scaledToFit()
+                        .frame(width: 36, height: 48)
+                        .accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(opponent.title(for: loc.language)).font(.system(size: 16, weight: .bold))
-                        .lineLimit(1).minimumScaleFactor(0.7)
-                    Text(cleared ? loc.story(.cleared) : (unlocked ? "\(opponent.maximumRounds) R" : loc.story(.locked)))
-                        .font(.system(size: 10, weight: .medium)).foregroundStyle(MainMenuPalette.secondary)
+                    Text(opponent.title(for: loc.language)).font(.system(size: rowSize, weight: .semibold))
+                        .lineLimit(dynamicType.isAccessibilitySize ? nil : 2)
+                        .minimumScaleFactor(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(!opponent.isAvailable ? loc.story(.unavailable) : "\(index) · \(opponent.maximumRounds) R"
+                        + (cleared ? " · \(loc.story(.cleared))" : !unlocked ? " · \(loc.story(.locked))" : ""))
+                        .font(.system(size: detailSize, weight: .medium)).foregroundStyle(MainMenuPalette.secondary)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: cleared ? "checkmark.circle.fill" : (unlocked ? "chevron.right" : "lock.fill"))
+                Image(systemName: !opponent.isAvailable ? "clock" : cleared ? "checkmark.circle.fill" : (unlocked ? "chevron.right" : "lock.fill"))
                     .font(.system(size: 12, weight: .semibold)).accessibilityHidden(true)
             }
             .foregroundStyle(MainMenuPalette.paper)
-            .padding(.horizontal, 10).padding(.vertical, 12)
+            .padding(.horizontal, 8).padding(.vertical, 8)
             .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
             .contentShape(Rectangle())
-            .background(selectedOpponent == opponent ? MainMenuPalette.paper.opacity(0.09) : .clear)
-            .overlay(alignment: .bottom) { Rectangle().fill(MainMenuPalette.rule).frame(height: 1) }
+            .rivalSelection(isSelected: selectedOpponent == opponent)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RivalPlainButtonStyle())
         .accessibilityIdentifier("storyOpponent_\(opponent.rawValue)")
         .accessibilityAddTraits(selectedOpponent == opponent ? .isSelected : [])
     }
+}
+
+extension StoryOpponent {
+    var storyPortraitAssetName: String { "StoryPortrait-\(rawValue)" }
+    var storyBustAssetName: String { "StoryBust-\(rawValue)" }
 }
 
 struct StoryIntroductionOverlay: View {
@@ -240,11 +383,12 @@ struct StoryIntroductionOverlay: View {
                     } else if !introduction.short && introduction.elapsed < 2.0 {
                         Text(loc.story(introduction.opponent.introductionVenueText))
                             .font(.system(size: 16, weight: .bold))
-                        Text(introduction.opponent == .pressure ? loc.story(.firstBout)
+                        Text(introduction.opponent == .basic ? loc.story(.firstSparring)
+                            : introduction.opponent == .pressure ? loc.story(.firstBout)
                             : "\(introduction.opponent.maximumRounds) \(loc.story(.rounds))")
                             .font(.system(size: 11, weight: .medium))
                     } else if introduction.elapsed >= introduction.dialogueStartTime || introduction.short {
-                        Text("\(introduction.opponent.title(for: loc.language)): \(loc.story(introduction.opponent.introductionLineText))")
+                        Text("\(introduction.opponent.fighterName(for: loc.language)): \(loc.story(introduction.opponent.introductionLineText))")
                             .font(.system(size: 15, weight: .semibold))
                             .lineLimit(introduction.opponent == .rival ? 3 : 2).minimumScaleFactor(0.85)
                             .multilineTextAlignment(.center)
@@ -279,8 +423,8 @@ struct StoryRivalSceneOverlay: View {
                 return loc.story(.championshipReward)
             }
         }
-        return scene.elapsed >= scene.duration - 2.0
-            ? "RIVAL: \(loc.story(scene.chapter.rivalSceneLineText))" : ""
+        let line: StoryText = scene.sparringKnockout ? .basicRecoveryLine : scene.chapter.rivalSceneLineText
+        return scene.elapsed >= scene.duration - 2.0 ? "RIVAL: \(loc.story(line))" : ""
     }
 
     var body: some View {
@@ -356,12 +500,12 @@ struct StoryRoundClock: View {
            presentation.knockoutClockPhase == .visible || presentation.knockoutClockPhase == .finished {
             return "T.K.O."
         }
-        return String(format: "%02d", Int(ceil(max(0, remainingTime))))
+        return CombatText.roundTime(remainingTime)
     }
 
     private var clockCaption: String {
         if bout.phase == .counting {
-            return "\(bout.countingSide == .player ? "ME" : bout.opponent.title(for: loc.language)) \(loc.story(.knockdown))"
+            return "\(bout.countingSide == .player ? "ME" : bout.opponent.fighterName(for: loc.language)) \(loc.story(.knockdown))"
         }
         if bout.phase == .corner { return loc.story(.corner) }
         return loc.story(bout.advantage > 0 ? .ahead : (bout.advantage < 0 ? .behind : .even))
@@ -374,9 +518,15 @@ struct StoryRoundClock: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text("ROUND \(bout.round) / \(bout.opponent.maximumRounds)")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(Color(red: 1, green: 0.78, blue: 0.12))
+            HStack(spacing: 4) {
+                Text("\(loc.t(.roundLabel)) \(bout.round) / \(bout.opponent.maximumRounds)")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(FightNightPalette.paper.opacity(0.7))
+                Spacer(minLength: 0)
+                Text("\(loc.story(.downs))  \(bout.stats.playerDowns) : \(bout.stats.opponentDowns)")
+                    .font(.system(size: 9, weight: .medium)).monospacedDigit()
+            }
+            .lineLimit(1).minimumScaleFactor(0.8)
             Group {
                 if bout.phase == .corner, bout.canStartNextRound {
                     Image(systemName: "checkmark")
@@ -385,18 +535,16 @@ struct StoryRoundClock: View {
                     Text(clockText).monospacedDigit()
                 }
             }
-            .font(.system(size: 24, weight: .black)).fontWidth(.condensed)
+            .font(.system(size: 24, weight: .bold))
             .foregroundStyle(clockAccent)
             .frame(width: 126, height: 30)
             .accessibilityIdentifier(bout.phase == .counting ? "storyDownCount" : "storyClockValue")
             Text(clockCaption)
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 10, weight: .semibold))
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .foregroundStyle(clockAccent)
                 .frame(width: 126, height: 14)
                 .allowsHitTesting(false)
-            Text("\(loc.story(.downs))  \(bout.stats.playerDowns) : \(bout.stats.opponentDowns)")
-                .font(.system(size: 8, weight: .medium)).monospacedDigit()
         }
         .foregroundStyle(.white)
         .frame(width: 126)
@@ -412,7 +560,9 @@ struct StoryBoutOverlay: View {
     let onRetry: () -> Void
     let onExit: () -> Void
     var onRivalScene: (() -> Void)? = nil
+    var roundRecord: CombatSnapshot? = nil
     @ObservedObject private var loc = LocalizationManager.shared
+    @ScaledMetric(relativeTo: .body) private var cornerPanelHeight: CGFloat = 340
 
     var body: some View {
         Group {
@@ -420,83 +570,150 @@ struct StoryBoutOverlay: View {
             case .counting:
                 EmptyView()
             case .corner:
-                VStack(spacing: 10) {
-                    Text(loc.story(.corner)).font(.system(size: 26, weight: .black))
-                    Text("ROUND \(bout.round) / \(bout.opponent.maximumRounds)")
-                        .font(.system(size: 12, weight: .semibold)).monospacedDigit()
-                    Text(loc.story(bout.advantage > 0 ? .ahead : (bout.advantage < 0 ? .behind : .even)))
-                        .font(.system(size: 13, weight: .medium))
-                    HStack(spacing: 8) {
-                        ProgressView(value: bout.cornerElapsed, total: max(0.001, bout.rules.cornerSeconds))
-                            .tint(MainMenuPalette.paper)
-                        Group {
-                            if bout.canStartNextRound {
-                                Image(systemName: "checkmark")
-                                    .accessibilityLabel(loc.story(.nextRound))
-                            } else {
-                                Text("\(Int(ceil(max(0, bout.rules.cornerSeconds - bout.cornerElapsed))))s")
-                                    .monospacedDigit()
-                            }
-                        }
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(bout.canStartNextRound ? MainMenuPalette.paper : MainMenuPalette.secondary)
-                        .frame(width: 26, alignment: .trailing)
-                    }
-                    .frame(width: 168)
-                    Button(action: onContinue) {
-                        Label(loc.story(.nextRound), systemImage: "arrow.right")
-                    }
-                    .buttonStyle(RivalMenuButtonStyle(primary: true))
-                    .disabled(!bout.canStartNextRound)
-                    .opacity(bout.canStartNextRound ? 1 : 0.45)
-                    .animation(.easeOut(duration: UIStyleKit.microDuration), value: bout.canStartNextRound)
-                    .accessibilityIdentifier("storyNextRound")
-                }
-                .padding(24)
-                .background(MainMenuPalette.background, in: RoundedRectangle(cornerRadius: 4))
+                corner
             case .finished:
                 if showsResult { result }
             case .fighting:
                 EmptyView()
             }
         }
-        .foregroundStyle(MainMenuPalette.paper)
+        .foregroundStyle(PreparationPalette.ink)
+    }
+
+    private var corner: some View {
+        GeometryReader { proxy in
+            Color.black.opacity(0.42).ignoresSafeArea().allowsHitTesting(false)
+            VStack(spacing: 14) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(loc.story(.corner)).font(.title2.weight(.semibold))
+                                Text("\(loc.t(.roundLabel)) \(bout.round) / \(bout.opponent.maximumRounds)")
+                                    .font(.subheadline.weight(.semibold)).monospacedDigit()
+                                    .foregroundStyle(PreparationPalette.secondary)
+                            }
+                            Spacer(minLength: 12)
+                            Text("\(bout.playerPoints) : \(bout.opponentPoints)")
+                                .font(.title2.weight(.bold)).monospacedDigit()
+                        }
+                        roundDetails
+                        Text(loc.story(bout.advantage > 0 ? .ahead : (bout.advantage < 0 ? .behind : .even)))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(PreparationPalette.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 20)
+                    .padding(.horizontal, 20)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                HStack(spacing: 8) {
+                    ProgressView(value: bout.cornerElapsed, total: max(0.001, bout.rules.cornerSeconds))
+                        .tint(PreparationPalette.ink)
+                    Group {
+                        if bout.canStartNextRound {
+                            Image(systemName: "checkmark")
+                                .accessibilityLabel(loc.story(.nextRound))
+                        } else {
+                            Text("\(Int(ceil(max(0, bout.rules.cornerSeconds - bout.cornerElapsed))))s")
+                                .monospacedDigit()
+                        }
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 26, alignment: .trailing)
+                }
+                .frame(width: 168)
+                Button(action: onContinue) {
+                    Text(loc.story(.nextRound))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(RivalMenuButtonStyle(primary: true, onPaper: true))
+                .disabled(!bout.canStartNextRound)
+                .opacity(bout.canStartNextRound ? 1 : 0.45)
+                .animation(.easeOut(duration: UIStyleKit.microDuration), value: bout.canStartNextRound)
+                .accessibilityIdentifier("storyNextRound")
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
+            .frame(maxWidth: 420, maxHeight: min(cornerPanelHeight, proxy.size.height - 24))
+            .rivalPaperSurface()
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     private var result: some View {
-        VStack(spacing: 12) {
+        GeometryReader { proxy in
+            Color.black.opacity(0.42).ignoresSafeArea().allowsHitTesting(false)
+            VStack(spacing: 0) {
+                ScrollView {
+                    resultSummary
+                        .padding(20)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        resultStoryAction
+                        resultNavigationActions
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                    VStack(spacing: 8) {
+                        resultStoryAction
+                        resultNavigationActions
+                    }
+                }
+                .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 16)
+            }
+            .frame(maxWidth: 600, maxHeight: min(340, proxy.size.height - 24))
+            .rivalPaperSurface()
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("storyBoutResult")
+        }
+    }
+
+    private var resultSummary: some View {
+        VStack(spacing: 8) {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(loc.story(bout.verdict == .win ? .win : (bout.verdict == .loss ? .loss : .draw)))
-                        .font(.system(size: 26, weight: .black)).fontWidth(.condensed)
-                        .lineLimit(1).minimumScaleFactor(0.8)
+                        .font(.title.weight(.semibold))
                     Text(bout.finish == .technicalKnockout ? "T.K.O." : loc.story(.decision))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(MainMenuPalette.secondary)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(PreparationPalette.secondary)
                 }
                 Spacer(minLength: 12)
                 Text("\(bout.playerPoints) : \(bout.opponentPoints)")
-                    .font(.system(size: 24, weight: .bold)).monospacedDigit()
+                    .font(.title2.weight(.bold)).monospacedDigit()
                     .lineLimit(1).minimumScaleFactor(0.8)
+            }
+            if let roundRecord {
+                Text("\(loc.t(.roundLabel)) \(roundRecord.round)")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                roundDetails
             }
             if bout.verdict == .win, bout.opponent.hasAppearance {
                 Text(bout.opponent == .rival ? loc.story(.championshipReward)
+                    : bout.opponent == .southpaw ? (StoryPurchaseStore.shared.hasStoryAccess
+                        ? loc.story(.southpawReward) : loc.purchase(.southpawUnlockRequirement))
                     : "\(bout.opponent.title(for: loc.language)) · \(loc.story(.appearanceUnlocked))")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(MainMenuPalette.secondary)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(PreparationPalette.secondary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(2).minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("R").font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(MainMenuPalette.secondary).frame(height: 14)
-                    Text("ME").font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(red: 0.18, green: 0.82, blue: 1)).frame(height: 18)
-                    Text(bout.opponent.title(for: loc.language))
+                        .foregroundStyle(PreparationPalette.secondary).frame(height: 14)
+                    Text(loc.t(.leaderboardYouLabel)).font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(PreparationPalette.player).frame(height: 18)
+                    Text(bout.opponent.fighterName(for: loc.language))
                         .font(.system(size: 10, weight: .semibold))
                         .lineLimit(1).minimumScaleFactor(0.65)
-                        .foregroundStyle(Color(red: 1, green: 0.25, blue: 0.40)).frame(height: 18)
+                        .foregroundStyle(PreparationPalette.rival).frame(height: 18)
                 }
                 .frame(width: 72, alignment: .leading)
                 ScrollView(.horizontal) {
@@ -505,16 +722,16 @@ struct StoryBoutOverlay: View {
                             VStack(spacing: 4) {
                                 Text("\(card.round)")
                                     .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(MainMenuPalette.secondary).frame(height: 14)
+                                    .foregroundStyle(PreparationPalette.secondary).frame(height: 14)
                                 Text("\(card.playerPoints)")
-                                    .foregroundStyle(Color(red: 0.18, green: 0.82, blue: 1)).frame(height: 18)
+                                    .foregroundStyle(PreparationPalette.player).frame(height: 18)
                                 Text("\(card.opponentPoints)")
-                                    .foregroundStyle(Color(red: 1, green: 0.25, blue: 0.40)).frame(height: 18)
+                                    .foregroundStyle(PreparationPalette.rival).frame(height: 18)
                             }
                             .font(.system(size: 12, weight: .semibold)).monospacedDigit()
                             .frame(width: 32)
                             .overlay(alignment: .leading) {
-                                Rectangle().fill(MainMenuPalette.rule).frame(width: 1)
+                                Rectangle().fill(PreparationPalette.rule).frame(width: 1)
                             }
                         }
                     }
@@ -522,23 +739,23 @@ struct StoryBoutOverlay: View {
                 .scrollIndicators(.visible)
             }
             .frame(height: 64)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    resultStoryAction
-                    resultNavigationActions
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                VStack(spacing: 8) {
-                    resultStoryAction
-                    resultNavigationActions
+        }
+    }
+
+    @ViewBuilder private var roundDetails: some View {
+        if let roundRecord {
+            VStack(alignment: .leading, spacing: 12) {
+                RoundRecordTable(snapshot: roundRecord, opponentName: bout.opponent.fighterName(for: loc.language))
+                if let report = roundRecord.rivalRead.cornerReport(for: loc.language) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(loc.t(.roundStatsRivalCornerLabel)).font(.subheadline.weight(.semibold))
+                        Text(report).font(.subheadline)
+                            .foregroundStyle(PreparationPalette.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
-        .padding(.horizontal, 18).padding(.vertical, 16)
-        .frame(maxWidth: 520)
-        .background(MainMenuPalette.background, in: RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(MainMenuPalette.rule, lineWidth: 1))
-        .accessibilityIdentifier("storyBoutResult")
     }
 
     @ViewBuilder private var resultStoryAction: some View {
@@ -547,7 +764,7 @@ struct StoryBoutOverlay: View {
                 Label(loc.story(.continueStory), systemImage: "arrow.right")
                     .lineLimit(1).minimumScaleFactor(0.75)
             }
-            .buttonStyle(RivalMenuButtonStyle(primary: true))
+            .buttonStyle(RivalMenuButtonStyle(primary: true, onPaper: true))
             .accessibilityIdentifier("storyContinueToRivalScene")
         }
     }
@@ -558,12 +775,13 @@ struct StoryBoutOverlay: View {
                 Label(loc.story(.opponents), systemImage: "list.bullet")
                     .lineLimit(1).minimumScaleFactor(0.75)
             }
-            .buttonStyle(RivalMenuButtonStyle())
+            .buttonStyle(RivalMenuButtonStyle(onPaper: true))
+            .accessibilityIdentifier("storyResultExit")
             Button(action: onRetry) {
                 Label(loc.story(bout.verdict == .win ? .replay : .retry), systemImage: "arrow.clockwise")
                     .lineLimit(1).minimumScaleFactor(0.75)
             }
-            .buttonStyle(RivalMenuButtonStyle(primary: onRivalScene == nil))
+            .buttonStyle(RivalMenuButtonStyle(primary: onRivalScene == nil, onPaper: true))
             .accessibilityIdentifier("storyRetry")
         }
     }

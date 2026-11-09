@@ -97,7 +97,7 @@ final class GameController: ObservableObject {
     var isPlayingStoryScene: Bool { storyIntroduction != nil || storyRivalScene != nil }
     var canPlayStoryRivalScene: Bool {
         guard let opponent = engine.storyBout?.opponent else { return false }
-        return engine.storyBout?.phase == .finished && engine.storyBout?.verdict == .win
+        return engine.storyBout?.phase == .finished && (opponent == .basic || engine.storyBout?.verdict == .win)
             && !isPlayingStoryScene
             && storyStore?.progress.seenRivalScenes.contains(opponent) != true
             && StoryIntroClip.rivalScene(for: opponent) != nil
@@ -111,6 +111,7 @@ final class GameController: ObservableObject {
     @Published private(set) var snapshot: CombatSnapshot
     /// 플레이어의 현재 선택한 스타일(FightStyle)
     @Published private(set) var playerStyle: FightStyle
+    @Published private(set) var playerStance = BoxingStance.orthodox
     /// 현재 장착된 의상 ID
     @Published private(set) var equippedOutfit: OutfitID
     @Published private(set) var equippedAppearance: StoryOpponent?
@@ -118,7 +119,9 @@ final class GameController: ObservableObject {
     var clearedStoryOpponents: Set<StoryOpponent> { storyStore?.progress.clearedOpponents ?? [] }
     var championOutfitEarned: Bool { storyStore?.progress.championOutfitUnlocked == true }
     var championBeltEarned: Bool { storyStore?.progress.championBeltUnlocked == true }
-    var championBeltUnlocked: Bool { StoryPurchaseStore.shared.hasStoryAccess && championBeltEarned }
+    var championBeltUnlocked: Bool {
+        StoryPurchaseStore.shared.hasStoryAccess && (StoryProgress.temporarilyUnlockEquipment || championBeltEarned)
+    }
     /// 사운드 음소거 상태(설정 반영)
     @Published private(set) var isSoundMuted: Bool
     /// 플레이어 통계 데이터
@@ -164,6 +167,10 @@ final class GameController: ObservableObject {
         let savedOutfit = OutfitID(rawValue: defaults?.string(forKey: GameController.outfitDefaultsKey) ?? "") ?? .classic
         preferredOutfit = savedOutfit
         let hasStoryAccess = StoryPurchaseStore.shared.hasStoryAccess
+        let savedStance = storyStore?.progress.equippedStance ?? .orthodox
+        let selectedStance = hasStoryAccess && storyStore?.progress.canEquipStance(savedStance) == true ? savedStance : .orthodox
+        playerStance = selectedStance
+        engine.player.stance = selectedStance
         equippedOutfit = .classic
         let savedAppearance = storyStore?.progress.equippedAppearance
         equippedAppearance = hasStoryAccess && storyStore?.progress.canEquipAppearance(savedAppearance) == true
@@ -211,6 +218,7 @@ final class GameController: ObservableObject {
             }
         }
         snapshot = nextSnapshot
+        playerStance = engine.player.stance
         let previousStory = storyBout
         storyBout = engine.storyBout
         if let storyBout {
@@ -313,6 +321,7 @@ final class GameController: ObservableObject {
         if resumingStory, let checkpoint = storyStore?.progress.activeBout,
            checkpoint.bout.opponent == engine.storyBout?.opponent {
             engine.restoreStory(checkpoint)
+            if !isStanceUnlocked(engine.player.stance) { engine.player.stance = .orthodox }
         } else {
             introductionDefersBell = engine.storyBout != nil
             if engine.storyBout != nil {
@@ -397,8 +406,9 @@ final class GameController: ObservableObject {
         releaseHeldControls()
         saveStoryProgress()
         let duration = scene3D.beginStoryRivalScene(clip: clip, chapter: opponent)
-        storyRivalScene = StoryRivalScene(chapter: opponent, duration: duration)
-        sound?.beginCutscene(.aftermath(opponent), clip: clip)
+        let sparringKnockout = opponent == .basic && engine.storyBout?.finish == .technicalKnockout
+        storyRivalScene = StoryRivalScene(chapter: opponent, duration: duration, sparringKnockout: sparringKnockout)
+        sound?.beginCutscene(.aftermath(opponent), clip: clip, sparringKnockout: sparringKnockout)
     }
 
     func updateStoryRivalScene(elapsed: Double) {
@@ -524,7 +534,7 @@ final class GameController: ObservableObject {
 
     func comboAttack(base: Punch) {
         guard storyIntroduction == nil else { return }
-        if WeaveState.hook(base: base, direction: engine.player.weave.comboDirection) != nil {
+        if WeaveState.hook(base: base, direction: engine.player.weave.comboDirection, stance: engine.player.stance) != nil {
             _ = engine.requestWeaveHook(base: base)
             return
         }
@@ -546,9 +556,9 @@ final class GameController: ObservableObject {
 
     /// The same resolved input is used by the command and its VoiceOver name, including held combos.
     func selectedPunch(base: Punch) -> Punch {
-        if let hook = WeaveState.hook(base: base, direction: engine.player.weave.comboDirection) { return hook }
+        if let hook = WeaveState.hook(base: base, direction: engine.player.weave.comboDirection, stance: engine.player.stance) { return hook }
         if engine.player.weave.isActive { return base }
-        return modifiers.punch(base: base)
+        return modifiers.punch(base: base, stance: engine.player.stance)
     }
 
     /// 콤보 공격 진입: 현재 가드/더킹 상태를 반영한 콤보 펀치를 생성해 `attack(_:)`로 위임합니다.
@@ -585,6 +595,7 @@ final class GameController: ObservableObject {
     }
 
     private func isOutfitUnlocked(_ outfit: OutfitID, hasStoryAccess: Bool) -> Bool {
+        if StoryProgress.temporarilyUnlockEquipment { return true }
         if outfit == .storyStarter { return hasStoryAccess }
         return (hasStoryAccess && (outfit == .champion || outfit == .storyChampion) && championOutfitEarned) || outfit.isUnlocked(
             highestRound: engine.highestRound,
@@ -600,6 +611,23 @@ final class GameController: ObservableObject {
         StoryPurchaseStore.shared.hasStoryAccess && storyStore?.progress.canEquipAppearance(opponent) == true
     }
 
+    var canChangeStance: Bool {
+        engine.phase == .intro || engine.storyBout?.phase == .finished
+            || (engine.storyBout == nil && engine.phase == .roundBreak)
+    }
+
+    func isStanceUnlocked(_ stance: BoxingStance) -> Bool {
+        stance == .orthodox || (StoryPurchaseStore.shared.hasStoryAccess && storyStore?.progress.canEquipStance(stance) == true)
+    }
+
+    func setPlayerStance(_ stance: BoxingStance) {
+        guard canChangeStance, isStanceUnlocked(stance) else { return }
+        storyStore?.equipStance(stance)
+        engine.player.stance = stance
+        playerStance = stance
+        publishSnapshot()
+    }
+
     func setEquippedOutfit(_ outfit: OutfitID) {
         guard isOutfitUnlocked(outfit) else { return }
         setEquippedAppearance(nil)
@@ -610,6 +638,12 @@ final class GameController: ObservableObject {
     }
 
     private func refreshPurchaseEquipment(hasStoryAccess: Bool) {
+        let savedStance = storyStore?.progress.equippedStance ?? .orthodox
+        let stance = hasStoryAccess && storyStore?.progress.canEquipStance(savedStance) == true ? savedStance : .orthodox
+        if playerStance != stance && (canChangeStance || !hasStoryAccess) {
+            engine.player.stance = stance
+            playerStance = stance
+        }
         let outfit = isOutfitUnlocked(preferredOutfit, hasStoryAccess: hasStoryAccess) ? preferredOutfit : .classic
         if equippedOutfit != outfit {
             equippedOutfit = outfit
@@ -622,7 +656,8 @@ final class GameController: ObservableObject {
             equippedAppearance = appearance
             scene3D.setPlayerAppearance(appearance)
         }
-        let belt = hasStoryAccess && championBeltEarned && storyStore?.progress.championBeltEquipped == true
+        let belt = hasStoryAccess && (StoryProgress.temporarilyUnlockEquipment || championBeltEarned)
+            && storyStore?.progress.championBeltEquipped == true
         if championBeltEquipped != belt {
             championBeltEquipped = belt
             scene3D.setPlayerChampionBelt(belt)

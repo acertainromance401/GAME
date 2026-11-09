@@ -2,12 +2,35 @@
 
 배포·심사에서 실제 수행한 항목과 남은 실계정·출시 확인 항목을 분리해 관리한다.
 
-- **대상:** RIVAL 1.2(6) 심사 제출본 · 마케팅 버전 `1.2`, 빌드 번호 `6`
-- **문서 기준일:** 2026-10-12 · 제출 상태의 마지막 확인은 2026-10-11
+- **대상:** RIVAL 1.3(7) 심사 제출본 · 마케팅 버전 `1.3`, 빌드 번호 `7`
+- **문서 기준일:** 2026-11-09 · 아래 1.2 절은 2026-10 당시의 제출 기록
 - **설정 기준:** [RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj), [project.yml](../../ios-pixel-boxing/project.yml), [PixelBoxingIOS/Info.plist](../../ios-pixel-boxing/PixelBoxingIOS/Info.plist)
-- **상태:** 사용자가 아카이브·시뮬레이터 캡처·업로드·심사 제출을 추가로 요청해 실행했다. `1.2(6)` Release 아카이브를 업로드하고 앱·Story 상품·Total Wins 순위표 3개 항목을 2026-10-11 06:31 GMT+9에 함께 제출했다. 당시 확인한 상태는 `Waiting for Review`이며 승인·스토어 출시 완료가 아니다. 앱 가격은 변경하지 않았고 수동 출시를 유지했다. 실기기 설치와 Production/Sandbox 계정 결제는 수행하지 않았다. 이번 문서 정리에서는 새 배포 조회·빌드·제출을 하지 않았다.
+- **상태:** 기존 `1.2`는 새 조회에서 `READY_FOR_SALE`을 확인했다. `1.3(7)` Release 아카이브·IPA 검증과 업로드를 완료했고 Apple 빌드는 `VALID`이다. 사용자 요청에 따라 심사 제출했으며 앱 버전과 제출 모두 `WAITING_FOR_REVIEW`다. 수동 출시(`MANUAL`)를 유지하므로 승인되어도 자동 출시되지 않는다. 심사 승인·공개 출시와 실제 계정 결제·복원·사람의 플레이 체감 검증은 별도다.
 
-## 현재 준비 상태
+## 1.3 현재 준비·심사 상태
+
+- [x] 실제 Debug/Release 프로젝트와 명세의 버전·빌드를 `1.3` / `7`로 올림.
+- [x] Release 아카이브·App Store IPA 생성과 strict/deep 서명 검증. 배포 IPA의 `get-task-allow=false`, 오디오·개인정보 매니페스트 포함, 앱 내 `.storekit` 부재 확인.
+- [x] Release 집중 단위 1개 통과: 개발자 임시 Story·장비·컷씬 접근 비활성화, 새 일반/첫 Story 경기의 기본 오소독스 전달 확인.
+- [x] Connect 초안 `63b0ca89-9733-4110-bb5d-b839b8742bda` 생성. `MANUAL` 유지, 가격·심사 연락처·로그인 불필요 조건 보존.
+- [x] [1.3 메타데이터](../../ios-pixel-boxing/AppStoreMetadata/1.3.json)의 한·영·일 홍보 문구·설명·키워드·업데이트 내용과 공통 심사 메모 저장 및 서버 원문 대조. 현재 이용권 진입 동선도 반영.
+- [x] `1.3(7)` 업로드 성공. Apple 빌드 `ff7d02e6-d529-4a30-a6d6-b336f5b43eaf`의 `VALID` 처리와 초안 연결 확인. 비면제 암호화 사용 여부 `false`.
+- [x] 두 추가 음원의 앱 사용 권한은 개발자 확인으로 기록하고 Connect의 `USES_THIRD_PARTY_CONTENT` 선언 저장·재조회 확인. BGM 출처는 [Pixabay](https://pixabay.com/sound-effects/musical-drum-boom-bap-style-drumbreak-01-90bpm-8bars-316268/). 관중 원본 URL·독립 라이선스 검증은 없으며, 별도 증빙은 요청 시 제출.
+- [x] 최종 Release UI 캡처 총 6회 통과·실패 0, 실제 화면 42장. 로딩·전환·구매 창·보상 배너가 안정된 후 촬영했으며 앱에 캡처용 우회를 추가하지 않음.
+- [x] 승인된 포스터와 실제 UI를 결합한 스크린샷 54장 생성·규격·미감 확인 및 Connect 연결. 중형 iPhone 2622×1206, 대형 iPhone 2868×1320, iPad 2752×2064 각각 한·영·일 6장. 9개 세트의 개수·순서·배송 오류 부재 확인.
+- [x] 현지화 프로모션 헤더 3장(3840×1646) 업로드 및 언어 전환·재접속 후 각 1장 유지 확인. 텍스트 없는 Story 1024×1024 홍보 이미지는 로컬 준비만 했으며 홍보 구매를 활성화하지 않음.
+- [x] Apple 스크린샷 54장 모두 `COMPLETE`, 9개 세트 각각 6장·순서·배송 오류 부재 확인. 지연된 일본어 대형 iPhone 1장은 동일 원본 재업로드 후 기존 초안 참조 정리·순서 복원. [준비·제출 상태](../../ios-pixel-boxing/AppStoreMetadata/1.3-preparation.json)에 기록.
+- [ ] 헤더 최종 배송 완료의 독립 확인. 언어별 등록·재접속 유지 확인과 심사 제출은 완료됨.
+- [ ] 실제 Sandbox/TestFlight 구매·복원·권한 취소와 Game Center 제출. 기존 계정·저장 데이터의 실사용 업그레이드 검증.
+- [x] 사용자 요청에 따라 `1.3(7)` 앱 버전 1개 심사 제출. 제출 ID `db294fe6-6d21-4dfd-a6d9-5eb7d166caa0`, 서버와 새 심사 상세 화면의 `WAITING_FOR_REVIEW`, 빌드 7·`MANUAL` 재조회 확인.
+- [ ] 심사 승인 후 개발자가 수동 출시.
+
+서명된 최종 아카이브 `ios-pixel-boxing/build/RIVAL-1.3-7-20261109.xcarchive`와
+배포 IPA `ios-pixel-boxing/build/RIVAL-1.3-7-export/RIVAL.ipa`는 로컬에서 보존한다.
+이번 저장 공간 정리는 사용자 승인 아래 이 대화의 오래된 테스트 번들과 재생성 가능한
+기기 빌드 캐시만 대상으로 했다. 원본·최종 이미지·백업·아카이브·실제 iPhone 데이터는 보존했다.
+
+## 1.2 준비 상태 (2026-10 당시)
 
 - [x] 실제 앱 Debug/Release와 프로젝트 명세를 `1.2` / `6`으로 맞춤.
 - [x] 실제 Release 설정의 버전·빌드 번호, iPhone·iPad 지원 `1,2`, `DEBUG` 조건 없음 확인.

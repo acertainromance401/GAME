@@ -1,0 +1,61 @@
+{
+  "checkedOn": "2026-11-09",
+  "appId": "6799909429",
+  "version": "1.3",
+  "build": "7",
+  "versionId": "63b0ca89-9733-4110-bb5d-b839b8742bda",
+  "buildId": "ff7d02e6-d529-4a30-a6d6-b336f5b43eaf",
+  "versionState": "WAITING_FOR_REVIEW",
+  "buildProcessingState": "VALID",
+  "releaseType": "MANUAL",
+  "reviewSubmitted": true,
+  "reviewSubmissionId": "db294fe6-6d21-4dfd-a6d9-5eb7d166caa0",
+  "reviewSubmissionState": "WAITING_FOR_REVIEW",
+  "reviewSubmittedAt": "2026-11-08T18:53:41.749Z",
+  "publiclyReleased": false,
+  "screenshots": {
+    "uploaded": 54,
+    "sets": 9,
+    "imagesPerSet": 6,
+    "allSetsInExpectedOrder": true,
+    "deliveryErrors": [],
+    "confirmedCompleteAtLastCheck": 54,
+    "awaitingAppleProcessingAtLastCheck": 0,
+    "pendingAtLastCheck": []
+  },
+  "headerAssets": {
+    "size": [3840, 1646],
+    "uploadAndPersistenceConfirmed": ["en-US", "ko", "ja"],
+    "deliveryCompletionIndependentlyConfirmed": false
+  },
+  "storyPromotionImage": {
+    "size": [1024, 1024],
+    "preparedLocally": true,
+    "storePromotionEnabledByThisUpdate": false
+  },
+  "validation": {
+    "signedReleaseArchiveAndExportPassed": true,
+    "distributionGetTaskAllow": false,
+    "usesNonExemptEncryption": false,
+    "releaseDeveloperAccessAndOrthodoxRegressionPassed": true,
+    "finalReleaseUICaptureRunsPassed": 6,
+    "finalReleaseUICaptureRunsFailed": 0,
+    "nativeSourceCaptures": 42,
+    "productionPurchaseOrRestoreTested": false,
+    "humanPlayAndAudioMixDirectlyObserved": false
+  },
+  "audioRights": {
+    "confirmedBy": "developer",
+    "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT",
+    "independentlyVerified": false,
+    "backgroundMusicSource": "https://pixabay.com/sound-effects/musical-drum-boom-bap-style-drumbreak-01-90bpm-8bars-316268/",
+    "crowdSourceURL": null,
+    "licenseAttachmentSubmitted": false
+  },
+  "preserved": {
+    "liveVersion": "1.2",
+    "liveScreenshotResources": 30,
+    "existingPricingAndReviewContact": true,
+    "physicalIPhoneData": true
+  }
+}

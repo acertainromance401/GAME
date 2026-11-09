@@ -38,18 +38,11 @@ struct VSSplashView: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
-            LinearGradient(
-                colors: [.black.opacity(0.82), .black.opacity(0.08), .black.opacity(0.74)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
             VStack(spacing: 0) {
                 HStack {
                     Text("RIVAL")
-                        .font(.system(size: 18, weight: .black, design: .rounded))
+                        .font(.system(size: 18, weight: .black))
+                        .fontWidth(.condensed)
                         .foregroundStyle(.white.opacity(0.92))
                     Spacer()
                     Button(action: finish) {
@@ -67,25 +60,43 @@ struct VSSplashView: View {
                 .padding(.top, 14)
 
                 Spacer()
-                HStack(alignment: .lastTextBaseline, spacing: 20) {
+                HStack(spacing: 0) {
                     Text("ME")
-                        .foregroundStyle(Color(red: 0.2, green: 0.62, blue: 1.0))
+                        .foregroundStyle(FightNightPalette.blue)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                         .accessibilityLabel(loc.t(.playerAccessibility))
                     Text("VS")
-                        .foregroundStyle(.white)
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(FightNightPalette.paper)
+                        .padding(.horizontal, 16)
                     Text("RIVAL")
-                        .foregroundStyle(Color(red: 1.0, green: 0.2, blue: 0.26))
+                        .foregroundStyle(FightNightPalette.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityLabel(loc.t(.rivalAccessibility))
                 }
-                .font(.system(size: 38, weight: .black, design: .rounded))
-                .shadow(color: .black.opacity(0.75), radius: 12)
+                .font(.system(size: 42, weight: .black))
+                .fontWidth(.condensed)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(FightNightPalette.ink.opacity(0.92))
+                .overlay(alignment: .top) {
+                    HStack(spacing: 0) {
+                        Rectangle().fill(FightNightPalette.blue)
+                        Rectangle().fill(FightNightPalette.red)
+                    }
+                    .frame(height: 3)
+                }
                 .opacity(titleVisible ? 1 : 0)
-                .scaleEffect(titleVisible ? 1 : 1.08)
                 Text("ROUND \(controller.snapshot.round)")
                     .accessibilityLabel("\(loc.t(.roundLabel)) \(controller.snapshot.round)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .padding(.top, 8)
+                    .font(.system(size: 13, weight: .black))
+                    .monospacedDigit()
+                    .foregroundStyle(FightNightPalette.paper)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 6)
+                    .background(FightNightPalette.ink.opacity(0.92))
                     .opacity(titleVisible ? 1 : 0)
                 Spacer()
             }

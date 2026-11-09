@@ -6,13 +6,43 @@ struct DuckMotion: Equatable, Sendable {
     static let releaseDuration = 0.12
     static let minimumEvadeAmount: Float = 0.70
     private(set) var direction: Float = 0
+    private var postureDepth: Float = 0
+    private var turnDepth: Float = 0
+
+    var postureAmount: Float { postureDepth }
+
+    static func upperBodyAmount(_ depth: Float) -> Float {
+        let t = min(1, max(0, depth))
+        return t * t * (3 - 2 * t)
+    }
 
     mutating func advance(direction requested: Int, deltaTime: Double) {
         guard deltaTime.isFinite, deltaTime > 0 else { return }
         let target = Float(min(1, max(-1, requested)))
         let duration = target == 0 ? Self.releaseDuration : Self.entryDuration
         let step = Float(deltaTime / duration)
+        if target * direction < 0, turnDepth == 0 { turnDepth = postureDepth }
         direction += min(step, max(-step, target - direction))
+        let depth: Float
+        if target == 0 {
+            turnDepth = 0
+            depth = 0
+        } else if turnDepth > 0 {
+            if direction * target >= 0, abs(direction) >= turnDepth {
+                turnDepth = 0
+                depth = abs(direction)
+            } else {
+                // Retain a shallow load only inside the directionally ineligible part of a turn.
+                let limit = min(turnDepth, Self.minimumEvadeAmount)
+                let retained = min(turnDepth * 0.25, limit * 0.5)
+                let crossing = min(1, abs(direction) / limit)
+                depth = abs(direction) >= limit ? abs(direction)
+                    : retained + (limit - retained) * pow(crossing, limit / (limit - retained))
+            }
+        } else {
+            depth = max(postureDepth, abs(direction))
+        }
+        postureDepth += min(step, max(-step, depth - postureDepth))
     }
 
     func evades(_ punch: Punch) -> Bool {
@@ -82,7 +112,7 @@ enum DefensiveMotion {
         return abs(target - next) < 0.002 ? target : min(1, max(0, next))
     }
 
-    /// Visual commitment only; the engine still accepts/evaluates the direction immediately.
+    /// Presentation-only blend; match and gym rigs use the shared DuckMotion state.
     static func duckBlend(current: Float, direction: Int, deltaTime: Double, reducedMotion: Bool) -> Float {
         let target = Float(min(1, max(-1, direction)))
         if reducedMotion { return target }
@@ -126,11 +156,14 @@ struct FootPlantMotion {
     private var swingDuration: Double = 0.12
     private var nextLeft = true
     private var lift: Float = 0
+    private var startLift: Float = 0
+    private var stepLift: Float = 0
+    private var plantRemaining: Double?
 
     mutating func sample(
         rootPosition: SIMD3<Float>, rootRotation: simd_quatf,
         left: SIMD3<Float>, right: SIMD3<Float>, deltaTime: Double,
-        moving: Bool, reset: Bool = false, reducedMotion: Bool = false
+        moving: Bool, reset: Bool = false, reducedMotion: Bool = false, plantBy: Double? = nil
     ) -> Feet {
         let leftTarget = rootPosition + rootRotation.act(SIMD3<Float>(left.x, 0.14, left.z))
         let rightTarget = rootPosition + rootRotation.act(SIMD3<Float>(right.x, 0.14, right.z))
@@ -143,6 +176,9 @@ struct FootPlantMotion {
             swingLeft = nil
             swingTime = 0
             lift = 0
+            startLift = 0
+            stepLift = 0
+            plantRemaining = nil
             nextLeft = true
             return Feet(left: left, right: right)
         }
@@ -153,35 +189,73 @@ struct FootPlantMotion {
             velocity.y = 0
             let speed = simd_length(velocity)
             if speed > 6.5 { velocity *= 6.5 / speed }
-            let leftError = simd_distance(leftWorld!, leftTarget)
-            let rightError = simd_distance(rightWorld!, rightTarget)
-            if swingLeft == nil, max(leftError, rightError) > (moving ? 0.045 : 0.025) {
-                // Larger error catches up first; ties alternate rather than crossing the feet.
-                let localVelocity = rootRotation.inverse.act(velocity)
-                let directionFirst: Bool
-                if abs(localVelocity.x) > abs(localVelocity.z), abs(localVelocity.x) > 0.01 {
-                    directionFirst = localVelocity.x > 0
-                } else if abs(localVelocity.z) > 0.01 {
-                    directionFirst = localVelocity.z > 0
-                } else {
-                    directionFirst = nextLeft
+            // Non-nil through activeEnd: finish the current step before contact, then hold support.
+            if let plantBy {
+                if plantRemaining == nil {
+                    let available = max(0, plantBy + dt)
+                    plantRemaining = available
+                    if let swingLeft {
+                        swingStart = swingLeft ? leftWorld! : rightWorld!
+                        swingTime = 0
+                        let otherError = simd_distance(swingLeft ? rightWorld! : leftWorld!,
+                                                      swingLeft ? rightTarget : leftTarget)
+                        swingDuration = max(0.000001, available / (otherError > 0.025 ? 2 : 1))
+                        swingLead = .zero
+                        startLift = lift
+                        stepLift = 0
+                    }
                 }
-                let chooseLeft = abs(leftError - rightError) > 0.025 ? leftError > rightError : directionFirst
-                swingLeft = chooseLeft
-                swingStart = chooseLeft ? leftWorld! : rightWorld!
-                swingTime = 0
-                swingDuration = moving ? max(0.08, 0.15 - Double(min(6.5, speed)) * 0.011) : 0.10
-                var lead = localVelocity * (moving ? 0.035 : 0)
-                lead.x = min(0.10, max(-0.10, lead.x))
-                swingLead = rootRotation.act(lead)
+            } else {
+                plantRemaining = nil
             }
-            if let swingLeft {
-                swingTime = min(swingDuration, swingTime + dt)
+            var remaining = dt
+            while remaining > 0.000000001 {
+                if let plantRemaining, plantRemaining <= 0.000000001 {
+                    swingLeft = nil
+                    lift = 0
+                    break
+                }
+                let leftError = simd_distance(leftWorld!, leftTarget)
+                let rightError = simd_distance(rightWorld!, rightTarget)
+                if swingLeft == nil, max(leftError, rightError) > (moving ? 0.045 : 0.025) {
+                    // Larger error catches up first; ties alternate rather than crossing the feet.
+                    let localVelocity = rootRotation.inverse.act(velocity)
+                    let directionFirst: Bool
+                    if abs(localVelocity.x) > abs(localVelocity.z), abs(localVelocity.x) > 0.01 {
+                        directionFirst = localVelocity.x > 0
+                    } else if abs(localVelocity.z) > 0.01 {
+                        directionFirst = localVelocity.z > 0
+                    } else {
+                        directionFirst = nextLeft
+                    }
+                    let chooseLeft = abs(leftError - rightError) > 0.025 ? leftError > rightError : directionFirst
+                    swingLeft = chooseLeft
+                    swingStart = chooseLeft ? leftWorld! : rightWorld!
+                    swingTime = 0
+                    swingDuration = moving ? max(0.08, 0.15 - Double(min(6.5, speed)) * 0.011) : 0.10
+                    if let plantRemaining {
+                        let otherError = chooseLeft ? rightError : leftError
+                        swingDuration = max(0.000001, plantRemaining / (otherError > 0.025 ? 2 : 1))
+                    }
+                    startLift = 0
+                    stepLift = plantRemaining == nil ? (reducedMotion ? 0.025 : 0.065)
+                        : (reducedMotion ? 0.010 : 0.025)
+                    var lead = localVelocity * (moving && plantRemaining == nil ? 0.035 : 0)
+                    lead.x = min(0.10, max(-0.10, lead.x))
+                    swingLead = rootRotation.act(lead)
+                }
+                guard let swingLeft else {
+                    if let time = plantRemaining { plantRemaining = max(0, time - remaining) }
+                    break
+                }
+                let step = min(remaining, swingDuration - swingTime)
+                swingTime = min(swingDuration, swingTime + step)
+                remaining -= step
+                if let time = plantRemaining { plantRemaining = max(0, time - step) }
                 let t = Float(swingTime / swingDuration)
                 let eased = t * t * (3 - 2 * t)
                 // A short lead avoids dragging the recovery foot behind fast lateral movement.
-                // Cap lateral anticipation to preserve each style's stance width.
-                // Retain this step's lead if an attack stops locomotion mid-step; do not yank it back.
+                // Punch preparation rebases from the current foot instead of retaining walking lead.
                 var targetLocal = rootRotation.inverse.act(
                     (swingLeft ? leftTarget : rightTarget) + swingLead - rootPosition)
                 let supportLocal = rootRotation.inverse.act((swingLeft ? rightWorld! : leftWorld!) - rootPosition)
@@ -190,11 +264,12 @@ struct FootPlantMotion {
                 let target = rootPosition + rootRotation.act(targetLocal)
                 let position = swingStart + (target - swingStart) * eased
                 if swingLeft { leftWorld = position } else { rightWorld = position }
-                lift = sin(.pi * t) * (reducedMotion ? 0.025 : 0.065)
+                lift = min(reducedMotion ? 0.025 : 0.065, startLift * (1 - eased) + sin(.pi * t) * stepLift)
                 if t >= 1 {
                     self.swingLeft = nil
                     nextLeft = !swingLeft
                     lift = 0
+                    if plantRemaining == nil { break }
                 }
             }
         }

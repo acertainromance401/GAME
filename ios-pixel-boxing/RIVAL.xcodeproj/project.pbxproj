@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		43524F574443484545520002 /* CrowdCheer.wav in Resources */ = {isa = PBXBuildFile; fileRef = 43524F574443484545520001 /* CrowdCheer.wav */; };
+		42474D4D5553494300000002 /* Background music in Resources */ = {isa = PBXBuildFile; fileRef = 42474D4D5553494300000001 /* Background music */; };
+		504F5745525452414E530101 /* PowerTransferMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504F5745525452414E530001 /* PowerTransferMotionTests.swift */; };
+		5245434F564552594D4F0101 /* RecoveryMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5245434F564552594D4F0001 /* RecoveryMotionTests.swift */; };
+		434F4E4E454354494F4E0101 /* AttackConnectionMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 434F4E4E454354494F4E0001 /* AttackConnectionMotionTests.swift */; };
+		484F4F4B4D4F54494F4E0101 /* DefensivePunchMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 484F4F4B4D4F54494F4E0001 /* DefensivePunchMotionTests.swift */; };
+		4455434B504F535455524502 /* DefensivePostureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4455434B504F535455524501 /* DefensivePostureTests.swift */; };
+		4D4F54494F4E4C4142000101 /* MotionLab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D4F54494F4E4C4142000001 /* MotionLab.swift */; };
 		52455649455753544F524501 /* StoryReview.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 52455649455753544F524502 /* StoryReview.storekit */; };
 		50524956414359494E460101 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 50524956414359494E460001 /* PrivacyInfo.xcprivacy */; };
 		53544F524550555243480101 /* StoryPurchaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53544F524550555243480001 /* StoryPurchaseStore.swift */; };
@@ -27,6 +35,7 @@
 		53544F525900000000000102 /* StoryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53544F525900000000000002 /* StoryViews.swift */; };
 		0476E204003E9D966BA00889 /* GameController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9EE1576B9CD752C9075938 /* GameController.swift */; };
 		10B08424B43EA625DBF7222A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 090033F2AAA516B93499FF14 /* Assets.xcassets */; };
+		4252414E444C41554E434801 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 4252414E444C41554E434802 /* LaunchScreen.storyboard */; };
 		130817A206C12484ECBFB920 /* UIStyleKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD12C40B85262FC8101A1558 /* UIStyleKit.swift */; };
 		193780021A5B627D8E4F3383 /* PixelBoxingIOSUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9433F6A915F54633224890B0 /* PixelBoxingIOSUITests.swift */; };
 		207A756E9C0F093418E011D0 /* CombatPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55E0D76BDCD1D6E40DF8CE2 /* CombatPresentationTests.swift */; };
@@ -87,6 +96,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		43524F574443484545520001 /* CrowdCheer.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Audio/CrowdCheer.wav; sourceTree = "<group>"; };
+		42474D4D5553494300000001 /* Background music */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "Audio/fronbondi_skegs-drum-boom-bap-style-drumbreak-01-90bpm-8bars-316268.mp3"; sourceTree = "<group>"; };
+		504F5745525452414E530001 /* PowerTransferMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerTransferMotionTests.swift; sourceTree = "<group>"; };
+		5245434F564552594D4F0001 /* RecoveryMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryMotionTests.swift; sourceTree = "<group>"; };
+		434F4E4E454354494F4E0001 /* AttackConnectionMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttackConnectionMotionTests.swift; sourceTree = "<group>"; };
+		484F4F4B4D4F54494F4E0001 /* DefensivePunchMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefensivePunchMotionTests.swift; sourceTree = "<group>"; };
+		4455434B504F535455524501 /* DefensivePostureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefensivePostureTests.swift; sourceTree = "<group>"; };
+		4D4F54494F4E4C4142000001 /* MotionLab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionLab.swift; sourceTree = "<group>"; };
 		52455649455753544F524502 /* StoryReview.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = StoryReview.storekit; sourceTree = "<group>"; };
 		50524956414359494E460001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		53544F524550555243480001 /* StoryPurchaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPurchaseStore.swift; sourceTree = "<group>"; };
@@ -112,6 +129,7 @@
 		11D306F6F5663AF5C28F0B3F /* WeaveMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeaveMotion.swift; sourceTree = "<group>"; };
 		18649BDFAA79CA848872EE71 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		1B11145A0A7255C78E1388D8 /* LoadingScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingScreenView.swift; sourceTree = "<group>"; };
+		4252414E444C41554E434802 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1EC794C748AE1714A018AF5E /* MotionRegressionChecks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionRegressionChecks.swift; sourceTree = "<group>"; };
 		27605356261D2DCA6F23EDCC /* RIVAL.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RIVAL.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C2022C57BC8FE63C963A68A /* Weaving.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Weaving.swift; sourceTree = "<group>"; };
@@ -182,6 +200,8 @@
 			children = (
 				F44F9E90636538AB57FC68BA /* Arena3DScene.swift */,
 				090033F2AAA516B93499FF14 /* Assets.xcassets */,
+				42474D4D5553494300000001 /* Background music */,
+				43524F574443484545520001 /* CrowdCheer.wav */,
 				61338B4E8D496B0C8DE4CB17 /* BoxingMotion.swift */,
 				E0B1899EF9F3F938D6E4746C /* CombatCore.swift */,
 				F88E6C8BB29EB9181BB3E6DE /* CombatInput.swift */,
@@ -194,12 +214,14 @@
 				E74B4D4AEC69795F71CB0189 /* GameView.swift */,
 				6C3FDE3A4010C902ECAE7B3F /* ImpactFeedback.swift */,
 				A8BD2E36F4496EDE17CC81C9 /* Info.plist */,
+				4252414E444C41554E434802 /* LaunchScreen.storyboard */,
 				7AE84CEFA93F531AC610FB30 /* LeaderboardView.swift */,
 				1B11145A0A7255C78E1388D8 /* LoadingScreenView.swift */,
 				18649BDFAA79CA848872EE71 /* Localization.swift */,
 				841EEC3D27D22C9C47F7B4C4 /* MainMenuDesign.swift */,
 				73DE4FA9B0E7E6C7F77DF170 /* MainMenuView.swift */,
 				B049C586DD953638CE4616B4 /* MapDressing.swift */,
+				4D4F54494F4E4C4142000001 /* MotionLab.swift */,
 				015C983A77AE827DF4E32EDE /* PixelBoxingApp.swift */,
 				74F045143DB5DAD7BB78502F /* PracticeController.swift */,
 				0BCAAF7B4B08A7FDD8A7A3B4 /* PracticeView.swift */,
@@ -270,6 +292,11 @@
 				7BBDAFB2FF11E26131B36E89 /* MainMenuPresentationTests.swift */,
 				0871BD08B0E204207E635A9D /* MapDressingTests.swift */,
 				F58905DD5031EA7594B16FE3 /* MotionPolishTests.swift */,
+				484F4F4B4D4F54494F4E0001 /* DefensivePunchMotionTests.swift */,
+				4455434B504F535455524501 /* DefensivePostureTests.swift */,
+				434F4E4E454354494F4E0001 /* AttackConnectionMotionTests.swift */,
+				5245434F564552594D4F0001 /* RecoveryMotionTests.swift */,
+				504F5745525452414E530001 /* PowerTransferMotionTests.swift */,
 				1EC794C748AE1714A018AF5E /* MotionRegressionChecks.swift */,
 				3CCF305D078A820E33B6E4C8 /* PlaceholderTests.swift */,
 				82607CE1175E40DE3C8347C8 /* RivalAITests.swift */,
@@ -399,6 +426,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				10B08424B43EA625DBF7222A /* Assets.xcassets in Resources */,
+				42474D4D5553494300000002 /* Background music in Resources */,
+				43524F574443484545520002 /* CrowdCheer.wav in Resources */,
+				4252414E444C41554E434801 /* LaunchScreen.storyboard in Resources */,
 				50524956414359494E460101 /* PrivacyInfo.xcprivacy in Resources */,
 				53544F525900000000000103 /* story_pressure_intro.json in Resources */,
 				53544F525900000000000104 /* story_outboxer_intro.json in Resources */,
@@ -447,6 +477,7 @@
 				A2C1805F3B6706E9C5480F58 /* MainMenuDesign.swift in Sources */,
 				322BD4626E90EE060449275A /* MainMenuView.swift in Sources */,
 				41BC7DAEEB7BD6D5627485D2 /* MapDressing.swift in Sources */,
+				4D4F54494F4E4C4142000101 /* MotionLab.swift in Sources */,
 				3E5155BC290061C2258CB8DB /* PixelBoxingApp.swift in Sources */,
 				29B4B6A1F022CD862E6DACF1 /* PracticeController.swift in Sources */,
 				EB00DED2A9A8B58152F26EBA /* PracticeView.swift in Sources */,
@@ -475,6 +506,11 @@
 				C9E3C7C3B2472E604200CB4F /* MainMenuPresentationTests.swift in Sources */,
 				8AD46C60280D01F62B41545F /* MapDressingTests.swift in Sources */,
 				D0D17CDEAC6212D88EBB9F3D /* MotionPolishTests.swift in Sources */,
+				484F4F4B4D4F54494F4E0101 /* DefensivePunchMotionTests.swift in Sources */,
+				4455434B504F535455524502 /* DefensivePostureTests.swift in Sources */,
+				434F4E4E454354494F4E0101 /* AttackConnectionMotionTests.swift in Sources */,
+				5245434F564552594D4F0101 /* RecoveryMotionTests.swift in Sources */,
+				504F5745525452414E530101 /* PowerTransferMotionTests.swift in Sources */,
 				2124E127A814DC04BF27FC1D /* MotionRegressionChecks.swift in Sources */,
 				7E32012F154F233FA381DB51 /* PlaceholderTests.swift in Sources */,
 				2B29E984059DEFC4E8F850F0 /* RivalAITests.swift in Sources */,
@@ -653,13 +689,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PixelBoxingIOS/RIVAL.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				INFOPLIST_FILE = PixelBoxingIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -690,13 +726,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PixelBoxingIOS/RIVAL.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				INFOPLIST_FILE = PixelBoxingIOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.acertainromance401.pixelboxing;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";

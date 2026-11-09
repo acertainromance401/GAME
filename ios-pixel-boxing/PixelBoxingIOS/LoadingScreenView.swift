@@ -3,7 +3,7 @@
 
  파일 설명:
  - 앱 시작 시 사용자에게 보여주는 로딩/진입 화면을 정의합니다.
- - 3D 아레나/라인업 리소스를 재사용하여 일관된 비주얼을 제공하고 초기 데이터 로딩 상태를 표시합니다.
+ - 기존 3D 복싱 오프닝 위에 정적 시작 화면과 같은 워드마크를 표시합니다.
 
  사용 영향 및 주의사항:
  - 네트워크/디스크 I/O 대기 시 표시되는 UI로, 성능 민감 코드와 분리되어야 합니다.
@@ -13,14 +13,14 @@
 import SwiftUI
 
 /// 로딩 스크린: 앱 시작 시 짧게 보여주는 연출. 전투 엔진은 cinematic 모드로 멈춘 상태에서
-/// 3D 씬을 재사용하므로 별도 스프라이트 자산이 필요 없습니다.
+/// 3D 씬의 안무는 유지하고 시작 화면과 같은 위치에 공통 워드마크를 표시합니다.
 struct LoadingScreenView: View {
     @ObservedObject var controller: GameController
     let onFinished: () -> Void
 
     @RivalReducedMotion private var reduceMotion
     @State private var sceneVisible = false
-    @State private var markVisible = false
+    @State private var markVisible = true
     @State private var hasFinished = false
 
     private var holdsForVisualTest: Bool {
@@ -43,7 +43,7 @@ struct LoadingScreenView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color("LaunchBackground").ignoresSafeArea()
 
             Arena3DView(controller: controller)
                 .ignoresSafeArea()
@@ -51,21 +51,16 @@ struct LoadingScreenView: View {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
-            VStack(spacing: 8) {
-                Text("RIVAL")
-                    .font(.system(size: 44, weight: .black, design: .default))
-                    .foregroundStyle(.white)
-                Rectangle()
-                    .fill(Color(red: 1.0, green: 0.78, blue: 0.12))
-                    .frame(width: 42, height: 2)
-            }
+            RivalWordmark(width: 148, color: Color(red: 237 / 255, green: 234 / 255, blue: 226 / 255))
             .opacity(markVisible ? 1 : 0)
             .scaleEffect(markVisible ? 1 : 0.96)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.top, 28)
+            .padding(.top, 32)
             .accessibilityHidden(true)
         }
         .ignoresSafeArea()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("appOpening")
         .onAppear {
             controller.setCinematicMode(true, presentation: .appOpening)
             withAnimation(.easeOut(duration: 0.32)) {
@@ -86,13 +81,8 @@ struct LoadingScreenView: View {
                 return
             }
 
-            try? await Task.sleep(nanoseconds: 450_000_000)
-            guard !hasFinished else { return }
-            withAnimation(.easeOut(duration: 0.28)) {
-                markVisible = true
-            }
             if holdsForVisualTest { return }
-            try? await Task.sleep(nanoseconds: 1_150_000_000)
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
             finish()
         }
     }

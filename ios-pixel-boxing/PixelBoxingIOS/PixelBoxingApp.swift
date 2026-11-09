@@ -127,14 +127,27 @@ struct RIVALApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            appContent
                 .persistentSystemOverlays(.hidden)
                 .statusBarHidden()
         }
     }
+
+    @ViewBuilder
+    private var appContent: some View {
+        #if DEBUG
+        if MotionLabModel.isEnabled {
+            MotionLabView()
+        } else {
+            RootView()
+        }
+        #else
+        RootView()
+        #endif
+    }
 }
 
-enum AppScreen {
+enum AppScreen: Hashable {
     case loading
     case mainMenu
     case vsSplash
@@ -143,6 +156,24 @@ enum AppScreen {
     case storySelection
     case storyBattle
     case storySceneReplay
+
+    var allowsBackgroundMusic: Bool {
+        switch self {
+        case .loading, .mainMenu, .storySelection: true
+        case .vsSplash, .battle, .practice, .storyBattle, .storySceneReplay: false
+        }
+    }
+
+    func modeTransitionAnimation(to destination: AppScreen, reducedMotion: Bool) -> Animation? {
+        switch (self, destination) {
+        case (.mainMenu, .storySelection), (.storySelection, .mainMenu),
+             (.mainMenu, .practice), (.practice, .mainMenu),
+             (.storySelection, .practice), (.practice, .storySelection):
+            return .easeOut(duration: reducedMotion ? UIStyleKit.microDuration : UIStyleKit.fastDuration)
+        default:
+            return nil
+        }
+    }
 }
 
 private enum OutfitUnlockReward: Identifiable, Equatable {
@@ -198,6 +229,7 @@ struct RootView: View {
     @StateObject private var controller: GameController
     @StateObject private var storyStore: StoryProgressStore
     @StateObject private var purchases = StoryPurchaseStore.shared
+    @StateObject private var backgroundMusic = BackgroundMusicPlayer()
     @State private var storyController: GameController?
     @State private var screen: AppScreen = .loading
     @State private var knownUnlockIDs: Set<String>?
@@ -247,12 +279,41 @@ struct RootView: View {
             return
         }
         let fixture = ProcessInfo.processInfo.environment["RIVAL_PRESENTATION_TEST"]
-        if fixture == "menu" || fixture == "fight" || fixture == "knockout" {
+        if fixture == "story-corner" || fixture == "story-result" {
+            let storyStore = StoryProgressStore(defaults: nil)
+            let controller = GameController(persistsProgress: false, feedbackEnabled: false,
+                storyOpponent: .pressure, storyStore: storyStore)
+            controller.start()
+            controller.finishStoryIntroduction()
+            guard var checkpoint = controller.engine.storyCheckpoint() else {
+                preconditionFailure("Story presentation fixture requires an active bout.")
+            }
+            if fixture == "story-corner" {
+                checkpoint.bout.finishRound()
+                checkpoint.remainingTime = 0
+            } else {
+                for _ in 0..<(checkpoint.bout.rules.maximumDownsPerRound - 1) {
+                    checkpoint.bout.knockdown(.opponent, resolvedDamage: 6)
+                    _ = checkpoint.bout.advanceCount(20)
+                }
+                checkpoint.player.positionX = 280
+                checkpoint.opponent.positionX = 330
+                checkpoint.opponent.health = 5
+                checkpoint.opponent.stagger = 1000
+            }
+            controller.engine.restoreStory(checkpoint)
+            controller.publishSnapshot()
+            _storyStore = StateObject(wrappedValue: storyStore)
+            _controller = StateObject(wrappedValue: controller)
+            _screen = State(initialValue: .battle)
+            return
+        }
+        if fixture == "menu" || fixture == "story-offer" || fixture == "story-selection" || fixture == "fight" || fixture == "knockout" {
             let storyStore = StoryProgressStore(defaults: nil)
             _storyStore = StateObject(wrappedValue: storyStore)
             // UI-test fixtures never load, overwrite or reset the installed player's paid-app progress.
             let controller = GameController(persistsProgress: false, feedbackEnabled: false, storyStore: storyStore)
-            if fixture != "menu" {
+            if fixture == "fight" || fixture == "knockout" {
                 controller.start()
                 controller.engine.player.x = 280
                 controller.engine.enemy.x = 330
@@ -261,11 +322,12 @@ struct RootView: View {
                 controller.publishSnapshot()
             }
             _controller = StateObject(wrappedValue: controller)
-            _screen = State(initialValue: fixture == "menu" ? .mainMenu : .battle)
+            _screen = State(initialValue: fixture == "story-selection" ? .storySelection
+                : ((fixture == "menu" || fixture == "story-offer") ? .mainMenu : .battle))
             return
         }
         if StoryProgress.temporarilyUnlockStory {
-            let storyStore = StoryProgressStore(defaults: UserDefaults(suiteName: "rival.story.preview.v1"))
+            let storyStore = StoryProgressStore.developerPreview()
             _storyStore = StateObject(wrappedValue: storyStore)
             _controller = StateObject(wrappedValue: GameController(persistsProgress: false, storyStore: storyStore))
             return
@@ -296,43 +358,44 @@ struct RootView: View {
                 switch screen {
                 case .loading:
                     LoadingScreenView(controller: controller) {
-                        screen = .mainMenu
+                        navigationScreen.wrappedValue = .mainMenu
                     }
                 case .mainMenu:
-                    MainMenuView(controller: controller, screen: $screen, storyProgress: storyStore.progress)
+                    MainMenuView(controller: controller, screen: navigationScreen, storyProgress: storyStore.progress)
                 case .vsSplash:
                     VSSplashView(controller: controller) {
-                        screen = .battle
+                        navigationScreen.wrappedValue = .battle
                     }
                 case .battle:
-                    GameView(controller: controller, screen: $screen)
+                    GameView(controller: controller, screen: navigationScreen)
                 case .practice:
                     PracticeView(
-                        style: controller.playerStyle, screen: $screen,
+                        style: controller.playerStyle, stance: controller.playerStance, screen: navigationScreen,
                         recordGymSeconds: controller.addGymSeconds
                     )
                 case .storySelection:
-                    if purchases.hasStoryAccess || StoryProgress.temporarilyUnlockCutscenes {
-                        StorySelectionView(store: storyStore, controller: controller, onClose: { screen = .mainMenu },
-                            onChallenge: { startStory($0, resumingStory: true) },
-                            onNewChallenge: { startStory($0, resumingStory: false) },
-                            onRematch: { startStory($0, resumingStory: false, shortIntroduction: true) },
-                            onReplayIntroduction: replayStoryIntroduction,
-                            onReplayRivalScene: replayStoryRivalScene)
-                    } else {
-                        MainMenuView(controller: controller, screen: $screen, storyProgress: storyStore.progress)
-                    }
+                    StorySelectionView(store: storyStore, controller: controller, onClose: { navigationScreen.wrappedValue = .mainMenu },
+                        onChallenge: { startStory($0, resumingStory: true) },
+                        onNewChallenge: { startStory($0, resumingStory: false) },
+                        onRematch: { startStory($0, resumingStory: false, shortIntroduction: true) },
+                        onReplayIntroduction: replayStoryIntroduction,
+                        onReplayRivalScene: replayStoryRivalScene)
                 case .storyBattle:
                     if let storyController, purchases.hasStoryAccess {
-                        GameView(controller: storyController, screen: $screen)
+                        GameView(controller: storyController, screen: navigationScreen)
+                            .onReceive(storyController.$isSoundMuted) { updateBackgroundMusic(muted: $0) }
                     }
                 case .storySceneReplay:
                     if let storyController, purchases.hasStoryAccess || StoryProgress.temporarilyUnlockCutscenes {
-                        StorySceneReplayView(controller: storyController, onClose: { screen = .storySelection })
+                        StorySceneReplayView(controller: storyController, onClose: { navigationScreen.wrappedValue = .storySelection })
+                            .onReceive(storyController.$isSoundMuted) { updateBackgroundMusic(muted: $0) }
                     }
                 }
             }
         }
+        .id(screen)
+        .transition(.asymmetric(insertion: .opacity, removal: .identity))
+        .background(MainMenuPalette.background.ignoresSafeArea())
         .overlay(alignment: .top) {
             if let reward = presentedUnlock {
                 OutfitUnlockBanner(reward: reward)
@@ -348,6 +411,7 @@ struct RootView: View {
         .animation(unlockAnimation, value: presentedUnlock?.id)
         .environment(\.rivalReducedMotionOverride, motionTestOverride)
         .task {
+            updateBackgroundMusic()
             beginUnlockTracking()
             await purchases.refreshAccess()
         }
@@ -371,6 +435,7 @@ struct RootView: View {
             pendingUnlocks.removeFirst()
         }
         .onChange(of: scenePhase) { _, phase in
+            updateBackgroundMusic()
             if phase != .active {
                 controller.suspendForInactivity()
                 storyController?.suspendForInactivity()
@@ -387,6 +452,10 @@ struct RootView: View {
                 storyController?.suspendForInactivity()
                 storyController = nil
             }
+            updateBackgroundMusic()
+        }
+        .onReceive(controller.$isSoundMuted) { muted in
+            if storyController == nil { updateBackgroundMusic(muted: muted) }
         }
         .onChange(of: purchases.hasStoryAccess) { _, unlocked in
             if !unlocked && (screen == .storyBattle
@@ -395,6 +464,23 @@ struct RootView: View {
                 screen = .mainMenu
             }
         }
+    }
+
+    private func updateBackgroundMusic(muted: Bool? = nil) {
+        var active = scenePhase == .active && screen.allowsBackgroundMusic
+            && !PromotionVideoCapture.isEnabled && !Arena3DScene.isIconCaptureMode
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["RIVAL_PRESENTATION_TEST"] != nil { active = false }
+        #endif
+        backgroundMusic.update(isActive: active, isMuted: muted ?? storyController?.isSoundMuted ?? controller.isSoundMuted)
+    }
+
+    private var navigationScreen: Binding<AppScreen> {
+        Binding(get: { screen }, set: { destination in
+            withAnimation(screen.modeTransitionAnimation(to: destination, reducedMotion: reducedMotion)) {
+                screen = destination
+            }
+        })
     }
 
     private func beginUnlockTracking() {
@@ -439,6 +525,9 @@ struct RootView: View {
         let session = GameController(persistsProgress: storyStore.persistsProgress && !StoryProgress.temporarilyUnlockStory,
             feedbackEnabled: storyStore.persistsProgress, storyOpponent: opponent, storyStore: storyStore)
         session.setPlayerStyle(controller.playerStyle)
+        session.setEquippedOutfit(controller.equippedOutfit)
+        session.setEquippedAppearance(controller.equippedAppearance)
+        session.setChampionBeltEquipped(controller.championBeltEquipped)
         session.start(resumingStory: resumingStory, shortStoryIntroduction: shortIntroduction)
         storyController = session
         screen = .storyBattle

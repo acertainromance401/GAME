@@ -3,6 +3,7 @@ import simd
 
 struct FightPose: Sendable {
     private(set) var style: FightStyle = .standard
+    private(set) var stance = BoxingStance.orthodox
     /// Facing-local visual offset only. BoxerRig must use this instead of -duckVisual * 0.26;
     /// FighterModel owns world displacement, including the weave's real lateral step.
     var rootX: Float = 0
@@ -47,8 +48,14 @@ struct FightPose: Sendable {
 
     static func neutral(
         stride: Float, style: FightStyle = .standard, stanceWidth: Float = 0,
-        leanBias: Float = 0, pitchBias: Float = 0
+        leanBias: Float = 0, pitchBias: Float = 0, stance: BoxingStance = .orthodox
     ) -> FightPose {
+        if stance == .southpaw {
+            var pose = neutral(stride: stride, style: style, stanceWidth: stanceWidth,
+                leanBias: leanBias, pitchBias: pitchBias)
+            pose.mirrorStance()
+            return pose
+        }
         if stride == 0 {
             if stanceWidth == 0, leanBias == 0, pitchBias == 0, let pose = baseStances[style] {
                 return pose
@@ -176,6 +183,12 @@ struct FightPose: Sendable {
     }
 
     mutating func applyGuard(style: FightStyle = .standard, amount: Float = 1) {
+        if stance == .southpaw {
+            mirrorStance()
+            applyGuard(style: style, amount: amount)
+            mirrorStance()
+            return
+        }
         let original = self
         let head = headFacingPosition
         switch style {
@@ -198,23 +211,28 @@ struct FightPose: Sendable {
         }
         torsoLean -= 0.015
         let blend = min(1, max(0, amount))
-        leftElbow = original.leftElbow + (leftElbow - original.leftElbow) * blend
-        rightElbow = original.rightElbow + (rightElbow - original.rightElbow) * blend
+        let elbowBlend = blend * blend * (3 - 2 * blend)
+        leftElbow = original.leftElbow + (leftElbow - original.leftElbow) * elbowBlend
+        rightElbow = original.rightElbow + (rightElbow - original.rightElbow) * elbowBlend
         leftGlove = original.leftGlove + (leftGlove - original.leftGlove) * blend
         rightGlove = original.rightGlove + (rightGlove - original.rightGlove) * blend
         torsoLean = original.torsoLean + (torsoLean - original.torsoLean) * blend
+        let arc = pow(sin(.pi * blend), 2)
+        leftGlove = torsoPoint(facingPoint(leftGlove) + SIMD3<Float>(-0.012, 0.020, -0.012) * arc)
+        rightGlove = torsoPoint(facingPoint(rightGlove) + SIMD3<Float>(0.012, 0.020, -0.012) * arc)
     }
 
     /// Knee/hip lowering leads; yaw faces INTO the duck, with forward pitch and only a small roll.
     /// +1 means the fighter's right (local -X), so yaw is negative, not a root-facing rotation.
-    mutating func applyDuck(direction: Float, style: FightStyle = .standard) {
-        guard direction.isFinite else { return }
+    mutating func applyDuck(direction: Float, postureAmount: Float? = nil, style: FightStyle = .standard) {
+        guard direction.isFinite, postureAmount?.isFinite != false else { return }
         let side = min(1, max(-1, direction))
-        let amount = abs(side)
-        let turnProgress = min(1, max(0, (amount - 0.20) / 0.80))
+        let amount = min(1, max(0, postureAmount ?? abs(side)))
+        let upperBody = DuckMotion.upperBodyAmount(amount)
+        let turnProgress = min(1, max(0, (abs(side) - 0.20) / 0.80))
         let turn = side * turnProgress * turnProgress * (3 - 2 * turnProgress)
-        applyDefensiveLowering(amount: amount, crouch: 0.40 * amount,
-                       yaw: -0.24 * turn, pitch: -0.18 * amount,
+        applyDefensiveLowering(amount: upperBody, crouch: 0.40 * amount,
+                       yaw: -0.24 * turn, pitch: -0.18 * upperBody,
                        roll: 0.035 * turn, lateralShift: -0.055 * turn, style: style)
     }
 
@@ -245,7 +263,7 @@ struct FightPose: Sendable {
         return torsoOrientation.inverse.act(point - pivot - torsoOffset) + pivot
     }
 
-    /// Positive is a dip, negative is a small rise from an already-loaded hook stance.
+    /// Positive is a dip; negative unloads an already-lowered stance.
     /// Feet and rootY/rootZ never move: the pelvis, knees and connected upper body do the work.
     mutating func lowerBody(by drop: Float) {
         bodyDrop += drop
@@ -264,6 +282,16 @@ struct FightPose: Sendable {
         rightKnee.z += drop * 0.45
     }
 
+    mutating func riseFromDefense(by amount: Float) {
+        let rise = min(defensiveCrouch, max(0, amount))
+        guard rise > 0 else { return }
+        let ready = FightPose.neutral(stride: 0, style: style, stanceWidth: style.stanceWidth,
+            leanBias: style.leanBias, pitchBias: style.pitchBias)
+        torsoPitch += max(0, ready.torsoPitch - torsoPitch) * (rise / defensiveCrouch)
+        defensiveCrouch -= rise
+        lowerBody(by: -rise)
+    }
+
     private mutating func applyDefensiveLowering(
         amount: Float, crouch: Float, yaw: Float, pitch: Float, roll: Float,
         lateralShift: Float, style: FightStyle
@@ -274,7 +302,7 @@ struct FightPose: Sendable {
         let original = self
         let oldHead = original.headFacingPosition
         // Sample the style's guard without overwriting this pose's existing lowered hand positions.
-        var guardPose = FightPose.neutral(stride: 0, style: style)
+        var guardPose = FightPose.neutral(stride: 0, style: style, stance: stance)
         guardPose.applyGuard(style: style)
         let guardHead = guardPose.headFacingPosition
 
@@ -352,6 +380,22 @@ struct FightPose: Sendable {
     }
 
     mutating func applyAttack(_ punch: Punch, progress: Float, opponentDistance: Float? = nil, reachMultiplier: Float = 1, targetRadius: Float = 0.34, straightAnatomy: StraightPunchAnatomy? = nil, contactTarget: SIMD3<Float>? = nil) {
+        if stance == .southpaw {
+            let canonical = BoxingStance.southpaw.canonicalPunch(punch)
+            let target = contactTarget.map { SIMD3<Float>(-$0.x, $0.y, $0.z) }
+            let anatomy = straightAnatomy?.mirrored()
+            mirrorStance()
+            if punch == .jab || punch == .cross {
+                applyStraightPunch(canonical, progress: progress, opponentDistance: opponentDistance,
+                    reachMultiplier: reachMultiplier, targetRadius: targetRadius, anatomy: anatomy, contactTarget: target)
+            } else {
+                applyPowerPunch(canonical, progress: progress, opponentDistance: opponentDistance,
+                    reachMultiplier: reachMultiplier, targetRadius: targetRadius, anatomy: anatomy,
+                    contactTarget: target, timingPunch: punch)
+            }
+            mirrorStance()
+            return
+        }
         if punch == .jab || punch == .cross {
             applyStraightPunch(punch, progress: progress, opponentDistance: opponentDistance,
                                reachMultiplier: reachMultiplier, targetRadius: targetRadius, anatomy: straightAnatomy,
@@ -361,6 +405,31 @@ struct FightPose: Sendable {
                             reachMultiplier: reachMultiplier, targetRadius: targetRadius, anatomy: straightAnatomy,
                             contactTarget: contactTarget)
         }
+    }
+
+    mutating func setAuthoredStance(_ stance: BoxingStance) {
+        self.stance = stance
+    }
+
+    mutating func mirrorStance() {
+        func reflected(_ point: SIMD3<Float>) -> SIMD3<Float> { SIMD3<Float>(-point.x, point.y, point.z) }
+        (leftShoulder, rightShoulder) = (reflected(rightShoulder), reflected(leftShoulder))
+        (leftElbow, rightElbow) = (reflected(rightElbow), reflected(leftElbow))
+        (leftGlove, rightGlove) = (reflected(rightGlove), reflected(leftGlove))
+        (leftHip, rightHip) = (reflected(rightHip), reflected(leftHip))
+        (leftKnee, rightKnee) = (reflected(rightKnee), reflected(leftKnee))
+        (leftFoot, rightFoot) = (reflected(rightFoot), reflected(leftFoot))
+        (leftFootYaw, rightFootYaw) = (-rightFootYaw, -leftFootYaw)
+        (leftFootPitch, rightFootPitch) = (rightFootPitch, leftFootPitch)
+        rootX = -rootX
+        torsoOffset = reflected(torsoOffset)
+        torsoYaw = -torsoYaw
+        torsoLean = -torsoLean
+        hipYaw = -hipYaw
+        if let constraint = straightPunchConstraint {
+            straightPunchConstraint = StraightPunchConstraint(anatomy: constraint.anatomy.mirrored(), leading: !constraint.leading)
+        }
+        stance = stance == .orthodox ? .southpaw : .orthodox
     }
 }
 

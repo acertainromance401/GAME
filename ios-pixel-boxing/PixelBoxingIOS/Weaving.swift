@@ -26,12 +26,11 @@ struct WeaveState: Equatable, Sendable {
         direction != 0 && elapsed < Self.duration + Self.inputGrace && !hookConsumed ? direction : 0
     }
 
-    static func hook(base: Punch, direction: Int) -> Punch? {
-        switch (direction, base) {
-        case (-1, .jab): .leftHook
-        case (1, .cross): .rightHook
-        default: nil
-        }
+    static func hook(base: Punch, direction: Int, stance: BoxingStance = .orthodox) -> Punch? {
+        guard base == .jab || base == .cross else { return nil }
+        if direction == -1, stance.usesLeftHand(for: base) { return .leftHook }
+        if direction == 1, !stance.usesLeftHand(for: base) { return .rightHook }
+        return nil
     }
 
     @discardableResult
@@ -74,14 +73,14 @@ struct WeaveState: Equatable, Sendable {
         return displacement
     }
 
-    func evades(_ punch: Punch) -> Bool {
+    func evades(_ punch: Punch, stance: BoxingStance = .orthodox) -> Bool {
         isActive && elapsed >= Self.evadeStart && elapsed < Self.evadeEnd
-            && CombatData.requiredDuck[punch] == direction
+            && CombatData.duckDirection(for: punch, stance: stance) == direction
     }
 
     @discardableResult
-    mutating func queueHook(base: Punch) -> Bool {
-        guard pendingHook == nil, let punch = Self.hook(base: base, direction: comboDirection) else { return false }
+    mutating func queueHook(base: Punch, stance: BoxingStance = .orthodox) -> Bool {
+        guard pendingHook == nil, let punch = Self.hook(base: base, direction: comboDirection, stance: stance) else { return false }
         pendingHook = punch
         return true
     }
@@ -134,7 +133,7 @@ extension FighterModel {
     func queueWeaveHook(base: Punch) -> Bool {
         guard hp > 0, !knockedOut, attack == nil, stagger <= 0, exhausted <= 0,
               invulnerable <= 0, !backstep.isActive else { return false }
-        return weave.queueHook(base: base)
+        return weave.queueHook(base: base, stance: stance)
     }
 
     func advanceWeave(_ dt: Double) -> (x: Double, y: Double) {

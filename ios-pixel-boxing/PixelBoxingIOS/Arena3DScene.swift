@@ -26,17 +26,21 @@ enum ArenaCinematicPresentation {
 
 private enum BoxerAppearance {
     case classic
+    case basic
     case pressure
     case outboxer
     case counter
+    case southpaw
     case slugger
     case rival
 
     init(opponent: StoryOpponent?) {
         switch opponent {
+        case .basic: self = .basic
         case .pressure: self = .pressure
         case .outboxer: self = .outboxer
         case .counter: self = .counter
+        case .southpaw: self = .southpaw
         case .slugger: self = .slugger
         case .rival: self = .rival
         default: self = .classic
@@ -127,7 +131,7 @@ final class Arena3DScene: SCNScene {
     private lazy var rivalSceneRig = BoxerRig(team: .rival)
     private var championshipPlayerRig: BoxerRig?
     private var championshipVictoryRig: BoxerRig?
-    private var championshipApplauseRigs: [(rig: BoxerRig, style: FightStyle)] = []
+    private var championshipApplauseRigs: [(rig: BoxerRig, style: FightStyle, stance: BoxingStance)] = []
     private lazy var storyCoachRig = GymCoachRig()
     private lazy var championshipIntroBelt = makeRivalChampionshipBelt()
     private lazy var championshipCornerSeat = makeChampionshipCornerSeat()
@@ -143,10 +147,12 @@ final class Arena3DScene: SCNScene {
     private var rivalReplayFrames: [UIImage] = []
     private var rivalSceneHiddenNodes: [(node: SCNNode, hidden: Bool)] = []
 
-    private var usesPressureGym: Bool { engine.storyBout?.opponent == .pressure }
+    private var usesPressureGym: Bool {
+        engine.storyBout?.opponent == .basic || engine.storyBout?.opponent == .pressure
+    }
     private var usesRegionalHall: Bool {
         switch engine.storyBout?.opponent {
-        case .outboxer, .counter, .slugger, .rival: true
+        case .outboxer, .counter, .southpaw, .slugger, .rival: true
         default: false
         }
     }
@@ -164,17 +170,18 @@ final class Arena3DScene: SCNScene {
         self.engine = engine
         self.presentation = presentation
         playerRig = BoxerRig(team: .player)
-        enemyRig = BoxerRig(team: .rival, identityText: engine.storyBout?.opponent.title(for: LocalizationManager.shared.language),
+        enemyRig = BoxerRig(team: .rival, identityText: engine.storyBout?.opponent.fighterName(for: LocalizationManager.shared.language),
                     appearance: BoxerAppearance(opponent: engine.storyBout?.opponent))
         super.init()
         portraitFighter.facingX = 0
         portraitFighter.facingY = 1
-        portraitFighter.guarding = engine.storyBout?.opponent == .pressure
+        portraitFighter.guarding = engine.storyBout?.opponent == .basic || engine.storyBout?.opponent == .pressure
         switch engine.storyBout?.opponent {
         case .outboxer: portraitFighter.style = .outboxing
         case .slugger: portraitFighter.style = .infighting
         default: portraitFighter.style = .standard
         }
+        portraitFighter.stance = engine.storyBout?.opponent == .southpaw ? .southpaw : .orthodox
         background.contents = UIColor(red: 0.018, green: 0.028, blue: 0.055, alpha: 1)
         fogColor = UIColor(red: 0.025, green: 0.035, blue: 0.065, alpha: 1)
         fogStartDistance = 19
@@ -266,10 +273,15 @@ final class Arena3DScene: SCNScene {
     }
 
     func beginStoryIntroduction(short: Bool) -> Double {
+        introductionPlayer.stance = engine.player.stance
+        introductionEnemy.stance = engine.storyBout?.opponent == .southpaw ? .southpaw : .orthodox
         introductionClip = StoryIntroClip.clip(for: engine.storyBout?.opponent)
         introductionShort = short
         introductionSuspended = false
         introductionEntranceDuration = short ? 1.9 : (introductionClip?.duration ?? 1.9)
+        if engine.storyBout?.opponent == .rival, !short {
+            introductionEntranceDuration += GymSparringMotion.rematchDuration
+        }
         introductionDuration = introductionEntranceDuration + StoryIntroduction.coachDuration(short: short)
         if engine.storyBout?.opponent == .rival, !short {
             championshipIntroBelt.simdPosition = SIMD3<Float>(0, 0.27, 7.5)
@@ -335,7 +347,7 @@ final class Arena3DScene: SCNScene {
             victoryRig.root.childNode(withName: "playerIdentityLabel", recursively: false)?.isHidden = true
             championshipVictoryRig = victoryRig
             rootNode.addChildNode(victoryRig.root)
-            championshipApplauseRigs = [StoryOpponent.pressure, .outboxer, .counter, .slugger, .rival].map { opponent in
+            championshipApplauseRigs = ChampionshipEndingTiming.applauseOpponents.map { opponent in
                 let rig = BoxerRig(team: .rival, appearance: BoxerAppearance(opponent: opponent))
                 rig.root.name = "championshipApplause_\(opponent.rawValue)"
                 rig.root.isHidden = true
@@ -346,7 +358,8 @@ final class Arena3DScene: SCNScene {
                 case .slugger: .infighting
                 default: .standard
                 }
-                return (rig: rig, style: style)
+                let stance = opponent == .southpaw ? BoxingStance.southpaw : .orthodox
+                return (rig: rig, style: style, stance: stance)
             }
             championshipCornerSeat.simdPosition = championshipCorner
             championshipCornerSeat.simdOrientation = simd_quatf(angle: championshipHeading, axis: SIMD3<Float>(0, 1, 0))
@@ -500,7 +513,9 @@ final class Arena3DScene: SCNScene {
             updateAppOpeningChoreography()
         }
         let poseDeltaTime = rigDeltaTime ?? deltaTime
-        if cinematicMode && cinematicPresentation == .storyRivalScene, let rivalSceneClip {
+        if cinematicMode && cinematicPresentation == .storyRivalScene && rivalSceneChapter == .basic {
+            updateSparringAftermath()
+        } else if cinematicMode && cinematicPresentation == .storyRivalScene, let rivalSceneClip {
             let championship = rivalSceneChapter == .rival
             let training = championship ? cinematicElapsed >= ChampionshipEndingTiming.gymCut
                 : rivalSceneChapter != .pressure || cinematicElapsed >= 3.2
@@ -521,7 +536,8 @@ final class Arena3DScene: SCNScene {
                     position: position + shadowboxing.root, heading: shadowboxing.heading, usesProceduralPose: true)
             } else {
                 rivalSceneRig.updateAuthoredPose(sample.pose,
-                    position: position + rotation.act(sample.root), heading: heading + sample.heading)
+                    position: position + rotation.act(sample.root), heading: heading + sample.heading,
+                    usesProceduralPose: rivalSceneChapter == .southpaw)
             }
             if championship {
                 championshipCornerSeat.isHidden = training || ceremony
@@ -549,26 +565,35 @@ final class Arena3DScene: SCNScene {
         } else if cinematicMode && cinematicPresentation == .storyIntroduction {
             championshipIntroBelt.isHidden = introductionShort || cinematicElapsed >= 1.8
             updateStoryIntroductionCoach()
-            playerRig.update(from: introductionPlayer, deltaTime: poseDeltaTime, elapsedTime: elapsedTime,
-                reducedMotion: reducedMotion, idleMotion: MenuIdleMotion.sample(at: cinematicElapsed, reducedMotion: reducedMotion),
-                usesPresentationDefense: true)
-            if let introductionClip {
-                let sample = introductionClip.sample(at: introductionShort ? introductionClip.duration : cinematicElapsed)
-                let rotation = simd_quatf(angle: Float(atan2(introductionEnemy.facingX, introductionEnemy.facingY)),
-                                         axis: SIMD3<Float>(0, 1, 0))
-                enemyRig.updateAuthoredPose(sample.pose,
-                    position: worldPosition(introductionEnemy) + rotation.act(sample.root),
-                    heading: Float(atan2(introductionEnemy.facingX, introductionEnemy.facingY)) + sample.heading)
+            let rematch = engine.storyBout?.opponent == .rival && !introductionShort
+                && cinematicElapsed >= (introductionClip?.duration ?? 0)
+                && cinematicElapsed < introductionEntranceDuration
+            let sparring = engine.storyBout?.opponent == .basic && !introductionShort
+                && cinematicElapsed < introductionEntranceDuration
+            if sparring || rematch {
+                updateSparringIntroduction(rematch: rematch)
             } else {
-                enemyRig.update(from: introductionEnemy, deltaTime: poseDeltaTime, elapsedTime: elapsedTime,
-                    reducedMotion: reducedMotion, usesPresentationDefense: true)
+                playerRig.update(from: introductionPlayer, deltaTime: poseDeltaTime, elapsedTime: elapsedTime,
+                    reducedMotion: reducedMotion, idleMotion: MenuIdleMotion.sample(at: cinematicElapsed, reducedMotion: reducedMotion),
+                    usesPresentationDefense: true)
+                if let introductionClip {
+                    let sample = introductionClip.sample(at: introductionShort ? introductionClip.duration : cinematicElapsed)
+                    let rotation = simd_quatf(angle: Float(atan2(introductionEnemy.facingX, introductionEnemy.facingY)),
+                                             axis: SIMD3<Float>(0, 1, 0))
+                    enemyRig.updateAuthoredPose(sample.pose,
+                        position: worldPosition(introductionEnemy) + rotation.act(sample.root),
+                        heading: Float(atan2(introductionEnemy.facingX, introductionEnemy.facingY)) + sample.heading,
+                        usesProceduralPose: engine.storyBout?.opponent == .southpaw)
+                } else {
+                    enemyRig.update(from: introductionEnemy, deltaTime: poseDeltaTime, elapsedTime: elapsedTime,
+                        reducedMotion: reducedMotion, usesPresentationDefense: true)
+                }
             }
         } else if cinematicMode && cinematicPresentation == .menuPortrait {
-            // This presentation model is never a participant in the live CombatEngine.
             enemyRig.update(
                 from: portraitFighter, deltaTime: poseDeltaTime, elapsedTime: elapsedTime,
                 reducedMotion: reducedMotion, idleMotion: MenuIdleMotion.sample(at: cinematicElapsed, reducedMotion: reducedMotion),
-                usesPresentationDefense: engine.storyBout?.opponent == .pressure
+                usesPresentationDefense: engine.storyBout?.opponent == .basic || engine.storyBout?.opponent == .pressure
             )
         } else {
             let separation = simd_distance(worldPosition(engine.player), worldPosition(engine.enemy))
@@ -591,6 +616,51 @@ final class Arena3DScene: SCNScene {
             updateCamera(deltaTime: deltaTime)
         }
         SCNTransaction.commit()
+    }
+
+    private func updateSparringIntroduction(rematch: Bool) {
+        let time = rematch ? cinematicElapsed - (introductionClip?.duration ?? 0) : cinematicElapsed
+        let player = worldPosition(introductionPlayer)
+        let enemy = worldPosition(introductionEnemy)
+        let center = (player + enemy) * 0.5
+        let forward = SIMD3<Float>(-Float(introductionEnemy.facingX), 0, -Float(introductionEnemy.facingY))
+        let amount = rematch ? GymSparringMotion.rematchApproach(at: time) : GymSparringMotion.approach(at: time)
+        let originalDistance = simd_distance(player, enemy)
+        let distance = originalDistance + (2.6 - originalDistance) * amount
+        let walkDistance = (originalDistance - 2.6) * 0.5
+        let playerSample = rematch ? GymSparringMotion.rematch(at: time, walkDistance: walkDistance)
+            : GymSparringMotion.introduction(at: time, player: true, walkDistance: walkDistance)
+        let enemySample = rematch ? GymSparringMotion.rematch(at: time, walkDistance: walkDistance)
+            : GymSparringMotion.introduction(at: time, walkDistance: walkDistance)
+        let heading = atan2(forward.x, forward.z)
+        playerRig.updateAuthoredPose(playerSample.pose, position: center - forward * distance * 0.5,
+            heading: heading, usesProceduralPose: true)
+        enemyRig.updateAuthoredPose(enemySample.pose, position: center + forward * distance * 0.5,
+            heading: heading + .pi, usesProceduralPose: true)
+    }
+
+    private func updateSparringAftermath() {
+        for entry in rivalSceneHiddenNodes { entry.node.isHidden = entry.hidden }
+        rivalTrainingStage.isHidden = true
+        rivalSceneRig.root.isHidden = true
+        let knockout = engine.storyBout?.finish == .technicalKnockout
+        let forward = SIMD3<Float>(-Float(engine.enemy.facingX), 0, -Float(engine.enemy.facingY))
+        let heading = atan2(forward.x, forward.z)
+        let center = SIMD3<Float>(0, 0.13, 0)
+        let rivalPosition = knockout ? SIMD3<Float>(-4.4, 0.13, -4.4) : center + forward * 1.3
+        let rivalHeading = knockout ? atan2(-rivalPosition.x, -rivalPosition.z) : heading + .pi
+        let sample = GymSparringMotion.aftermath(at: cinematicElapsed, knockout: knockout)
+        enemyRig.root.isHidden = false
+        enemyRig.updateAuthoredPose(sample.pose, position: rivalPosition,
+            heading: rivalHeading + sample.heading, usesProceduralPose: true)
+        playerRig.root.isHidden = knockout || cinematicElapsed >= 3.8
+        if !playerRig.root.isHidden {
+            let departure = GymSparringMotion.departingPlayer(at: cinematicElapsed)
+            let rotation = simd_quatf(angle: heading, axis: SIMD3<Float>(0, 1, 0))
+            playerRig.updateAuthoredPose(departure.pose,
+                position: center - forward * 1.3 + rotation.act(departure.root),
+                heading: heading + departure.heading, usesProceduralPose: true)
+        }
     }
 
     private func updateStoryIntroductionCoach() {
@@ -763,6 +833,24 @@ final class Arena3DScene: SCNScene {
         cameraForward = forward
         switch cinematicPresentation {
         case .storyRivalScene:
+            if rivalSceneChapter == .southpaw {
+                let subject = rivalSceneRig.root.simdPosition
+                let close = cinematicElapsed < 4
+                cameraNode.simdPosition = subject + (close ? SIMD3<Float>(-0.65, 1.85, 2.75) : SIMD3<Float>(-2.3, 2.0, 4.5))
+                cameraTarget = subject + SIMD3<Float>(0, close ? 1.65 : 1.15, 0)
+                cameraNode.camera?.fieldOfView = close ? 38 : 46
+                break
+            }
+            if rivalSceneChapter == .basic {
+                let subject = enemyRig.root.simdPosition
+                let rotation = enemyRig.root.simdOrientation
+                let wide = cinematicElapsed < 2.2 && engine.storyBout?.finish != .technicalKnockout
+                cameraNode.simdPosition = subject + rotation.act(wide
+                    ? SIMD3<Float>(-4.5, 2.7, 2.0) : SIMD3<Float>(-2.8, 2.4, 4.0))
+                cameraTarget = subject + SIMD3<Float>(0, 1.65, 0)
+                cameraNode.camera?.fieldOfView = wide ? 48 : 43
+                break
+            }
             if rivalSceneChapter == .rival {
                 let training = cinematicElapsed >= ChampionshipEndingTiming.gymCut
                 if training {
@@ -868,6 +956,22 @@ final class Arena3DScene: SCNScene {
             let subject = worldPosition(introductionEnemy) + subjectRotation.act(rootOffset)
             let subjectForward = SIMD3<Float>(Float(introductionEnemy.facingX), 0, Float(introductionEnemy.facingY))
             let subjectRight = SIMD3<Float>(subjectForward.z, 0, -subjectForward.x)
+            let rematch = engine.storyBout?.opponent == .rival && !introductionShort
+                && cinematicElapsed >= (introductionClip?.duration ?? 0)
+            if engine.storyBout?.opponent == .basic || rematch {
+                let rival = enemyRig.root.simdPosition
+                let center = (playerRig.root.simdPosition + rival) * 0.5
+                if !introductionShort && !rematch && cinematicElapsed < 2.0 {
+                    cameraNode.simdPosition = rival + subjectForward * 3.5 + subjectRight * 1.4 + SIMD3<Float>(0, 2.1, 0)
+                    cameraTarget = rival + SIMD3<Float>(0, 1.65, 0)
+                    cameraNode.camera?.fieldOfView = 38
+                } else {
+                    cameraNode.simdPosition = center + subjectRight * 5.1 + SIMD3<Float>(0, 2.8, 0)
+                    cameraTarget = center + SIMD3<Float>(0, 1.65, 0)
+                    cameraNode.camera?.fieldOfView = 47
+                }
+                break
+            }
             if engine.storyBout?.opponent == .rival {
                 if !introductionShort && cinematicElapsed < 1.8 {
                     cameraNode.simdPosition = SIMD3<Float>(1.8, 1.70, 10.6)
@@ -1570,8 +1674,10 @@ final class Arena3DScene: SCNScene {
 
     private func updateChampionshipApplause() {
         let time = max(0, cinematicElapsed - ChampionshipEndingTiming.ceremonyStart)
+        let center = Float(championshipApplauseRigs.count - 1) * 0.5
+        let spacing: Float = 6.6 / Float(max(1, championshipApplauseRigs.count - 1))
         for (index, entry) in championshipApplauseRigs.enumerated() {
-            let lateral = Float(index - 2) * 1.65
+            let lateral = (Float(index) - center) * spacing
             let position = SIMD3<Float>(lateral, 0.13, -2.6 + abs(lateral) * 0.38)
             let cycle = (time + ChampionshipEndingTiming.applauseOffset(for: index))
                 / ChampionshipEndingTiming.applausePeriod(for: index)
@@ -1579,7 +1685,8 @@ final class Arena3DScene: SCNScene {
             let handHeight: Float = 1.68 + Float(sin(cycle * .pi * 2)) * 0.012
             let handSpacing: Float = 0.195 + opening * 0.135
             var pose = FightPose.neutral(stride: 0, style: entry.style,
-                stanceWidth: entry.style.stanceWidth, leanBias: entry.style.leanBias, pitchBias: entry.style.pitchBias)
+                stanceWidth: entry.style.stanceWidth, leanBias: entry.style.leanBias, pitchBias: entry.style.pitchBias,
+                stance: entry.stance)
             pose.torsoYaw *= 0.35
             pose.hipYaw *= 0.5
             pose.headBob = reducedMotion ? 0 : Float(sin(time * 2.4 + Double(index))) * 0.005
@@ -1910,6 +2017,7 @@ private final class BoxerRig {
     private var previousPosition = SIMD2<Double>(0, 0)
     private var footPlant = FootPlantMotion()
     private var previousStyle: FightStyle?
+    private var previousBoxingStance: BoxingStance?
     private var movementVisual: Float = 0
     private var duckVisual: Float = 0
     private var guardVisual: Float = 0
@@ -1932,18 +2040,23 @@ private final class BoxerRig {
         // - 의상(champBadge, practice shirt) 같은 선택적 장식을 초기상태로 준비합니다.
         self.team = team
         self.appearance = appearance
+        let isBasic = appearance == .basic
         let isPressure = appearance == .pressure
         let isOutboxer = appearance == .outboxer
         let isCounter = appearance == .counter
+        let isSouthpaw = appearance == .southpaw
         let isSlugger = appearance == .slugger
-        let cosmeticTeam: Team = appearance == .rival ? .rival : team
-        let teamColor = isPressure ? UIColor(red: 0.34, green: 0.025, blue: 0.10, alpha: 1)
+        let cosmeticTeam: Team = isBasic || appearance == .rival ? .rival : team
+        let teamColor = isBasic ? UIColor(white: 0.065, alpha: 1)
+            : isSouthpaw ? UIColor(red: 0.18, green: 0.035, blue: 0.30, alpha: 1)
+            : isPressure ? UIColor(red: 0.34, green: 0.025, blue: 0.10, alpha: 1)
             : isOutboxer ? UIColor(red: 0.025, green: 0.18, blue: 0.54, alpha: 1)
             : isCounter ? UIColor(red: 0.075, green: 0.13, blue: 0.18, alpha: 1)
             : isSlugger ? UIColor(white: 0.065, alpha: 1) : cosmeticTeam == .player
             ? UIColor(red: 0.025, green: 0.20, blue: 0.52, alpha: 1)
             : UIColor(red: 0.52, green: 0.025, blue: 0.07, alpha: 1)
-        let gloveColor = isPressure ? UIColor(red: 0.43, green: 0.035, blue: 0.13, alpha: 1)
+        let gloveColor = isSouthpaw ? UIColor(red: 0.34, green: 0.075, blue: 0.53, alpha: 1)
+            : isPressure ? UIColor(red: 0.43, green: 0.035, blue: 0.13, alpha: 1)
             : isOutboxer ? UIColor(red: 0.035, green: 0.30, blue: 0.72, alpha: 1)
             : isCounter ? UIColor(red: 0.49, green: 0.69, blue: 0.78, alpha: 1)
             : isSlugger ? UIColor(white: 0.10, alpha: 1) : cosmeticTeam == .player
@@ -1955,7 +2068,8 @@ private final class BoxerRig {
             : UIColor(red: 1, green: 0.30, blue: 0.43, alpha: 1)
         // A noticeably darker shade of the glove color, used for the wrist strap/seam/logo-patch details
         // that break up the glove's single flat color into distinct, more detailed-looking sections.
-        let gloveAccentColor = isSlugger ? UIColor(red: 0.82, green: 0.66, blue: 0.23, alpha: 1)
+        let gloveAccentColor = isSouthpaw ? UIColor(red: 0.72, green: 0.54, blue: 0.20, alpha: 1)
+            : isSlugger ? UIColor(red: 0.82, green: 0.66, blue: 0.23, alpha: 1)
             : isCounter ? UIColor(red: 0.84, green: 0.90, blue: 0.93, alpha: 1)
             : isPressure || isOutboxer ? UIColor(red: 0.94, green: 0.93, blue: 0.90, alpha: 1) : cosmeticTeam == .player
             ? UIColor(red: 0.02, green: 0.16, blue: 0.39, alpha: 1)
@@ -1965,16 +2079,16 @@ private final class BoxerRig {
             : isCounter ? UIColor(red: 0.84, green: 0.78, blue: 0.75, alpha: 1)
             : isSlugger ? UIColor(red: 0.63, green: 0.37, blue: 0.23, alpha: 1)
             : UIColor(red: 0.74, green: 0.42, blue: 0.26, alpha: 1), roughness: isCounter ? 0.74 : 0.62)
-        let usesClothFinish = isPressure || isOutboxer || isCounter || isSlugger
+        let usesClothFinish = isBasic || isPressure || isOutboxer || isCounter || isSouthpaw || isSlugger
         teamMaterial = material(color: teamColor,
-            roughness: isCounter ? 0.86 : isSlugger ? 0.91 : isPressure ? 0.88 : isOutboxer ? 0.80 : 0.34,
+            roughness: isBasic || isSouthpaw ? 0.90 : isCounter ? 0.86 : isSlugger ? 0.91 : isPressure ? 0.88 : isOutboxer ? 0.80 : 0.34,
             metalness: usesClothFinish ? 0 : 0.08)
         gloveMaterial = material(color: gloveColor,
-            roughness: isCounter ? 0.66 : isSlugger ? 0.60 : isPressure ? 0.62 : isOutboxer ? 0.68 : 0.24,
+            roughness: isBasic || isSouthpaw ? 0.64 : isCounter ? 0.66 : isSlugger ? 0.60 : isPressure ? 0.62 : isOutboxer ? 0.68 : 0.24,
             metalness: usesClothFinish ? 0 : 0.10)
         gloveAccentMaterial = material(color: gloveAccentColor,
-            roughness: isCounter ? 0.78 : isSlugger ? 0.72 : isPressure ? 0.78 : 0.42,
-            metalness: isPressure || isCounter || isSlugger ? 0 : 0.04)
+            roughness: isBasic || isSouthpaw ? 0.78 : isCounter ? 0.78 : isSlugger ? 0.72 : isPressure ? 0.78 : 0.42,
+            metalness: isBasic || isPressure || isCounter || isSouthpaw || isSlugger ? 0 : 0.04)
         let trailMaterial = material(color: gloveColor.withAlphaComponent(0.7), roughness: 0.15)
         trailMaterial.lightingModel = .constant
         trailMaterial.blendMode = .alpha
@@ -1988,7 +2102,7 @@ private final class BoxerRig {
         trunks.geometry?.materials = [teamMaterial]
         waistband = SCNNode(geometry: SCNBox(width: 0.88, height: 0.13, length: 0.59, chamferRadius: 0.025))
         waistband.geometry?.materials = [teamMaterial]
-        if isCounter || isSlugger { waistband.geometry?.materials = [gloveAccentMaterial] }
+        if isCounter || isSouthpaw || isSlugger { waistband.geometry?.materials = [gloveAccentMaterial] }
         // A small gold-embossed "CHAMP" text plate mounted flush on the waistband's front face -- only shown
         // when the "Champ" outfit (500 cumulative wins) is equipped, toggled in `applyOutfit`.
         champBadge = BoxerRig.champBadge()
@@ -2014,8 +2128,17 @@ private final class BoxerRig {
 
         leftGlove = BoxerRig.glove(material: gloveMaterial, accentMaterial: gloveAccentMaterial, handedness: 1)
         rightGlove = BoxerRig.glove(material: gloveMaterial, accentMaterial: gloveAccentMaterial, handedness: -1)
-        leftFoot = BoxerRig.shoe(material: teamMaterial, sole: darkMaterial)
-        rightFoot = BoxerRig.shoe(material: teamMaterial, sole: darkMaterial)
+        leftFoot = BoxerRig.shoe(material: isSouthpaw ? darkMaterial : teamMaterial, sole: darkMaterial)
+        rightFoot = BoxerRig.shoe(material: isSouthpaw ? darkMaterial : teamMaterial, sole: darkMaterial)
+        if isSouthpaw {
+            for foot in [leftFoot, rightFoot] {
+                let geometry = SCNBox(width: 0.06, height: 0.17, length: 0.016, chamferRadius: 0.005)
+                geometry.materials = [teamMaterial]
+                let panel = SCNNode(geometry: geometry)
+                panel.position = SCNVector3(0, 0, 0.323)
+                foot.addChildNode(panel)
+            }
+        }
         // A rounded joint sphere sits exactly at the shoulder anchor so the upper arm bone (which starts
         // at that same point) always reads as visually attached to the body, even though the torso capsule
         // is a separate piece of geometry that only approximately lines up with the pose's shoulder point.
@@ -2034,12 +2157,13 @@ private final class BoxerRig {
         leftTrail = BoneNode(radius: 0.055, material: trailMaterial)
         rightTrail = BoneNode(radius: 0.055, material: trailMaterial)
 
-        shirtMaterial = material(color: UIColor(red: 0.46, green: 0.47, blue: 0.49, alpha: 1), roughness: 0.6)
+        shirtMaterial = material(color: isBasic ? UIColor(white: 0.66, alpha: 1)
+            : UIColor(red: 0.46, green: 0.47, blue: 0.49, alpha: 1), roughness: isBasic ? 0.88 : 0.6)
         let shirtGeometry = SCNCapsule(capRadius: 0.415, height: 0.98)
         shirtGeometry.materials = [shirtMaterial]
         shirtTorso = SCNNode(geometry: shirtGeometry)
         shirtTorso.name = "practiceShirtTorso"
-        shirtTorso.isHidden = true
+        shirtTorso.isHidden = !isBasic
         // Radius/scale chosen so this sphere fully ENCLOSES the skin-colored shoulder joint sphere
         // (radius 0.175) in every direction -- a previous version squished the cap's y-extent down to
         // 0.185*0.85 = 0.157, i.e. SMALLER than the joint's own 0.175 radius, so the joint poked out top
@@ -2069,6 +2193,15 @@ private final class BoxerRig {
         leftSleeveLower.node.isHidden = true
         rightSleeveUpper.node.isHidden = true
         rightSleeveLower.node.isHidden = true
+
+        CharacterSurface.apply(.skin, to: skinMaterial)
+        CharacterSurface.apply(.cloth, to: teamMaterial)
+        CharacterSurface.apply(.cloth, to: shirtMaterial)
+        CharacterSurface.apply(.leather, to: gloveMaterial)
+        CharacterSurface.apply(.leather, to: gloveAccentMaterial)
+        CharacterSurface.apply(.cloth, to: storyStarterCrimson)
+        CharacterSurface.apply(.cloth, to: storyStarterWhite)
+        CharacterSurface.apply(.cloth, to: storyChampionGold)
 
         root.name = team == .player ? "playerBoxer" : "rivalBoxer"
         let prefix = team == .player ? "player" : "rival"
@@ -2124,12 +2257,265 @@ private final class BoxerRig {
         if isPressure { buildPressureDetails() }
         if isOutboxer { buildOutboxerDetails() }
         if isCounter || isSlugger { buildContenderDetails() }
+        if isSouthpaw { buildSouthpawDetails() }
+    }
+
+    private func buildSouthpawDetails() {
+        let hairMaterial = material(color: UIColor(red: 0.035, green: 0.030, blue: 0.027, alpha: 1), roughness: 0.96)
+        let creaseMaterial = material(color: UIColor(red: 0.40, green: 0.215, blue: 0.15, alpha: 1), roughness: 0.94)
+        let lipMaterial = material(color: UIColor(red: 0.66, green: 0.36, blue: 0.25, alpha: 1), roughness: 0.86)
+        let eyeMaterial = material(color: UIColor(red: 0.065, green: 0.055, blue: 0.043, alpha: 1), roughness: 0.94)
+        let localEyeX: Float = 0.11 / head.scale.x
+        let localEyeY: Float = 0.06 / head.scale.y
+        let localEyeZ = eyeDepth / head.scale.z
+        CharacterSurface.apply(.hair, to: hairMaterial)
+        head.geometry = Self.southpawHead(material: skinMaterial, frontDepth: localEyeZ)
+        let hair = SCNNode(geometry: Self.southpawHair(material: hairMaterial, frontDepth: localEyeZ))
+        hair.name = "southpawCroppedCurls"
+        hair.castsShadow = true
+        head.addChildNode(hair)
+        for eye in [leftEye, rightEye] {
+            eye.isHidden = true
+        }
+        for side: Float in [-1, 1] {
+            let eye = SCNNode(geometry: Self.southpawEye(material: eyeMaterial,
+                center: SIMD2<Float>(side * localEyeX, localEyeY), frontDepth: localEyeZ))
+            eye.name = "southpawCalmEye"
+            eye.castsShadow = false
+            head.addChildNode(eye)
+            let browPath = UIBezierPath()
+            browPath.move(to: CGPoint(x: -0.061, y: -0.006))
+            browPath.addLine(to: CGPoint(x: 0.045, y: -0.002))
+            browPath.addLine(to: CGPoint(x: 0.060, y: 0.007))
+            browPath.addLine(to: CGPoint(x: 0.026, y: 0.017))
+            browPath.addLine(to: CGPoint(x: -0.052, y: 0.012))
+            browPath.close()
+            let browGeometry = SCNShape(path: browPath, extrusionDepth: 0.012)
+            browGeometry.chamferRadius = 0.003
+            browGeometry.materials = [hairMaterial]
+            let brow = SCNNode(geometry: browGeometry)
+            brow.name = "southpawTaperedBrow"
+            brow.scale.x = side
+            brow.position = SCNVector3(side * localEyeX, localEyeY + 0.041, localEyeZ + 0.014)
+            brow.eulerAngles.z = side * 0.025
+            head.addChildNode(brow)
+            let earGeometry = SCNCapsule(capRadius: 0.023, height: 0.100)
+            earGeometry.radialSegmentCount = 12
+            earGeometry.materials = [skinMaterial]
+            let ear = SCNNode(geometry: earGeometry)
+            ear.name = "southpawEar"
+            ear.scale = SCNVector3(0.90, 1, 0.65)
+            ear.position = SCNVector3(side * 0.292, -0.018, -0.008)
+            head.addChildNode(ear)
+            let inset = SCNNode(geometry: SCNSphere(radius: 0.014))
+            inset.geometry?.materials = [creaseMaterial]
+            inset.scale = SCNVector3(0.35, 1.7, 0.70)
+            inset.position = SCNVector3(side * 0.022, 0.002, 0.007)
+            ear.addChildNode(inset)
+            let nostril = SCNNode(geometry: SCNSphere(radius: 0.008))
+            nostril.geometry?.materials = [creaseMaterial]
+            nostril.scale = SCNVector3(0.82, 0.38, 0.55)
+            nostril.position = SCNVector3(side * 0.014, -0.073, localEyeZ + 0.034)
+            head.addChildNode(nostril)
+        }
+        let bridge = box(width: 0.035, height: 0.087, length: 0.045, radius: 0.013,
+            color: .white, roughness: 0.86)
+        bridge.geometry?.materials = [skinMaterial]
+        bridge.name = "southpawNoseBridge"
+        bridge.position = SCNVector3(0, -0.020, localEyeZ + 0.010)
+        head.addChildNode(bridge)
+        let noseTip = SCNNode(geometry: SCNSphere(radius: 0.026))
+        noseTip.geometry?.materials = [skinMaterial]
+        noseTip.name = "southpawNoseTip"
+        noseTip.scale = SCNVector3(0.94, 0.70, 0.85)
+        noseTip.position = SCNVector3(0, -0.055, localEyeZ + 0.032)
+        head.addChildNode(noseTip)
+        let upperLip = box(width: 0.083, height: 0.012, length: 0.018, radius: 0.005,
+            color: .white, roughness: 0.90)
+        upperLip.geometry?.materials = [lipMaterial]
+        upperLip.name = "southpawUpperLip"
+        upperLip.position = SCNVector3(0, -0.105, localEyeZ - 0.003)
+        head.addChildNode(upperLip)
+        let lowerLip = box(width: 0.074, height: 0.014, length: 0.019, radius: 0.006,
+            color: .white, roughness: 0.88)
+        lowerLip.geometry?.materials = [lipMaterial]
+        lowerLip.name = "southpawLowerLip"
+        lowerLip.position = SCNVector3(0, -0.119, localEyeZ - 0.010)
+        head.addChildNode(lowerLip)
+        let mouth = box(width: 0.075, height: 0.003, length: 0.006, radius: 0.001,
+            color: .white, roughness: 0.95)
+        mouth.geometry?.materials = [creaseMaterial]
+        mouth.name = "southpawMouthLine"
+        mouth.position = SCNVector3(0, -0.112, localEyeZ + 0.004)
+        head.addChildNode(mouth)
+    }
+
+    private static func southpawEye(material: SCNMaterial, center: SIMD2<Float>, frontDepth: Float) -> SCNGeometry {
+        let sections = southpawHeadSections(frontDepth: frontDepth)
+        func surfacePoint(_ point: SIMD2<Float>) -> SCNVector3 {
+            let lowerIndex = sections.lastIndex { $0.height <= point.y } ?? 0
+            let lower = sections[lowerIndex]
+            let upper = sections[lowerIndex + 1]
+            let blend = (point.y - lower.height) / (upper.height - lower.height)
+            let width = lower.width + (upper.width - lower.width) * blend
+            let front = lower.front + (upper.front - lower.front) * blend
+            let exponent: Float = lowerIndex < 4 ? 0.74 : 0.90
+            let depth = front * pow(max(0, 1 - pow(abs(point.x) / width, 2 / exponent)), exponent * 0.5)
+            return SCNVector3(point.x, point.y, depth + 0.0025)
+        }
+        let segments = 16
+        var vertices = [surfacePoint(center)]
+        var indices: [Int32] = []
+        for segment in 0..<segments {
+            let angle = Float(segment) / Float(segments) * .pi * 2
+            let vertical = sin(angle)
+            let point = center + SIMD2<Float>(cos(angle) * 0.026,
+                copysign(pow(abs(vertical), 1.4), vertical) * (vertical >= 0 ? 0.009 : 0.006))
+            vertices.append(surfacePoint(point))
+            indices.append(contentsOf: [0, Int32(segment + 1), Int32((segment + 1) % segments + 1)])
+        }
+        let normals = Array(repeating: SCNVector3(0, 0, 1), count: vertices.count)
+        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
+            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        geometry.materials = [material]
+        return geometry
+    }
+
+    private static func southpawHeadSections(frontDepth: Float) -> [(height: Float, width: Float, front: Float, back: Float)] {
+        [
+            (-0.279, 0.072, frontDepth * 0.40, 0.100),
+            (-0.249, 0.144, frontDepth * 0.63, 0.139),
+            (-0.195, 0.224, frontDepth * 0.78, 0.182),
+            (-0.118, 0.265, frontDepth - 0.022, 0.230),
+            (-0.043, 0.292, frontDepth + 0.006, 0.270),
+            (0.053, 0.292, frontDepth + 0.015, 0.285),
+            (0.126, 0.270, frontDepth + 0.006, 0.275),
+            (0.198, 0.236, frontDepth * 0.83, 0.240),
+            (0.254, 0.164, frontDepth * 0.55, 0.168),
+            (0.292, 0.042, frontDepth * 0.12, 0.049),
+        ]
+    }
+
+    private static func southpawHead(material: SCNMaterial, frontDepth: Float) -> SCNGeometry {
+        let sections = southpawHeadSections(frontDepth: frontDepth)
+        let columns = 32
+        var vertices: [SIMD3<Float>] = []
+        var indices: [Int32] = []
+        for (row, section) in sections.enumerated() {
+            let exponent: Float = row < 4 ? 0.74 : 0.90
+            for column in 0..<columns {
+                let angle = Float(column) / Float(columns) * .pi * 2
+                let horizontal = sin(angle)
+                let depth = cos(angle)
+                vertices.append(SIMD3<Float>(section.width * copysign(pow(abs(horizontal), exponent), horizontal),
+                    section.height, (depth >= 0 ? section.front : section.back) * copysign(pow(abs(depth), exponent), depth)))
+                if row < sections.count - 1 {
+                    let current = Int32(row * columns + column)
+                    let adjacent = Int32(row * columns + (column + 1) % columns)
+                    let next = current + Int32(columns)
+                    let nextAdjacent = adjacent + Int32(columns)
+                    indices.append(contentsOf: [current, adjacent, next, adjacent, nextAdjacent, next])
+                }
+            }
+        }
+        let bottom = Int32(vertices.count)
+        vertices.append(SIMD3<Float>(0, -0.288, 0))
+        let top = Int32(vertices.count)
+        vertices.append(SIMD3<Float>(0, 0.302, 0))
+        for column in 0..<columns {
+            let current = Int32(column)
+            let adjacent = Int32((column + 1) % columns)
+            let lastRow = Int32((sections.count - 1) * columns)
+            indices.append(contentsOf: [bottom, adjacent, current, top, lastRow + current, lastRow + adjacent])
+        }
+        return southpawSurface(vertices: vertices, indices: indices, material: material)
+    }
+
+    private static func southpawHair(material: SCNMaterial, frontDepth: Float) -> SCNGeometry {
+        let sections = southpawHeadSections(frontDepth: frontDepth)
+        let rows = 40
+        let columns = 96
+        let rings: [(fraction: Float, count: Int)] = [(0, 1), (0.28, 7), (0.52, 12), (0.75, 16), (0.94, 19)]
+        var curls: [(normal: SIMD3<Float>, radius: Float, lift: Float)] = []
+        for (ringIndex, ring) in rings.enumerated() {
+            for curlIndex in 0..<ring.count {
+                let phase = Float(curlIndex) * 2.17 + Float(ringIndex) * 1.31
+                let longitude = (Float(curlIndex) + Float(ringIndex % 2) * 0.5) / Float(ring.count) * .pi * 2
+                    + sin(phase) * 0.055
+                let hairline: Float = 1.68 - max(0, cos(longitude)) * 0.56
+                let latitude = ring.fraction * hairline + (ringIndex == 0 ? 0 : sin(phase * 1.7) * 0.025)
+                let normal = SIMD3<Float>(sin(latitude) * sin(longitude), cos(latitude), sin(latitude) * cos(longitude))
+                curls.append((normal, 0.18 + 0.025 * sin(phase), 0.030 + 0.008 * cos(phase * 1.3)))
+            }
+        }
+        var vertices: [SIMD3<Float>] = []
+        var indices: [Int32] = []
+        for row in 0...rows {
+            for column in 0..<columns {
+                let longitude = Float(column) / Float(columns) * .pi * 2
+                let hairline: Float = 1.68 - max(0, cos(longitude)) * 0.56
+                let latitude = Float(row) / Float(rows) * hairline
+                let normal = SIMD3<Float>(sin(latitude) * sin(longitude), cos(latitude), sin(latitude) * cos(longitude))
+                let taper = min(1, max(0, (normal.y + 0.20) / 0.43))
+                let height = cos(latitude) * 0.302
+                let lowerIndex = sections.lastIndex { $0.height <= height } ?? 0
+                let lower = sections[lowerIndex]
+                let upper: (height: Float, width: Float, front: Float, back: Float) = lowerIndex + 1 < sections.count
+                    ? sections[lowerIndex + 1] : (0.302, 0, 0, 0)
+                let blend = (height - lower.height) / (upper.height - lower.height)
+                let width = lower.width + (upper.width - lower.width) * blend
+                let horizontal = sin(longitude)
+                let depth = cos(longitude)
+                let front = lower.front + (upper.front - lower.front) * blend
+                let back = lower.back + (upper.back - lower.back) * blend
+                let exponent: Float = lowerIndex < 4 ? 0.74 : 0.90
+                let surface = SIMD3<Float>(width * copysign(pow(abs(horizontal), exponent), horizontal), height,
+                    (depth >= 0 ? front : back) * copysign(pow(abs(depth), exponent), depth))
+                var curlLift: Float = 0
+                for curl in curls {
+                    let distance = simd_length(normal - curl.normal) / curl.radius
+                    let mound = pow(max(0, 1 - distance * distance), 1.4)
+                    curlLift = max(curlLift, curl.lift * mound)
+                }
+                let thickness: Float = 0.006 + (0.004 + curlLift) * taper
+                vertices.append(surface + normal * thickness)
+                if row < rows {
+                    let current = Int32(row * columns + column)
+                    let adjacent = Int32(row * columns + (column + 1) % columns)
+                    let next = current + Int32(columns)
+                    let nextAdjacent = adjacent + Int32(columns)
+                    indices.append(contentsOf: [current, next, adjacent, adjacent, next, nextAdjacent])
+                }
+            }
+        }
+        return southpawSurface(vertices: vertices, indices: indices, material: material)
+    }
+
+    private static func southpawSurface(vertices: [SIMD3<Float>], indices: [Int32], material: SCNMaterial) -> SCNGeometry {
+        var normals = Array(repeating: SIMD3<Float>.zero, count: vertices.count)
+        for index in stride(from: 0, to: indices.count, by: 3) {
+            let first = Int(indices[index])
+            let second = Int(indices[index + 1])
+            let third = Int(indices[index + 2])
+            let normal = simd_cross(vertices[second] - vertices[first], vertices[third] - vertices[first])
+            normals[first] += normal
+            normals[second] += normal
+            normals[third] += normal
+        }
+        let normalized = normals.map { normal in
+            SCNVector3(simd_length_squared(normal) > 0.000000000001 ? simd_normalize(normal) : SIMD3<Float>(0, 1, 0))
+        }
+        let geometry = CharacterSurface.geometry(vertices: vertices.map { SCNVector3($0) }, normals: normalized, indices: indices)
+        geometry.materials = [material]
+        return geometry
     }
 
     private func buildPressureDetails() {
         let hairMaterial = material(color: UIColor(red: 0.055, green: 0.045, blue: 0.043, alpha: 1), roughness: 0.96)
         let trimMaterial = material(color: UIColor(red: 0.94, green: 0.93, blue: 0.90, alpha: 1), roughness: 0.88)
         let faceMaterial = material(color: UIColor(red: 0.29, green: 0.12, blue: 0.085, alpha: 1), roughness: 0.85)
+        CharacterSurface.apply(.hair, to: hairMaterial)
+        CharacterSurface.apply(.cloth, to: trimMaterial)
         let hair = SCNNode(geometry: Self.croppedHair(material: hairMaterial))
         hair.name = "pressureCroppedHair"
         head.addChildNode(hair)
@@ -2175,6 +2561,8 @@ private final class BoxerRig {
         let hairMaterial = material(color: UIColor(red: 0.10, green: 0.075, blue: 0.055, alpha: 1), roughness: 0.92)
         let trimMaterial = material(color: UIColor(white: 0.95, alpha: 1), roughness: 0.84)
         let faceMaterial = material(color: UIColor(red: 0.34, green: 0.17, blue: 0.12, alpha: 1), roughness: 0.88)
+        CharacterSurface.apply(.hair, to: hairMaterial)
+        CharacterSurface.apply(.cloth, to: trimMaterial)
         let hair = SCNNode(geometry: Self.croppedHair(material: hairMaterial, swept: true))
         hair.name = "outboxerSweptHair"
         head.addChildNode(hair)
@@ -2230,6 +2618,9 @@ private final class BoxerRig {
         let faceMaterial = material(color: heavy
             ? UIColor(red: 0.27, green: 0.14, blue: 0.095, alpha: 1)
             : UIColor(red: 0.44, green: 0.36, blue: 0.38, alpha: 1), roughness: 0.90)
+        CharacterSurface.apply(.hair, to: hairMaterial)
+        CharacterSurface.apply(.cloth, to: trimMaterial)
+        CharacterSurface.apply(.cloth, to: seamMaterial)
         if heavy {
             let hair = SCNNode(geometry: Self.croppedHair(material: hairMaterial, buzz: true))
             hair.name = prefix + "Hair"
@@ -2294,6 +2685,7 @@ private final class BoxerRig {
         head.addChildNode(mouth)
         if heavy {
             let stubbleMaterial = material(color: UIColor(red: 0.16, green: 0.105, blue: 0.074, alpha: 1), roughness: 0.97)
+            CharacterSurface.apply(.hair, to: stubbleMaterial)
             let stubble = SCNNode(geometry: Self.jawStubble(material: stubbleMaterial))
             stubble.name = "sluggerJawStubble"
             head.addChildNode(stubble)
@@ -2330,6 +2722,7 @@ private final class BoxerRig {
 
     private func buildCounterHair() {
         let hairMaterial = material(color: UIColor(red: 0.025, green: 0.030, blue: 0.035, alpha: 1), roughness: 0.94)
+        CharacterSurface.apply(.hair, to: hairMaterial)
         let hair = SCNNode()
         hair.name = "counterAsymmetricHair"
         let undercut = SCNNode(geometry: Self.counterHairSurface(material: hairMaterial, undercut: true))
@@ -2367,8 +2760,7 @@ private final class BoxerRig {
                 }
             }
         }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
-            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        let geometry = CharacterSurface.geometry(vertices: vertices, normals: normals, indices: indices)
         geometry.materials = [material]
         return geometry
     }
@@ -2402,8 +2794,7 @@ private final class BoxerRig {
                 indices.append(contentsOf: [start, start + 1, start + 2, start, start + 2, start + 3])
             }
         }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
-            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        let geometry = CharacterSurface.geometry(vertices: vertices, normals: normals, indices: indices)
         geometry.materials = [material]
         return geometry
     }
@@ -2429,8 +2820,7 @@ private final class BoxerRig {
                 }
             }
         }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
-            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        let geometry = CharacterSurface.geometry(vertices: vertices, normals: normals, indices: indices)
         geometry.materials = [material]
         return geometry
     }
@@ -2466,8 +2856,7 @@ private final class BoxerRig {
                 }
             }
         }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
-            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        let geometry = CharacterSurface.geometry(vertices: vertices, normals: normals, indices: indices)
         geometry.materials = [material]
         return geometry
     }
@@ -2484,6 +2873,13 @@ private final class BoxerRig {
         // - 이동/스트라이드/걷기 사이클, 안면/타격 반응, 펀치 트레일, 글러브 강조, 충돌 마크 표시, 의상 색상/방출 등을 모두 관리합니다.
         // - `reducedMotion`이 true면 일부 장식적 모션을 억제해 접근성 요구를 만족시킵니다.
         let worldScale = Float(CombatData.sceneScale)
+        if previousBoxingStance != fighter.stance {
+            previousStancePose = nil
+            straightPunchEntry = nil
+            straightAnatomy = nil
+            footPlant = FootPlantMotion()
+            previousBoxingStance = fighter.stance
+        }
         root.simdPosition = SIMD3<Float>(Float(fighter.x - 295) * worldScale, 0.13, Float(fighter.y - 295) * worldScale)
         root.simdOrientation = simd_quatf(angle: Float(atan2(fighter.facingX, fighter.facingY)),
             axis: SIMD3<Float>(0, 1, 0))
@@ -2517,7 +2913,8 @@ private final class BoxerRig {
             style: fighter.style,
             stanceWidth: fighter.style.stanceWidth,
             leanBias: fighter.style.leanBias,
-            pitchBias: fighter.style.pitchBias
+            pitchBias: fighter.style.pitchBias,
+            stance: fighter.stance
         )
         if idleMotion == nil {
             pose.applyReadiness(motion: readiness)
@@ -2540,12 +2937,16 @@ private final class BoxerRig {
                 ? weaveMotion : WeaveMotion()
         }
         observedAttackSerial = fighter.attackSerial
-        if let punch = fighter.attack, let spec = CombatData.attacks[punch], weaveHookEntry.amount > 0 {
+        // Real attacks already carry their defensive entry in the shared contact/render pose.
+        if fighter.attackEntryPose == nil, let punch = fighter.attack,
+           let spec = CombatData.attacks[punch], weaveHookEntry.amount > 0 {
             let carried = weaveHookEntry.carryingHook(progress: Float(fighter.actionTime / spec.duration),
                                                      contactProgress: Float(spec.activeStart / spec.duration))
             if carried.amount > weaveMotion.amount { weaveMotion = carried }
         }
-        pose.applyDuck(direction: duckVisual * recoveryDefenseWeight * (1 - weaveMotion.amount), style: fighter.style)
+        let duckAmount = usesPresentationDefense ? abs(duckVisual) : fighter.duckMotion.postureAmount
+        pose.applyDuck(direction: duckVisual * recoveryDefenseWeight * (1 - weaveMotion.amount),
+            postureAmount: duckAmount * recoveryDefenseWeight * (1 - weaveMotion.amount), style: fighter.style)
         pose.applyWeave(weaveMotion, style: fighter.style)
         pose.applyBackstep(backstep)
         if let idleMotion { pose.applyMenuIdle(idleMotion) }
@@ -2588,7 +2989,8 @@ private final class BoxerRig {
                              straightAnatomy: straightAnatomy,
                              contactTarget: PunchContactGeometry.aim(fighter, punch: punch))
             if idleMotion == nil {
-                pose.applyPunchRecovery(punch, progress: progress, landed: fighter.acted, reducedMotion: reducedMotion)
+                pose.applyPunchRecovery(punch, progress: progress, landed: fighter.acted, reducedMotion: reducedMotion,
+                    outcome: fighter.attackOutcome, clockProgress: clockProgress)
             }
         } else {
             straightPunchEntry = nil
@@ -2603,15 +3005,20 @@ private final class BoxerRig {
         let typedReaction = FighterImpactMotion.sample(impact ?? fighter.lastImpact, remaining: fighter.hitReaction,
                                    reducedMotion: reducedMotion, allowsContactBeat: allowsContactBeat)
         pose.applyImpact(typedReaction)
-        // Finish an already-started step beneath any upper-body action. No movement is added to the engine.
+        // Finish locomotion under the windup, then keep both contact feet planted through activeEnd.
         let restLeft = pose.leftFoot
         let restRight = pose.rightFoot
+        let plantBy = fighter.attack.flatMap { punch -> Double? in
+            guard !usesPresentationDefense, idleMotion == nil, let spec = CombatData.attacks[punch],
+                  fighter.actionTime <= spec.activeEnd else { return nil }
+            return spec.activeStart - fighter.actionTime
+        }
         let feet = footPlant.sample(
             rootPosition: root.simdPosition, rootRotation: root.simdOrientation,
             left: restLeft, right: restRight, deltaTime: deltaTime, moving: moving,
             reset: fighter.knockedOut || idleMotion != nil || previousStyle != fighter.style
                 || movement > 20,
-            reducedMotion: reducedMotion
+            reducedMotion: reducedMotion, plantBy: plantBy
         )
         previousStyle = fighter.style
         pose.leftFoot = feet.left
@@ -2690,6 +3097,10 @@ private final class BoxerRig {
         // Eye nodes are siblings, so translate with the head instead of orbiting independently.
         leftEye.simdPosition = head.simdPosition + head.simdOrientation.act(SIMD3<Float>(-0.11, 0.06, eyeDepth))
         rightEye.simdPosition = head.simdPosition + head.simdOrientation.act(SIMD3<Float>(0.11, 0.06, eyeDepth))
+        if appearance == .southpaw {
+            leftEye.simdOrientation = head.simdOrientation
+            rightEye.simdOrientation = head.simdOrientation
+        }
         neck.simdPosition += typedReaction.headOffset * 0.4
         head.simdPosition += typedReaction.headOffset
         leftEye.simdPosition += typedReaction.headOffset
@@ -2768,7 +3179,7 @@ private final class BoxerRig {
         if !reducedMotion, !fighter.knockedOut, deltaTime > 0, let punch = fighter.attack, let attackProgress {
             let extensionAmount = PunchMotion.sample(punch, progress: attackProgress).reach
             if extensionAmount > 0.06 {
-                let leadLeft = [.jab, .leftBody, .leftHook, .leftUppercut].contains(punch)
+                let leadLeft = fighter.stance.usesLeftHand(for: punch)
                 let trail = leadLeft ? leftTrail : rightTrail
                 let previous = leadLeft ? (olderLeftGlove ?? previousLeftGlove) : (olderRightGlove ?? previousRightGlove)
                 let end = leadLeft ? leftGlovePosition : rightGlovePosition
@@ -2839,6 +3250,10 @@ private final class BoxerRig {
         head.simdOrientation = simd_quatf(angle: -pose.torsoLean * 0.45, axis: SIMD3<Float>(0, 0, 1))
         leftEye.simdPosition = head.simdPosition + head.simdOrientation.act(SIMD3<Float>(-0.11, 0.06, eyeDepth))
         rightEye.simdPosition = head.simdPosition + head.simdOrientation.act(SIMD3<Float>(0.11, 0.06, eyeDepth))
+        if appearance == .southpaw {
+            leftEye.simdOrientation = head.simdOrientation
+            rightEye.simdOrientation = head.simdOrientation
+        }
         identityLabel.simdPosition = SIMD3<Float>(0, 2.8 + pose.headBob - headDrop, 0)
         let leftShoulderPosition = pose.facingPoint(pose.leftShoulder)
         let rightShoulderPosition = pose.facingPoint(pose.rightShoulder)
@@ -2959,7 +3374,18 @@ private final class BoxerRig {
             teamMaterial.diffuse.contents = UIColor(red: 0.32, green: 0.03, blue: 0.07, alpha: 1)
             gloveMaterial.diffuse.contents = UIColor(red: 0.55, green: 0.06, blue: 0.12, alpha: 1)
         }
+        CharacterSurface.apply(.cloth, to: teamMaterial)
+        CharacterSurface.apply(.leather, to: gloveMaterial)
+        CharacterSurface.apply(.leather, to: gloveAccentMaterial)
+        updateBootColors()
         champBadge.isHidden = outfit != .champ
+    }
+
+    private func updateBootColors() {
+        for foot in [leftFoot, rightFoot] {
+            foot.childNode(withName: "boxingBoot", recursively: false)?.geometry?.firstMaterial?.diffuse.contents
+                = teamMaterial.diffuse.contents
+        }
     }
 
     private func buildStoryStarterOutfit() {
@@ -3056,6 +3482,8 @@ private final class BoxerRig {
         guard storyChampionDetails.isEmpty else { return }
         let black = material(color: UIColor(red: 0.055, green: 0.06, blue: 0.07, alpha: 1), roughness: 0.90)
         let stitching = material(color: UIColor(red: 0.84, green: 0.68, blue: 0.28, alpha: 1), roughness: 0.85)
+        CharacterSurface.apply(.cloth, to: black)
+        CharacterSurface.apply(.cloth, to: stitching)
         func attach(_ node: SCNNode, to parent: SCNNode) {
             node.castsShadow = true
             parent.addChildNode(node)
@@ -3159,8 +3587,7 @@ private final class BoxerRig {
                 }
             }
         }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices), SCNGeometrySource(normals: normals)],
-            elements: [SCNGeometryElement(indices: indices, primitiveType: .triangles)])
+        let geometry = CharacterSurface.geometry(vertices: vertices, normals: normals, indices: indices)
         geometry.materials = [material]
         return geometry
     }
@@ -3190,6 +3617,7 @@ private final class BoxerRig {
         if enabled {
             teamMaterial.diffuse.contents = UIColor(red: 0.42, green: 0.43, blue: 0.45, alpha: 1)
             gloveMaterial.diffuse.contents = UIColor(red: 0.58, green: 0.59, blue: 0.61, alpha: 1)
+            updateBootColors()
         }
     }
 
@@ -3362,11 +3790,16 @@ private final class BoxerRig {
 
     private static func shoe(material: SCNMaterial, sole: SCNMaterial) -> SCNNode {
         let node = SCNNode()
+        let bootMaterial = material.copy() as? SCNMaterial ?? material
+        let soleMaterial = sole.copy() as? SCNMaterial ?? sole
+        CharacterSurface.apply(.leather, to: bootMaterial)
+        CharacterSurface.apply(.rubber, to: soleMaterial)
         let boot = SCNNode(geometry: SCNBox(width: 0.31, height: 0.22, length: 0.48, chamferRadius: 0.08))
-        boot.geometry?.materials = [material]
+        boot.name = "boxingBoot"
+        boot.geometry?.materials = [bootMaterial]
         boot.position.z = 0.08
         let soleNode = SCNNode(geometry: SCNBox(width: 0.33, height: 0.055, length: 0.51, chamferRadius: 0.02))
-        soleNode.geometry?.materials = [sole]
+        soleNode.geometry?.materials = [soleMaterial]
         soleNode.position = SCNVector3(0, -0.12, 0.08)
         node.addChildNode(boot)
         node.addChildNode(soleNode)
@@ -3484,6 +3917,10 @@ private final class GymCoachRig {
         let shoe = material(color: UIColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1), roughness: 0.5)
         let hair = material(color: UIColor(red: 0.72, green: 0.72, blue: 0.74, alpha: 1), roughness: 0.6)
         let dark = material(color: UIColor(red: 0.05, green: 0.04, blue: 0.05, alpha: 1), roughness: 0.4)
+        CharacterSurface.apply(.skin, to: skin)
+        CharacterSurface.apply(.cloth, to: tracksuit)
+        CharacterSurface.apply(.leather, to: shoe)
+        CharacterSurface.apply(.hair, to: hair)
         leftArm = Arm(shoulder: SIMD3<Float>(0.34, 1.86, 0.05), elbow: SIMD3<Float>(0.08, 1.62, 0.30),
             handPosition: SIMD3<Float>(-0.30, 1.68, 0.33), fabric: tracksuit, skin: skin)
         rightArm = Arm(shoulder: SIMD3<Float>(-0.34, 1.86, 0.05), elbow: SIMD3<Float>(-0.08, 1.58, 0.34),
@@ -3648,6 +4085,7 @@ struct Arena3DView: UIViewRepresentable {
 struct RivalPortraitView: UIViewRepresentable {
     let isActive: Bool
     var storyOpponent: StoryOpponent? = nil
+    var presentationBackground: UIColor? = nil
     @RivalReducedMotion private var reducedMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -3669,6 +4107,10 @@ struct RivalPortraitView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: SCNView, context: Context) {
+        if let presentationBackground {
+            view.backgroundColor = presentationBackground
+            context.coordinator.scene.background.contents = presentationBackground
+        }
         let animate = isActive && scenePhase == .active && !reducedMotion
         context.coordinator.configure(animate: animate, reducedMotion: reducedMotion)
         view.isPlaying = animate
@@ -3728,6 +4170,7 @@ final class StylePreviewScene: SCNScene {
     let cameraNode = SCNNode()
     private var rig = BoxerRig(team: .player)
     private var appearance: StoryOpponent?
+    private var previewsSouthpaw = false
     // BoxerRig.update() positions the root at (fighter.x - 295, _, fighter.y - 295) since 295 is the arena's
     // center coordinate — use that same center here so the standalone preview rig lands at world origin,
     // right where the camera below is aimed.
@@ -3785,12 +4228,24 @@ final class StylePreviewScene: SCNScene {
         reducedMotion = enabled
     }
 
+    func setSouthpawPreview(_ enabled: Bool) {
+        guard previewsSouthpaw != enabled else { return }
+        previewsSouthpaw = enabled
+        fighter.stance = enabled ? .southpaw : .orthodox
+        turntableStartTime = nil
+    }
+
+    func setEnlargedPreview(_ enabled: Bool) {
+        cameraNode.camera?.fieldOfView = enabled ? 38 : 40
+        cameraNode.look(at: SCNVector3(0, enabled ? 1.35 : 1.5, -0.05))
+    }
+
     func update(at time: TimeInterval) {
         if startTime == nil { startTime = time }
         if turntableStartTime == nil { turntableStartTime = time }
         let elapsed = reducedMotion ? 0 : time - (startTime ?? time)
         rig.update(from: fighter, deltaTime: 1.0 / 60.0, elapsedTime: elapsed,
-               reducedMotion: reducedMotion, usesPresentationDefense: true)
+            reducedMotion: reducedMotion, usesPresentationDefense: true)
         // rig.update() restores the fighter's facing before the turntable rotation is applied.
         let turntableElapsed = reducedMotion ? 0 : Float(time - (turntableStartTime ?? time))
         rig.root.simdOrientation = simd_quatf(angle: turntableElapsed * turntableSpeed,
@@ -3849,6 +4304,9 @@ struct StylePreviewView: UIViewRepresentable {
     let outfit: OutfitID
     var appearance: StoryOpponent? = nil
     var championBelt = false
+    var southpawPreview = false
+    var preparationBackground: UIColor? = nil
+    var enlargedPreview = false
     @RivalReducedMotion private var reducedMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -3874,7 +4332,14 @@ struct StylePreviewView: UIViewRepresentable {
         context.coordinator.scene.setStyle(style)
         context.coordinator.scene.setOutfit(outfit)
         context.coordinator.scene.setChampionBelt(championBelt)
+        context.coordinator.scene.setSouthpawPreview(southpawPreview)
         context.coordinator.scene.setReducedMotion(reducedMotion)
+        context.coordinator.scene.setEnlargedPreview(enlargedPreview)
+        if let preparationBackground {
+            view.backgroundColor = preparationBackground
+            context.coordinator.scene.background.contents = preparationBackground
+            context.coordinator.scene.rootNode.childNode(withName: "playerIdentityLabel", recursively: true)?.isHidden = true
+        }
         let animate = !reducedMotion && scenePhase == .active
         if animate { context.coordinator.start() } else { context.coordinator.stop() }
         context.coordinator.scene.update(at: CACurrentMediaTime())
@@ -3911,6 +4376,208 @@ struct StylePreviewView: UIViewRepresentable {
         @objc private func tick(_ link: CADisplayLink) {
             scene.update(at: link.timestamp)
         }
+    }
+}
+
+@MainActor
+private enum CharacterSurface {
+    enum Kind: Hashable {
+        case skin, leather, cloth, hair, rubber
+
+        var roughnessRange: ClosedRange<CGFloat> {
+            switch self {
+            case .skin: 0.56...0.74
+            case .leather: 0.42...0.72
+            case .cloth: 0.78...0.96
+            case .hair: 0.62...0.78
+            case .rubber: 0.86...0.98
+            }
+        }
+
+        var repeats: Float {
+            switch self {
+            case .skin, .leather: 2
+            case .cloth, .rubber: 3
+            case .hair: 1
+            }
+        }
+
+        var normalStrength: Float {
+            switch self {
+            case .skin: 1.2
+            case .leather: 2.1
+            case .cloth: 1.8
+            case .hair: 1.1
+            case .rubber: 1.6
+            }
+        }
+    }
+
+    private struct Maps {
+        let normal: CGImage
+        let roughness: CGImage
+        let variation: CGImage
+    }
+
+    private static var cache: [Kind: Maps] = [:]
+
+    static func apply(_ kind: Kind, to material: SCNMaterial) {
+        guard let maps = cache[kind] ?? makeMaps(kind) else { return }
+        cache[kind] = maps
+        let original = (material.roughness.contents as? NSNumber)?.doubleValue
+            ?? Double(kind.roughnessRange.lowerBound)
+        let roughness = min(kind.roughnessRange.upperBound, max(kind.roughnessRange.lowerBound, CGFloat(original)))
+        material.lightingModel = .physicallyBased
+        material.metalness.contents = 0
+        material.normal.contents = maps.normal
+        material.normal.intensity = 1
+        material.roughness.contents = maps.roughness
+        material.roughness.intensity = roughness
+        material.multiply.contents = maps.variation
+        for property in [material.normal, material.roughness, material.multiply] {
+            property.wrapS = .repeat
+            property.wrapT = .repeat
+            property.minificationFilter = .linear
+            property.magnificationFilter = .linear
+            property.mipFilter = .linear
+            property.maxAnisotropy = 4
+            property.contentsTransform = SCNMatrix4MakeScale(kind.repeats, kind.repeats, 1)
+        }
+    }
+
+    static func geometry(vertices: [SCNVector3], normals: [SCNVector3], indices: [Int32]) -> SCNGeometry {
+        var mappedVertices = vertices
+        var mappedNormals = normals
+        var mappedIndices = indices
+        var coordinates = vertices.map { vertex in
+            let position = SIMD3<Float>(vertex.x, vertex.y, vertex.z)
+            let length = max(0.000001, simd_length(position))
+            return CGPoint(x: CGFloat(0.5 + atan2(position.x, position.z) / (.pi * 2)),
+                y: CGFloat(acos(min(1, max(-1, position.y / length))) / .pi))
+        }
+        var seamVertices: [Int: Int32] = [:]
+        for triangle in stride(from: 0, to: indices.count, by: 3) {
+            let corners = (0..<3).map { Int(indices[triangle + $0]) }
+            let values = corners.map { coordinates[$0].x }
+            guard let minimum = values.min(), let maximum = values.max(), maximum - minimum > 0.5 else { continue }
+            for corner in 0..<3 {
+                let original = corners[corner]
+                guard coordinates[original].x < 0.5 else { continue }
+                let duplicate: Int32
+                if let existing = seamVertices[original] {
+                    duplicate = existing
+                } else {
+                    duplicate = Int32(mappedVertices.count)
+                    mappedVertices.append(vertices[original])
+                    mappedNormals.append(normals[original])
+                    coordinates.append(CGPoint(x: coordinates[original].x + 1, y: coordinates[original].y))
+                    seamVertices[original] = duplicate
+                }
+                mappedIndices[triangle + corner] = duplicate
+            }
+        }
+        return SCNGeometry(sources: [SCNGeometrySource(vertices: mappedVertices), SCNGeometrySource(normals: mappedNormals),
+            SCNGeometrySource(textureCoordinates: coordinates)],
+            elements: [SCNGeometryElement(indices: mappedIndices, primitiveType: .triangles)])
+    }
+
+    private static func makeMaps(_ kind: Kind) -> Maps? {
+        let size = 256
+        let count = size * size
+        var heights = Array(repeating: Float.zero, count: count)
+        var variation = Array(repeating: Float.zero, count: count)
+        for row in 0..<size {
+            for column in 0..<size {
+                let horizontal = Float(column) / Float(size)
+                let vertical = Float(row) / Float(size)
+                let broad = noise(horizontal, vertical, cells: 8, seed: 17)
+                let grain = noise(horizontal, vertical, cells: 64, seed: 73)
+                let index = row * size + column
+                variation[index] = broad * 0.35 + grain * 0.65
+                switch kind {
+                case .skin:
+                    let pore = pow(max(0, (grain - 0.56) / 0.44), 2)
+                    heights[index] = broad * 0.16 + grain * 0.12 - pore * 0.22
+                case .leather:
+                    let crease = pow(abs(sin((horizontal * 3 + vertical * 2) * .pi * 2 + broad * 2)), 18)
+                    heights[index] = grain * 0.46 + broad * 0.10 - crease * 0.10
+                case .cloth:
+                    let warp = sin(horizontal * .pi * 128)
+                    let weft = sin(vertical * .pi * 128)
+                    heights[index] = warp * 0.11 + weft * 0.11 + warp * weft * 0.07 + broad * 0.06
+                case .hair:
+                    let strand = sin(horizontal * .pi * 96 + broad * 0.7)
+                    heights[index] = strand * 0.16 + grain * 0.05
+                case .rubber:
+                    let tread = sin(horizontal * .pi * 64) * sin(vertical * .pi * 64)
+                    heights[index] = tread * 0.07 + grain * 0.12
+                }
+            }
+        }
+        var normalPixels = Array(repeating: UInt8(255), count: count * 4)
+        var roughnessPixels = normalPixels
+        var variationPixels = normalPixels
+        for row in 0..<size {
+            for column in 0..<size {
+                let index = row * size + column
+                let left = heights[row * size + (column + size - 1) % size]
+                let right = heights[row * size + (column + 1) % size]
+                let above = heights[((row + size - 1) % size) * size + column]
+                let below = heights[((row + 1) % size) * size + column]
+                let normal = simd_normalize(SIMD3<Float>((left - right) * kind.normalStrength,
+                    (below - above) * kind.normalStrength, 1))
+                let pixel = index * 4
+                normalPixels[pixel] = byte(normal.x * 0.5 + 0.5)
+                normalPixels[pixel + 1] = byte(normal.y * 0.5 + 0.5)
+                normalPixels[pixel + 2] = byte(normal.z * 0.5 + 0.5)
+                let roughness = byte(0.84 + variation[index] * 0.16)
+                let shade = byte((kind == .skin ? 0.985 : 0.94) + variation[index] * (kind == .skin ? 0.015 : 0.06))
+                for channel in 0..<3 {
+                    roughnessPixels[pixel + channel] = roughness
+                    variationPixels[pixel + channel] = shade
+                }
+            }
+        }
+        guard let normal = image(normalPixels, size: size),
+              let roughness = image(roughnessPixels, size: size),
+              let variation = image(variationPixels, size: size) else { return nil }
+        return Maps(normal: normal, roughness: roughness, variation: variation)
+    }
+
+    private static func noise(_ horizontal: Float, _ vertical: Float, cells: Int, seed: UInt32) -> Float {
+        let scaledX = horizontal * Float(cells)
+        let scaledY = vertical * Float(cells)
+        let column = Int(floor(scaledX))
+        let row = Int(floor(scaledY))
+        let fractionX = scaledX - Float(column)
+        let fractionY = scaledY - Float(row)
+        let blendX = fractionX * fractionX * (3 - 2 * fractionX)
+        let blendY = fractionY * fractionY * (3 - 2 * fractionY)
+        func sample(_ column: Int, _ row: Int) -> Float {
+            let wrappedX = UInt32((column % cells + cells) % cells)
+            let wrappedY = UInt32((row % cells + cells) % cells)
+            var bits = wrappedX &* 0x8DA6B343 ^ wrappedY &* 0xD8163841 ^ seed
+            bits ^= bits >> 13
+            bits &*= 0x85EBCA6B
+            bits ^= bits >> 16
+            return Float(bits & 0xFFFF) / 65535
+        }
+        let upper = sample(column, row) * (1 - blendX) + sample(column + 1, row) * blendX
+        let lower = sample(column, row + 1) * (1 - blendX) + sample(column + 1, row + 1) * blendX
+        return upper * (1 - blendY) + lower * blendY
+    }
+
+    private static func byte(_ value: Float) -> UInt8 {
+        UInt8(min(255, max(0, (value * 255).rounded())))
+    }
+
+    private static func image(_ pixels: [UInt8], size: Int) -> CGImage? {
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let colorSpace = CGColorSpace(name: CGColorSpace.linearSRGB) else { return nil }
+        return CGImage(width: size, height: size, bitsPerComponent: 8, bitsPerPixel: 32,
+            bytesPerRow: size * 4, space: colorSpace,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     }
 }
 

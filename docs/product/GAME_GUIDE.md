@@ -18,7 +18,7 @@
 `1.2(6)`는 실제 [RIVAL.xcodeproj/project.pbxproj](../../ios-pixel-boxing/RIVAL.xcodeproj/project.pbxproj)의
 마케팅 버전 `1.2`, 빌드 번호 `6`이며 [project.yml](../../ios-pixel-boxing/project.yml)도 일치합니다.
 2026-10-12 확인 당시 공개 App Store는 유료 1.1(USD 1.99 / KRW 3,300)입니다.
-무료 전환·1.2 출시는 미완료이며, 무료 일반 모드와 선택적 Story IAP는 제출본의 제품 구조입니다.
+앱 판매가격 전환·1.2 출시는 미완료이며, RIVAL 핵심 대전·체육관 경험과 선택형 프리미엄 Story IAP는 제출본의 제품 구조입니다.
 2026-10-11 서명된 Release 1.2(6) 아카이브 업로드와 앱·Story IAP·Total Wins의
 3항목 심사 제출 기록은 `Waiting for Review`, 수동 출시(`MANUAL`)입니다.
 [제출 영수증](../../ios-pixel-boxing/AppStoreMetadata/1.2-submission.json)과

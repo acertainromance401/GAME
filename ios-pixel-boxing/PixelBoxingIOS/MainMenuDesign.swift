@@ -23,22 +23,16 @@ enum MainMenuPalette {
 
 struct MainMenuLayout {
     static let horizontalPadding: CGFloat = 20
-    static let verticalPadding: CGFloat = 14
-    let menuWidth: CGFloat
-    let heroWidth: CGFloat
-    let contentHeight: CGFloat
-    let gutter: CGFloat
-    let displaySize: CGFloat
+    static let gutter: CGFloat = 16
+    let featureWidth: CGFloat
+    let storyWidth: CGFloat
+    let portraitClearWidth: CGFloat
 
-    /// The supplied size is already inside SwiftUI's safe area. The menu column can scroll at large
-    /// text sizes; the hero never competes with the controls for their minimum usable width.
     init(size: CGSize) {
         let width = max(0, size.width - Self.horizontalPadding * 2)
-        contentHeight = max(0, size.height - Self.verticalPadding * 2)
-        gutter = width < 680 ? 22 : 34
-        menuWidth = min(360, max(252, (width - gutter) * 0.44))
-        heroWidth = max(0, width - gutter - menuWidth)
-        displaySize = contentHeight < 340 ? 48 : (contentHeight < 390 ? 60 : 76)
+        featureWidth = min(250, width * 0.32)
+        storyWidth = min(210, width * 0.30)
+        portraitClearWidth = max(0, width - featureWidth - storyWidth - Self.gutter * 2)
     }
 }
 

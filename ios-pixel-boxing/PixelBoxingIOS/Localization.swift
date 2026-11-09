@@ -35,12 +35,18 @@ enum AppLanguage: String, CaseIterable, Codable, Sendable {
 }
 
 enum StoryText {
+    case lineupTitle, lineupDetail, showLineup, prepare
     case title, challenge, resume, replay, locked, cleared, unavailable, rounds, downs
+    case stance, orthodox, southpawStance
+    case stanceBeforeMatch
+    case basicPreviewProfile, victoryReward, nextBoutReward, coachAdvice, progressRequired
     case ahead, even, behind, knockdown, corner, decision, win, loss, draw, retry, opponents, nextRound, firstBout
     case appearance, defaultAppearance, appearanceRequirement, appearanceUnlocked
     case skip, replayIntroduction, replayRivalScene, pressureVenue, pressureIntroductionLine
+    case firstSparring, basicIntroductionLine, basicAftermathLine, basicRecoveryLine, coachBasicRead, coachBasicPlan
     case outboxerVenue, outboxerIntroductionLine
     case counterVenue, counterIntroductionLine, sluggerVenue, sluggerIntroductionLine
+    case southpawIntroductionLine, rivalSouthpawLine, coachSouthpawRead, coachSouthpawPlan, southpawReward
     case newChallenge
     case continueStory, rivalAdmirationLine, rivalComparisonLine, rivalImitationLine, rivalObsessionLine
     case championshipVenue, championshipIntroductionLine, rivalOwnWayLine, championshipReward, championBelt
@@ -51,7 +57,20 @@ enum StoryText {
     func text(for language: AppLanguage) -> String {
         let translations: (String, String, String)
         switch self {
-        case .title: translations = ("스토리", "STORY", "ストーリー")
+        case .lineupTitle: translations = ("대진표", "Fight card", "対戦カード")
+        case .lineupDetail: translations = ("첫 스파링부터 챔피언십까지.", "From the first spar to the championship.", "初スパーリングから王座決定戦へ。")
+        case .showLineup: translations = ("전체 대진 보기", "Show fight card", "対戦カードを表示")
+        case .prepare: translations = ("경기 준비", "Prepare for bout", "試合の準備")
+        case .title: translations = ("스토리", "Story", "ストーリー")
+        case .stance: translations = ("자세", "STANCE", "構え")
+        case .orthodox: translations = ("오소독스", "ORTHODOX", "オーソドックス")
+        case .southpawStance: translations = ("사우스포 자세", "SOUTHPAW STANCE", "サウスポーの構え")
+        case .stanceBeforeMatch: translations = ("자세 변경은 경기 준비 중에만 가능", "STANCE CHANGES BETWEEN BOUTS ONLY", "構えの変更は試合前のみ")
+        case .basicPreviewProfile: translations = ("RIVAL과의 첫 하드 스파링. 단발 잽과 짧은 원투를 중심으로 싸운다.", "Your first hard sparring session with RIVAL. He favors single jabs and short one-two combinations.", "RIVALとの初のハードスパーリング。単発のジャブと短いワンツーを中心に戦う。")
+        case .victoryReward: translations = ("승리 보상", "VICTORY REWARD", "勝利報酬")
+        case .nextBoutReward: translations = ("다음 스토리 경기 해금", "NEXT STORY BOUT", "次のストーリー対戦を解放")
+        case .coachAdvice: translations = ("코너 조언", "Corner advice", "コーナーの助言")
+        case .progressRequired: translations = ("스토리를 더 진행하면 이 대결에 도전할 수 있습니다.", "Continue the Story to unlock this bout.", "ストーリーを進めると、この対戦に挑戦できます。")
         case .challenge: translations = ("도전", "CHALLENGE", "挑戦")
         case .resume: translations = ("경기 이어하기", "RESUME BOUT", "試合を再開")
         case .newChallenge: translations = ("처음부터 도전", "START OVER", "最初から挑戦")
@@ -59,6 +78,9 @@ enum StoryText {
         case .rivalAdmirationLine: translations = ("언젠가 나도 너처럼.", "Someday, I'll be like you.", "いつか、僕も君のように。")
         case .rivalComparisonLine: translations = ("같은 동작인데... 왜 난 다르지?", "The moves are the same. Why am I different?", "動きは同じなのに...なぜ僕は違う？")
         case .rivalImitationLine: translations = ("내 방식으론... 안 되는 건가.", "My own way... isn't enough.", "僕のやり方では...だめなのか。")
+        case .rivalSouthpawLine: translations = ("손만 바꾸는 게 아니었네.", "It's more than switching hands.", "手を変えるだけじゃなかったんだ。")
+        case .southpawIntroductionLine: translations = ("같은 자리에서만 치려고?", "Planning to stay in the same spot?", "同じ場所から打つつもり？")
+        case .southpawReward: translations = ("사우스포 복장 · 자세 해금", "SOUTHPAW OUTFIT + STANCE UNLOCKED", "サウスポーの衣装・構え解放")
         case .rivalObsessionLine: translations = ("네 움직임은 하나도 놓치지 않아.", "I won't miss a single move you make.", "君の動きは一つも見逃さない。")
         case .championshipVenue: translations = ("챔피언십 아레나", "CHAMPIONSHIP ARENA", "チャンピオンシップアリーナ")
         case .championshipIntroductionLine: translations = ("처음에는 네가 되고 싶었어. 이제는 네가 나를 보게 만들 거야.", "At first, I wanted to be you. Now I'll make you see me.", "最初は君になりたかった。今度は君に僕を見てもらう。")
@@ -67,7 +89,7 @@ enum StoryText {
         case .championBelt: translations = ("챔피언 벨트", "CHAMPION BELT", "チャンピオンベルト")
         case .replay: translations = ("다시 대결", "REMATCH", "再戦")
         case .locked: translations = ("잠김", "LOCKED", "ロック中")
-        case .cleared: translations = ("승리", "CLEARED", "クリア")
+        case .cleared: translations = ("승리", "Won", "勝利")
         case .unavailable: translations = ("준비 중", "UNAVAILABLE", "準備中")
         case .rounds: translations = ("라운드", "ROUNDS", "ラウンド")
         case .downs: translations = ("다운", "DOWNS", "ダウン")
@@ -81,9 +103,10 @@ enum StoryText {
         case .loss: translations = ("패배", "DEFEAT", "敗北")
         case .draw: translations = ("무승부", "DRAW", "引き分け")
         case .retry: translations = ("재도전", "RETRY", "再挑戦")
-        case .opponents: translations = ("상대 선택", "OPPONENTS", "対戦相手")
+        case .opponents: translations = ("상대 선택", "Opponent", "対戦相手")
         case .nextRound: translations = ("다음 라운드", "NEXT ROUND", "次のラウンド")
         case .firstBout: translations = ("첫 공식 경기", "FIRST BOUT", "初の公式戦")
+        case .firstSparring: translations = ("첫 하드 스파링", "FIRST HARD SPARRING", "初のハードスパーリング")
         case .appearance: translations = ("외형", "LOOK", "外見")
         case .defaultAppearance: translations = ("기본 외형", "DEFAULT", "標準の外見")
         case .appearanceRequirement: translations = ("이 상대에게 승리", "Defeat this opponent", "この相手に勝利")
@@ -92,6 +115,11 @@ enum StoryText {
         case .replayIntroduction: translations = ("등장 장면", "INTRO SCENE", "登場シーン")
         case .replayRivalScene: translations = ("RIVAL 컷씬 다시 보기", "REPLAY RIVAL SCENE", "RIVALシーンを再生")
         case .pressureVenue: translations = ("RIVAL 복싱 체육관", "RIVAL BOXING CLUB", "RIVAL ボクシングジム")
+        case .basicIntroductionLine: translations = ("오늘은 제대로 해보자.", "Let's give it our all today.", "今日は本気でやろう。")
+        case .basicAftermathLine: translations = ("그 잽... 나도 한번.", "That jab... let me try.", "あのジャブ...僕もやってみよう。")
+        case .basicRecoveryLine: translations = ("오늘은 여기까지. 다음에 또 하자.", "That's enough for today. Let's go again next time.", "今日はここまで。またやろう。")
+        case .coachBasicRead: translations = ("잽으로 거리를 확인해. 닿지 않으면 조금 더 다가가.", "Find your range with the jab. Step closer if it falls short.", "ジャブで距離を確かめろ。届かなければ少し近づくんだ。")
+        case .coachBasicPlan: translations = ("막거나 피한 뒤 한두 발만 쳐. 연타 뒤에는 쉬면서 스태미나를 회복해.", "Block or evade, then answer with one or two punches. Rest between exchanges to recover stamina.", "防ぐかかわした後、一、二発返せ。打ち合いの間は休んでスタミナを回復するんだ。")
         case .pressureIntroductionLine: translations = ("이 링에서 물러설 생각은 없어.", "I'm not giving ground in this ring.", "このリングで退くつもりはない。")
         case .outboxerVenue: translations = ("지역 대회장", "REGIONAL HALL", "地域大会会場")
         case .outboxerIntroductionLine: translations = ("거리를 좁혀 봐. 난 여기서 기다릴게.", "Close the distance. I'll be waiting.", "距離を詰めてみな。ここで待ってる。")
@@ -106,6 +134,8 @@ enum StoryText {
         case .coachOutboxerPlan: translations = ("잽은 옆으로 피하고 빠질 길을 막아. 붙었을 때 바디를 짧게 쳐.", "Sidestep the jab and cut off his exit. Get close for short body shots.", "ジャブを横にかわして逃げ道を塞げ。接近したらボディを短く打つんだ。")
         case .coachCounterRead: translations = ("머리 공격을 더킹과 위빙으로 피하고 반격한다. 헛친 뒤 무리하게 연타하지 마.", "He ducks and weaves under head shots, then counters. Don't keep swinging after a miss.", "顔へのパンチをダッキングやウィービングで避け、反撃してくる。空振りの後は打ち続けるな。")
         case .coachCounterPlan: translations = ("가까이서 바디를 노려. 반격을 막거나 피한 뒤 짧게 되받아쳐.", "Work the body up close. Block or evade the counter before punching again.", "接近してボディを狙え。反撃を防ぐか避けた後、短く打ち返せ。")
+        case .coachSouthpawRead: translations = ("오른손 잽과 왼손 스트레이트를 쓴다. 공격 준비와 회복 틈에 옆으로 자리를 바꾼다.", "He leads with a right jab and a left cross, stepping sideways during attack preparation and recovery.", "右ジャブと左ストレートを使う。攻撃の準備や回復の隙に横へ位置を変えるぞ。")
+        case .coachSouthpawPlan: translations = ("손만 보지 말고 옮겨갈 자리를 봐. 두 발 뒤 빠지거나 쉬는 틈에 짧게 쳐.", "Watch his next position, not just his hands. Strike briefly when he exits or rests after two shots.", "手だけでなく次の位置を見ろ。二発の後に離れる時や休む隙に短く打つんだ。")
         case .coachSluggerRead: translations = ("붙으면 지칠 때까지 훅과 어퍼컷을 이어 친다. 스태미나가 부족해지면 공격을 멈추고 쉰다.", "Up close, he chains heavy punches until his stamina runs low. Then he stops to recover.", "接近するとスタミナが足りなくなるまで強打を続ける。疲れると攻撃を止めて回復する。")
         case .coachSluggerPlan: translations = ("연타 중엔 옆으로 빠져 버텨. 지쳐서 공격을 멈추면 짧게 반격하고 다시 빠져.", "Stay off his line during the barrage. When he stops to recover, strike briefly and get out.", "連打中は横へ動いてしのげ。疲れて攻撃が止まったら、短く反撃して離れろ。")
         case .coachRivalRead: translations = ("이전 경기에서 네 습관을 배웠다. 같은 수를 반복하면 다음 라운드에서 읽힌다.", "He knows your habits from earlier bouts. Repeat the same moves and he'll read them next round.", "これまでの試合でお前の癖を覚えてきた。同じ動きを繰り返すと、次のラウンドで読まれるぞ。")
@@ -124,38 +154,43 @@ enum StoryPurchaseText {
     case offerTitle, oneTimePurchase, availableContent, campaignTitle, campaignDetail
     case instantRewards, starterOutfitDetail
     case scenesTitle, scenesDetail, earnedRewards, rewardsRequireVictory, victoryOnlyNotice
-    case freeRewards, freeRewardsDetail, storyRewards, storyRewardsDetail, storyAccessRequired, purchaseToEarn
-    case victoryRequirement, championshipVictory, freePlay, storyButtonSubtitle, purchaseBenefits
+    case rivalRewards, rivalRewardsDetail, storyRewards, storyRewardsDetail, storyAccessRequired, purchaseToEarn
+    case victoryRequirement, championshipVictory, rivalBout, storyButtonSubtitle, purchaseBenefits
     case buy, restorePurchases, loadingPrice, checkingAccess, accessUnavailable
     case productUnavailable, verificationFailed, purchaseFailed, restoreFailed, noPurchasesFound, pendingPurchase
     case tryAgain
+    case southpawUnlockRequirement, southpawStanceDetail, stancePreviewOnly
+    case viewStoryAccess, previewBouts, previewAccessRequirement
 
     func text(for language: AppLanguage) -> String {
         let translations: (String, String, String)
         switch self {
-        case .offerTitle: translations = ("스토리 모드 해금", "UNLOCK STORY MODE", "ストーリーモードを解放")
+        case .offerTitle: translations = ("프리미엄 스토리", "PREMIUM STORY", "プレミアムストーリー")
         case .oneTimePurchase: translations = ("한 번 구매 · 영구 이용 · 구독 없음", "One purchase. Permanent access. No subscription.", "買い切り・永続利用・サブスクリプションなし")
         case .instantRewards: translations = ("구매 즉시 지급", "INCLUDED WITH PURCHASE", "購入ですぐ獲得")
         case .starterOutfitDetail: translations = ("매트 블랙 쇼츠, 진홍색 패널·글러브, 흰색 허리밴드의 스토리 전용 시작 복장. 구매 즉시 해금되며, 클리어 없이 착용할 수 있습니다.", "A Story-exclusive starter kit with matte black trunks, crimson panels and gloves, and a white waistband. Unlocks on purchase, with no Story wins required.", "マットブラックのトランクス、深紅のパネル・グローブ、白いウエストバンドのストーリー専用スタート衣装。購入ですぐ解放され、クリア不要で着用できます。")
         case .availableContent: translations = ("구매로 열리는 콘텐츠", "YOUR STORY ACCESS", "購入で利用できるコンテンツ")
         case .campaignTitle: translations = ("챔피언십까지 이어지는 스토리", "THE ROAD TO THE CHAMPIONSHIP", "王座へ続くストーリー")
-        case .campaignDetail: translations = ("서로 다른 \(StoryOpponent.allCases.count)명의 상대와 순서대로 대결. 경기 진행을 저장하고 이어서 도전할 수 있습니다.", "Face \(StoryOpponent.allCases.count) distinct opponents in sequence. Save your bout progress and resume your campaign.", "個性の異なる\(StoryOpponent.allCases.count)人と順番に対戦。試合の進行を保存して再開できます。")
+        case .campaignDetail: translations = ("체육관 첫 스파링부터 챔피언십 재대결까지 \(StoryOpponent.allCases.filter(\.isAvailable).count)개의 대결. 경기 진행을 저장하고 이어서 도전할 수 있습니다.", "Take on \(StoryOpponent.allCases.filter(\.isAvailable).count) bouts, from your first gym sparring session to the championship rematch. Save your progress and resume your campaign.", "ジムでの初スパーリングから王座決定戦の再戦まで、\(StoryOpponent.allCases.filter(\.isAvailable).count)つの対戦。進行を保存して再開できます。")
         case .scenesTitle: translations = ("스토리 컷씬과 다시 보기", "STORY SCENES AND REPLAYS", "ストーリーシーンとリプレイ")
         case .scenesDetail: translations = ("진행에 따라 등장 장면과 RIVAL의 이야기를 감상하고, 해금한 장면을 다시 볼 수 있습니다.", "Discover entrances and RIVAL's story as you progress, then replay the scenes you unlock.", "進行に応じて登場シーンとRIVALの物語を楽しみ、解放したシーンを再生できます。")
         case .earnedRewards: translations = ("상대별 스토리 클리어 보상", "STORY CLEAR REWARDS", "対戦相手別のストーリークリア報酬")
         case .rewardsRequireVictory: translations = ("상대별 복장은 해당 상대의 스토리 대결을 직접 클리어해야 해금됩니다. 파이널 챔피언 복장과 벨트는 챔피언십 우승 보상이며, 구매만으로 지급되지 않습니다. 스토리 이용권이 있으면 얻은 보상을 RIVAL에서도 착용할 수 있습니다.", "Opponent outfits unlock only by winning their Story bouts. Final Champion and the belt require a championship victory, not just a purchase. With Story access, earned rewards can also be worn in RIVAL.", "相手ごとの衣装は、その相手のストーリー対戦をクリアして解放。ファイナルチャンピオン衣装とベルトは王座決定戦の勝利報酬で、購入だけでは獲得できません。ストーリー利用権があれば、獲得した報酬はRIVALでも着用できます。")
         case .victoryOnlyNotice: translations = ("퍼스트 벨만 구매 즉시 지급됩니다. 상대별 복장·챔피언 복장·벨트는 스토리 클리어가 필요합니다.", "Only First Bell unlocks on purchase. Opponent outfits, Final Champion and the belt require Story wins.", "購入ですぐ獲得できるのはファーストベルのみ。相手の衣装・チャンピオン衣装・ベルトにはストーリーのクリアが必要です。")
-        case .freeRewards: translations = ("무료 플레이 보상", "FREE PLAY REWARDS", "無料プレイ報酬")
-        case .freeRewardsDetail: translations = ("RIVAL 경기와 체육관 기록으로 해금합니다. 스토리 구매가 필요하지 않습니다.", "Earn these through RIVAL bouts and Gym records. No Story purchase is required.", "RIVALの試合とジムの記録で解放。ストーリーの購入は不要です。")
+        case .rivalRewards: translations = ("RIVAL 경기 보상", "RIVAL BOUT REWARDS", "RIVAL対戦報酬")
+        case .rivalRewardsDetail: translations = ("RIVAL 경기와 체육관에서 쌓은 기록으로 획득합니다.", "Earn these through your RIVAL bouts and Gym records.", "RIVALの試合とジムで積み重ねた記録で獲得します。")
         case .storyRewards: translations = ("스토리 전용 보상", "STORY REWARDS", "ストーリー専用報酬")
         case .storyRewardsDetail: translations = ("스토리 전용 복장·벨트 착용에는 스토리 이용권이 필요합니다. 미해금 복장도 미리 볼 수 있습니다.", "Story access is required to equip Story outfits and the belt. Locked outfits can still be previewed.", "ストーリー専用衣装・ベルトの着用にはストーリー利用権が必要です。未解放の衣装もプレビューできます。")
         case .storyAccessRequired: translations = ("착용에는 스토리 이용권이 필요합니다. 클리어 기록은 유지됩니다.", "Story access is required to equip this reward. Cleared progress is kept.", "着用にはストーリー利用権が必要です。クリア記録は保持されます。")
         case .purchaseToEarn: translations = ("스토리와 시작 복장 구매", "UNLOCK STORY + STARTER KIT", "ストーリーとスタート衣装を購入")
         case .victoryRequirement: translations = ("해당 상대의 스토리 대결 클리어: ", "Win this opponent's Story bout: ", "この相手のストーリー対戦をクリア：")
         case .championshipVictory: translations = ("스토리 챔피언십 우승", "Win the Story championship", "ストーリー王座決定戦に優勝")
-        case .freePlay: translations = ("무료 플레이", "FREE PLAY", "無料プレイ")
-        case .storyButtonSubtitle: translations = ("스토리 · 전용 복장과 클리어 보상", "CAMPAIGN + STORY REWARDS", "ストーリー・専用衣装とクリア報酬")
+        case .rivalBout: translations = ("RIVAL 대전", "RIVAL BOUT", "RIVAL対戦")
+        case .storyButtonSubtitle: translations = ("프리미엄 스토리 · 전용 복장과 승리 보상", "PREMIUM STORY · OUTFITS + REWARDS", "プレミアムストーリー・専用衣装と勝利報酬")
         case .purchaseBenefits: translations = ("구매 혜택", "VIEW BENEFITS", "購入特典")
+        case .viewStoryAccess: translations = ("스토리 이용권 보기", "VIEW STORY ACCESS", "ストーリー利用権を見る")
+        case .previewBouts: translations = ("총 \(StoryOpponent.allCases.filter(\.isAvailable).count)개 대결", "\(StoryOpponent.allCases.filter(\.isAvailable).count) BOUTS", "全\(StoryOpponent.allCases.filter(\.isAvailable).count)対戦")
+        case .previewAccessRequirement: translations = ("경기·컷씬에는 스토리 이용권이 필요합니다. 승리 보상 사용에는 이용권과 해당 스토리 승리가 필요합니다.", "Bouts and scenes require Story access. Using victory rewards requires access and a win in the corresponding Story bout.", "対戦・シーンにはストーリー利用権が必要。勝利報酬の使用には利用権と該当するストーリー対戦での勝利が必要です。")
         case .buy: translations = ("스토리 구매", "UNLOCK STORY", "ストーリーを購入")
         case .restorePurchases: translations = ("구매 복원", "RESTORE PURCHASES", "購入を復元")
         case .loadingPrice: translations = ("가격 확인 중", "LOADING PRICE", "価格を確認中")
@@ -168,6 +203,9 @@ enum StoryPurchaseText {
         case .noPurchasesFound: translations = ("복원할 스토리 구매 또는 기존 유료 앱 구매가 없습니다.", "No Story purchase or eligible paid-app purchase was found to restore.", "復元できるストーリー購入または対象の有料アプリ購入がありません。")
         case .pendingPurchase: translations = ("구매 승인 대기 중입니다. 승인되면 스토리와 시작 복장이 자동으로 해금됩니다.", "Purchase approval is pending. Story and your starter kit will unlock when approved.", "購入の承認待ちです。承認後、ストーリーとスタート衣装が自動的に解放されます。")
         case .tryAgain: translations = ("다시 확인", "CHECK AGAIN", "再確認")
+        case .southpawUnlockRequirement: translations = ("스토리 이용권 필요 · 스토리 모드에서 사우스포에게 승리하면 해금됩니다.", "Story access required. Unlock by defeating Southpaw in Story mode.", "ストーリー利用権が必要。ストーリーモードでサウスポーに勝利すると解放されます。")
+        case .southpawStanceDetail: translations = ("사우스포 자세는 스토리 이용권과 사우스포전 승리가 필요합니다. 구매만으로 해금되지 않습니다.", "Southpaw stance requires Story access and a win against Southpaw. Purchase alone does not unlock it.", "サウスポーの構えにはストーリー利用権とサウスポー戦の勝利が必要です。購入だけでは解放されません。")
+        case .stancePreviewOnly: translations = ("미리보기", "PREVIEW", "プレビュー")
         }
         switch language {
         case .korean: return translations.0
@@ -208,9 +246,11 @@ enum RewardNotificationText {
 extension StoryOpponent {
     func coachAdviceText(at index: Int) -> StoryText {
         switch self {
+        case .basic: index == 0 ? .coachBasicRead : .coachBasicPlan
         case .pressure: index == 0 ? .coachPressureRead : .coachPressurePlan
         case .outboxer: index == 0 ? .coachOutboxerRead : .coachOutboxerPlan
         case .counter: index == 0 ? .coachCounterRead : .coachCounterPlan
+        case .southpaw: index == 0 ? .coachSouthpawRead : .coachSouthpawPlan
         case .slugger: index == 0 ? .coachSluggerRead : .coachSluggerPlan
         case .rival: index == 0 ? .coachRivalRead : .coachRivalPlan
         }
@@ -218,8 +258,10 @@ extension StoryOpponent {
 
     var rivalSceneLineText: StoryText {
         switch self {
+        case .basic: .basicAftermathLine
         case .outboxer: .rivalComparisonLine
         case .counter: .rivalImitationLine
+        case .southpaw: .rivalSouthpawLine
         case .slugger: .rivalObsessionLine
         case .rival: .rivalOwnWayLine
         default: .rivalAdmirationLine
@@ -229,7 +271,7 @@ extension StoryOpponent {
     var introductionVenueText: StoryText {
         switch self {
         case .outboxer: .outboxerVenue
-        case .counter: .counterVenue
+        case .counter, .southpaw: .counterVenue
         case .slugger: .sluggerVenue
         case .rival: .championshipVenue
         default: .pressureVenue
@@ -238,6 +280,8 @@ extension StoryOpponent {
 
     var introductionLineText: StoryText {
         switch self {
+        case .basic: .basicIntroductionLine
+        case .southpaw: .southpawIntroductionLine
         case .outboxer: .outboxerIntroductionLine
         case .counter: .counterIntroductionLine
         case .slugger: .sluggerIntroductionLine
@@ -249,9 +293,11 @@ extension StoryOpponent {
     func title(for language: AppLanguage) -> String {
         let translations: (String, String, String)
         switch self {
+        case .basic: translations = ("RIVAL · 첫 스파링", "RIVAL · FIRST SPARRING", "RIVAL · 初スパーリング")
         case .pressure: translations = ("압박형", "PRESSURE", "プレッシャー")
         case .outboxer: translations = ("견제형", "RANGE", "牽制型")
         case .counter: translations = ("카운터형", "COUNTER", "カウンター型")
+        case .southpaw: translations = ("사우스포", "SOUTHPAW", "サウスポー")
         case .slugger: translations = ("강타형", "POWER", "強打型")
         case .rival: translations = ("RIVAL", "RIVAL", "RIVAL")
         }
@@ -260,6 +306,10 @@ extension StoryOpponent {
         case .english: return translations.1
         case .japanese: return translations.2
         }
+    }
+
+    func fighterName(for language: AppLanguage) -> String {
+        self == .basic ? "RIVAL" : title(for: language)
     }
 }
 
@@ -380,6 +430,7 @@ final class HapticsManager: ObservableObject {
 /// scattering literals through the SwiftUI views and `CombatEngine` — is what makes the 3-language switch
 /// actually reach every screen instead of just the settings menu itself.
 enum L: CaseIterable {
+    case menuHeadline, menuCornerLine
     case tagline
     case waitingRoomButton
     case pausedTitle
@@ -425,6 +476,9 @@ enum L: CaseIterable {
     case weaveEvadeMessage
     case weaveLeftControl
     case weaveRightControl
+    case duckLeftControl
+    case duckRightControl
+    case combinationControl
     case backstepAccessibility
     case playerAccessibility
     case exitGymAccessibility
@@ -469,7 +523,11 @@ enum L: CaseIterable {
     case rivalAnalysisReadPressure
     case outfitPreviewLabel
     case outfitEquippedLabel
+    case outfitOwnedLabel
+    case lockerPreparation, lockerStylesTitle, lockerOutfitsTitle, lockerStancesTitle
+    case lockerReady, lockerSelectionHint
     case gymFreePractice
+    case gymGuideTitle, gymGuideIntroduction, gymGuideDistance, gymGuideDefense, gymGuideCombinations, gymGuideResume
     case leaderboardRankLabel
     case leaderboardFighterLabel
     case previewCharacterAccessibility
@@ -490,6 +548,10 @@ enum L: CaseIterable {
 
     func text(for language: AppLanguage) -> String {
         switch self {
+        case .menuHeadline:
+            L.pick(ko: "다시 링으로", en: "Back in the ring", ja: "もう一度、リングへ", language: language)
+        case .menuCornerLine:
+            L.pick(ko: "잽이 읽혔다면, 이번엔 바디로.", en: "If he reads your jab, go to the body.", ja: "ジャブを読まれたら、次はボディへ。", language: language)
         case .boxingKicker:
             L.pick(ko: "복싱", en: "BOXING", ja: "ボクシング", language: language)
         case .lockerKicker:
@@ -548,8 +610,42 @@ enum L: CaseIterable {
             L.pick(ko: "미리보기", en: "Preview", ja: "プレビュー", language: language)
         case .outfitEquippedLabel:
             L.pick(ko: "착용 중", en: "Equipped", ja: "着用中", language: language)
+        case .outfitOwnedLabel:
+            L.pick(ko: "보유", en: "Owned", ja: "所持", language: language)
+        case .lockerPreparation:
+            L.pick(ko: "선수 준비", en: "Bout preparation", ja: "試合の準備", language: language)
+        case .lockerStylesTitle:
+            L.pick(ko: "링에서의 스타일", en: "Your fighting style", ja: "ファイトスタイル", language: language)
+        case .lockerOutfitsTitle:
+            L.pick(ko: "경기를 위한 복장", en: "Your fight kit", ja: "試合の衣装", language: language)
+        case .lockerStancesTitle:
+            L.pick(ko: "링에 설 자세", en: "Your stance", ja: "リングでの構え", language: language)
+        case .lockerReady:
+            L.pick(ko: "준비 완료", en: "Done", ja: "準備完了", language: language)
+        case .lockerSelectionHint:
+            L.pick(ko: "보유한 복장은 선택하면 바로 착용합니다. 잠긴 복장은 미리 볼 수 있습니다.",
+                   en: "Owned outfits are worn as soon as you select them. Locked outfits are preview only.",
+                   ja: "所持している衣装は選ぶとすぐに着用します。未解放の衣装はプレビューのみです。", language: language)
         case .gymFreePractice:
             L.pick(ko: "스태미나 소모 없는 연습", en: "Practice without stamina cost", ja: "スタミナ消費なしの練習", language: language)
+        case .gymGuideTitle:
+            L.pick(ko: "연습 안내", en: "Practice guide", ja: "練習のヒント", language: language)
+        case .gymGuideIntroduction:
+            L.pick(ko: "가드를 올리고, 거리를 맞춰 보세요.", en: "Hands up. Find your range.", ja: "ガードを上げて、距離をつかもう。", language: language)
+        case .gymGuideDistance:
+            L.pick(ko: "한 걸음 들어갔다가 물러나 보세요. 같은 펀치가 언제 닿고 빗나가는지 확인해 보세요.",
+                   en: "Step in, then step back. See when the same punch lands or falls short.",
+                   ja: "一歩入って、一歩下がる。同じパンチが届く距離を確かめよう。", language: language)
+        case .gymGuideDefense:
+            L.pick(ko: "공격만 반복하지 말고 가드와 더킹, 위빙도 섞어 보세요.",
+                   en: "Work on your guard, ducks and weaves as well as your punches.",
+                   ja: "パンチだけでなく、ガード、ダッキング、ウィービングも試そう。", language: language)
+        case .gymGuideCombinations:
+            L.pick(ko: "가드나 더킹을 유지한 채 펀치를 눌러 보세요. 자세에 따라 다른 기술이 나갑니다.",
+                   en: "Try punching while guarding or ducking. See which punches each position opens up.",
+                   ja: "ガードやダッキングを保ったままパンチを出そう。構えを変えると、技も変わる。", language: language)
+        case .gymGuideResume:
+            L.pick(ko: "연습으로 돌아가기", en: "Back to practice", ja: "練習に戻る", language: language)
         case .leaderboardRankLabel:
             L.pick(ko: "순위", en: "Rank", ja: "順位", language: language)
         case .leaderboardFighterLabel:
@@ -557,7 +653,7 @@ enum L: CaseIterable {
         case .previewCharacterAccessibility:
             L.pick(ko: "선택한 스타일과 복장의 복서 미리보기", en: "Boxer preview with the selected style and outfit", ja: "選択したスタイルと衣装のボクサープレビュー", language: language)
         case .menuFightAction:
-            L.pick(ko: "링에 오르기", en: "Enter the ring", ja: "リングへ", language: language)
+            L.pick(ko: "경기 시작", en: "Start bout", ja: "試合開始", language: language)
         case .menuRedCorner:
             L.pick(ko: "레드 코너", en: "RED CORNER", ja: "赤コーナー", language: language)
         case .menuRecordTitle:
@@ -569,15 +665,15 @@ enum L: CaseIterable {
         case .menuGymTitle:
             L.pick(ko: "체육관", en: "Gym", ja: "ジム", language: language)
         case .rivalAnalysisButton:
-            L.pick(ko: "라이벌 분석", en: "Rival Analysis", ja: "ライバル分析", language: language)
+            L.pick(ko: "코너 노트", en: "Corner notes", ja: "コーナーノート", language: language)
         case .rivalAnalysisSubtitle:
-            L.pick(ko: "읽기 성향 · 대응 힌트", en: "Read tendency · counter tips", ja: "読み傾向・対策ヒント", language: language)
+            L.pick(ko: "이번 대전의 공격과 회피, 상대의 대응", en: "This bout's punches, dodges and RIVAL's reads", ja: "この対戦のパンチ・回避とRIVALの読み", language: language)
         case .rivalAnalysisKicker:
-            L.pick(ko: "RIVAL / 분석", en: "RIVAL / ANALYSIS", ja: "RIVAL / 分析", language: language)
+            L.pick(ko: "RIVAL / 코너", en: "RIVAL / CORNER", ja: "RIVAL / コーナー", language: language)
         case .rivalAnalysisTitle:
-            L.pick(ko: "라이벌 리포트", en: "Rival Report", ja: "ライバルレポート", language: language)
+            L.pick(ko: "코너 노트", en: "Corner notes", ja: "コーナーノート", language: language)
         case .rivalAnalysisReadLabel:
-            L.pick(ko: "현재 읽기", en: "Current read", ja: "現在の読み", language: language)
+            L.pick(ko: "상대가 읽은 버릇", en: "What RIVAL reads", ja: "相手が読んだ癖", language: language)
         case .rivalAnalysisReadNone:
             L.pick(ko: "아직 뚜렷한 패턴이 없습니다", en: "No clear pattern yet", ja: "まだ明確なパターンはありません", language: language)
         case .rivalAnalysisConfidenceLabel:
@@ -597,7 +693,7 @@ enum L: CaseIterable {
         case .rivalAnalysisCoachLabel:
             L.pick(ko: "코너 코멘트", en: "Corner comment", ja: "コーナーコメント", language: language)
         case .rivalAnalysisTipNeutral:
-            L.pick(ko: "같은 입력을 연속으로 반복하면 읽히기 쉬워집니다. 잽·바디·더킹 타이밍을 섞어보세요.", en: "Repeating the same input is easier to read. Mix your jab, body shots, and duck timing.", ja: "同じ入力を繰り返すと読まれやすくなります。ジャブ・ボディ・ダッキングのタイミングを混ぜましょう。", language: language)
+            L.pick(ko: "잽이 막히면 바디를 노려. 들어갈 때와 빠질 때의 타이밍도 바꿔.", en: "If the jab is blocked, look for the body. Change when you step in and out.", ja: "ジャブを防がれたらボディを狙おう。踏み込む時も離れる時も、タイミングを変えて。", language: language)
         case .rivalAnalysisReadJab:
             L.pick(ko: "잽 패턴", en: "Jab pattern", ja: "ジャブ傾向", language: language)
         case .rivalAnalysisReadBody:
@@ -615,7 +711,7 @@ enum L: CaseIterable {
         case .tagline:
             L.pick(ko: "상대는 당신을 기억한다", en: "Your opponent remembers you.", ja: "相手はあなたを覚えている。", language: language)
         case .waitingRoomButton:
-            L.pick(ko: "대기실", en: "Waiting Room", ja: "待機室", language: language)
+            L.pick(ko: "라커룸", en: "Locker room", ja: "控室", language: language)
         case .pausedTitle:
             L.pick(ko: "일시정지", en: "PAUSED", ja: "一時停止", language: language)
         case .resumeButton:
@@ -639,9 +735,9 @@ enum L: CaseIterable {
         case .exitToMenu:
             L.pick(ko: "메인 메뉴로 나가기", en: "Exit to Main Menu", ja: "メインメニューへ戻る", language: language)
         case .resetConfirmTitle:
-            L.pick(ko: "라이벌 학습을 초기화할까요?", en: "Reset RIVAL's learning?", ja: "RIVALの学習をリセットしますか?", language: language)
+            L.pick(ko: "처음부터 다시 시작할까요?", en: "Start a new bout?", ja: "最初からやり直しますか？", language: language)
         case .resetConfirmBody:
-            L.pick(ko: "학습 메모리와 현재 점수가 삭제되고 ROUND 1부터 다시 시작됩니다.", en: "Learning memory and the current score will be deleted, restarting from ROUND 1.", ja: "学習メモリと現在のスコアが削除され、ROUND 1からやり直します。", language: language)
+            L.pick(ko: "RIVAL이 기억한 플레이 습관과 이번 대전의 점수가 지워집니다. 라운드 1부터 다시 시작합니다.", en: "RIVAL will forget your past habits. This bout's score is cleared and you start again at round 1.", ja: "RIVALが覚えたプレイの癖と、この対戦のスコアが消えます。ラウンド1から再開します。", language: language)
         case .cancel:
             L.pick(ko: "취소", en: "Cancel", ja: "キャンセル", language: language)
         case .resetConfirmButton:
@@ -649,9 +745,9 @@ enum L: CaseIterable {
         case .continueButton:
             L.pick(ko: "이어하기", en: "Continue", ja: "続ける", language: language)
         case .newGameButton:
-            L.pick(ko: "새로하기", en: "New Game", ja: "はじめから", language: language)
+            L.pick(ko: "새 대전", en: "New bout", ja: "新しい対戦", language: language)
         case .newGameSubtitle:
-            L.pick(ko: "라이벌 학습 초기화 · ROUND 1부터", en: "Reset RIVAL's learning · From ROUND 1", ja: "RIVALの学習をリセット・ROUND 1から", language: language)
+            L.pick(ko: "RIVAL이 기억한 습관과 대전 점수 초기화", en: "Clear remembered habits and this bout's score", ja: "RIVALが覚えた癖と対戦スコアをリセット", language: language)
         case .waitingRoomSubtitle:
             L.pick(ko: "파이팅 스타일 · 복장 선택", en: "Choose fighting style · outfit", ja: "ファイティングスタイル・衣装選択", language: language)
         case .practiceRoomSubtitle:
@@ -702,6 +798,12 @@ enum L: CaseIterable {
             L.pick(ko: "L\n위빙", en: "L\nWEAVE", ja: "左\nウィーブ", language: language)
         case .weaveRightControl:
             L.pick(ko: "R\n위빙", en: "R\nWEAVE", ja: "右\nウィーブ", language: language)
+        case .duckLeftControl:
+            L.pick(ko: "L\n더킹", en: "L\nDUCK", ja: "左\nダック", language: language)
+        case .duckRightControl:
+            L.pick(ko: "R\n더킹", en: "R\nDUCK", ja: "右\nダック", language: language)
+        case .combinationControl:
+            L.pick(ko: "조합", en: "COMBO", ja: "連携", language: language)
         case .backstepAccessibility:
             L.pick(ko: "백스텝", en: "Backstep", ja: "バックステップ", language: language)
         case .playerAccessibility:

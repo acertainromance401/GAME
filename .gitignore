@@ -59,3 +59,11 @@ ios-pixel-boxing/art/Story/backups/
 debug_pdf_test.pdf
 Screenshot 2026-09-18 at 11.31.16*.png
 
+# App audio is licensed for app use, not cleared for public source redistribution.
+ios-pixel-boxing/fronbondi_skegs-drum-boom-bap-style-drumbreak-01-90bpm-8bars-316268.mp3
+ios-pixel-boxing/vishiv-crowd-cheering-in-stadium-435357.mp3
+ios-pixel-boxing/PixelBoxingIOS/Audio/fronbondi_skegs-drum-boom-bap-style-drumbreak-01-90bpm-8bars-316268.mp3
+ios-pixel-boxing/PixelBoxingIOS/Audio/CrowdCheer.wav
+
+# The release ZIP duplicates tracked store artwork and metadata.
+ios-pixel-boxing/AppStoreScreenshots/RIVAL-1.3-store-assets.zip

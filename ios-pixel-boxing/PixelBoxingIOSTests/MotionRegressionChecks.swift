@@ -530,8 +530,8 @@ enum MotionRegressionChecks {
             base.applyWeave(.sample(direction: direction, elapsed: time, reducedMotion: reduced), style: style)
             var pose = base
             pose.applyAttack(hook, progress: progress, opponentDistance: 1.25, reachMultiplier: Float(style.reachMultiplier))
-            let expectedRise = min(Float(0.055), base.defensiveCrouch * 0.15) * PunchMotion.sample(hook, progress: progress).torsoDrive
-            check(abs(pose.bodyDrop - base.bodyDrop + expectedRise) < 0.00001, "Weave/hook keeps current base and only bounded .055 rise")
+            let expectedRise = min(Float(0.28), base.defensiveCrouch * 0.72) * PunchMotion.sample(hook, progress: progress).defensiveRise
+            check(abs(pose.bodyDrop - base.bodyDrop + expectedRise) < 0.00001, "Weave/hook unloads the current defensive base without standing fully upright")
             if frame < 28 { check(pose.bodyDrop > 0, "Active hook does not cut off weave recovery before .36") }
             checkOffhand(pose, base: base, punch: hook, progress: progress, label: "Weave hook \(style)/\(direction)/\(reduced)/\(frame)", check: check)
             check(pose.leftFoot.x == base.leftFoot.x && pose.leftFoot.z == base.leftFoot.z

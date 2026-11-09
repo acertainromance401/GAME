@@ -3,7 +3,8 @@
 
  파일 설명:
  - 프로시저럴 사운드 합성 및 재생을 담당합니다. 임팩트, 벨, 휘핑 사운드, 라운드 결과 스팅어 등
-     모든 효과가 런타임에 버퍼로 생성되어 재생됩니다(번들 오디오 자원 사용 없음).
+     타격 효과음은 런타임 버퍼로 생성하고, 짧은 관중음은 번들 WAV를 사용합니다.
+     배경음악은 번들 MP3를 독립 플레이어로 반복 재생합니다.
 
  구현/주의사항:
  - 내부적으로 `AVAudioEngine`과 `AVAudioPlayerNode`를 사용해 버퍼를 생성·캐시하고, 필요 시 재생합니다.
@@ -16,10 +17,157 @@
 */
 import AVFAudio
 import AudioToolbox
+import Combine
+import OSLog
+
+@MainActor
+final class BackgroundMusicPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
+    static let resourceName = "fronbondi_skegs-drum-boom-bap-style-drumbreak-01-90bpm-8bars-316268"
+    static var bundledURL: URL? { Bundle.main.url(forResource: resourceName, withExtension: "mp3") }
+    private static let logger = Logger(subsystem: "com.acertainromance401.pixelboxing", category: "BackgroundMusic")
+    private let resourceURL: URL?
+    private(set) var player: AVAudioPlayer?
+    @Published private(set) var errorMessage: String?
+    private var isActive = false
+    private var isMuted = false
+    private var allowsPlayback = true
+    private var isInterrupted = false
+
+    init(resourceURL: URL? = BackgroundMusicPlayer.bundledURL) {
+        self.resourceURL = resourceURL
+        super.init()
+        loadPlayer()
+        let session = AVAudioSession.sharedInstance()
+        NotificationCenter.default.addObserver(self, selector: #selector(receiveInterruption(_:)),
+            name: AVAudioSession.interruptionNotification, object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(receiveRouteChange(_:)),
+            name: AVAudioSession.routeChangeNotification, object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(receiveMediaReset(_:)),
+            name: AVAudioSession.mediaServicesWereResetNotification, object: session)
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    func update(isActive: Bool, isMuted: Bool) {
+        if (!self.isActive && isActive) || (self.isMuted && !isMuted) {
+            allowsPlayback = true
+        }
+        self.isActive = isActive
+        self.isMuted = isMuted
+        resumeIfNeeded()
+    }
+
+    func interruptionBegan() {
+        isInterrupted = true
+        allowsPlayback = false
+        player?.pause()
+    }
+
+    func interruptionEnded(shouldResume: Bool) {
+        isInterrupted = false
+        allowsPlayback = shouldResume
+        resumeIfNeeded()
+    }
+
+    private func loadPlayer() {
+        player = nil
+        guard let resourceURL else {
+            recordFailure("The bundled background music could not be found.")
+            return
+        }
+        do {
+            let player = try AVAudioPlayer(contentsOf: resourceURL)
+            player.numberOfLoops = -1
+            player.volume = 0.16
+            player.delegate = self
+            guard player.prepareToPlay() else {
+                recordFailure("The background music could not be prepared.")
+                return
+            }
+            self.player = player
+            errorMessage = nil
+        } catch {
+            recordFailure("Loading background music failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func resumeIfNeeded() {
+        guard isActive, !isMuted, allowsPlayback, !isInterrupted else {
+            player?.pause()
+            return
+        }
+        guard let player, !player.isPlaying else { return }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.ambient, options: [.mixWithOthers])
+            try session.setActive(true)
+            guard player.play() else {
+                recordFailure("The background music could not start playing.")
+                return
+            }
+            errorMessage = nil
+        } catch {
+            recordFailure("Activating background music failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func recordFailure(_ message: String) {
+        player?.pause()
+        errorMessage = message
+        Self.logger.error("\(message, privacy: .public)")
+    }
+
+    @objc private func receiveInterruption(_ notification: Notification) {
+        guard let value = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: value) else {
+            recordFailure("Received an invalid audio interruption.")
+            return
+        }
+        switch type {
+        case .began:
+            interruptionBegan()
+        case .ended:
+            let value = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            interruptionEnded(shouldResume: AVAudioSession.InterruptionOptions(rawValue: value).contains(.shouldResume))
+        @unknown default:
+            interruptionBegan()
+        }
+    }
+
+    @objc private func receiveRouteChange(_ notification: Notification) {
+        guard let value = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: value) else {
+            recordFailure("Received an invalid audio route change.")
+            return
+        }
+        if reason == .oldDeviceUnavailable {
+            allowsPlayback = false
+            player?.pause()
+        }
+    }
+
+    @objc private func receiveMediaReset(_ notification: Notification) {
+        loadPlayer()
+        isInterrupted = false
+        allowsPlayback = true
+        resumeIfNeeded()
+    }
+
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        let message = error?.localizedDescription ?? "Unknown audio decoding error."
+        Task { @MainActor [weak self] in
+            self?.recordFailure("Decoding background music failed: \(message)")
+        }
+    }
+}
+
 /// session can't be started (e.g. a constrained host environment) every call below silently no-ops so the
 /// game stays fully playable without sound.
 @MainActor
 final class SoundManager {
+    static let crowdCheerDuration = 2.0
+    private static let logger = Logger(subsystem: "com.acertainromance401.pixelboxing", category: "SoundEffects")
+
     enum Cutscene {
         case introduction(StoryOpponent, short: Bool)
         case aftermath(StoryOpponent)
@@ -39,9 +187,9 @@ final class SoundManager {
 
         init(opponent: StoryOpponent?) {
             switch opponent {
-            case .pressure: self = .gym
+            case .basic, .pressure: self = .gym
             case .outboxer: self = .outboxer
-            case .counter: self = .counter
+            case .counter, .southpaw: self = .counter
             case .slugger: self = .slugger
             case .rival: self = .championship
             case nil: self = .arena
@@ -107,7 +255,7 @@ final class SoundManager {
     private var ambienceBuffers: [CutsceneAmbience: AVAudioPCMBuffer] = [:]
     private lazy var stepBuffer = Self.makeCutsceneStepBuffer(sampleRate: sampleRate)
     private lazy var clothBuffer = Self.makeClothBuffer(sampleRate: sampleRate)
-    private lazy var cheerBuffer = Self.makeCheerBuffer(sampleRate: sampleRate)
+    private lazy var cheerBuffer = Self.loadCrowdCheerBuffer(sampleRate: sampleRate)
     private lazy var awardBuffer = Self.makeCutsceneChordBuffer(victory: true, sampleRate: sampleRate)
     private lazy var tensionBuffer = Self.makeCutsceneChordBuffer(victory: false, sampleRate: sampleRate)
 
@@ -179,14 +327,15 @@ final class SoundManager {
         playEffect(buffer, volume: feedback.volume, pan: pan)
         duckAmbience(duration: 0.20, gain: 0.64)
         guard cutscene == nil, battleAmbienceActive else { return }
+        if let volume = Self.crowdReactionVolume(for: .impact(impact)) {
+            playAudienceReaction(volume: volume, force: true)
+        }
         switch feedback.texture {
         case .knockout:
             audienceExcitement = 1
-            playAudienceReaction(volume: 0.46, force: true)
             duckAmbience(duration: 0.45, gain: 0.48)
         case .guardBreak:
             audienceExcitement = max(audienceExcitement, 0.65)
-            playAudienceReaction(volume: 0.25)
         case .cross, .hook, .uppercut:
             audienceExcitement = min(1, audienceExcitement + 0.22)
         default: break
@@ -214,8 +363,17 @@ final class SoundManager {
         }
         playEffect(resultBuffer, volume: knockout ? 1.0 : 0.85)
         duckAmbience(duration: 0.50, gain: 0.52)
-        if outcome == .playerWin, !knockout, battleAmbienceActive {
-            playAudienceReaction(volume: 0.34)
+        if battleAmbienceActive,
+           let volume = Self.crowdReactionVolume(for: .roundEnded(outcome: outcome, knockout: knockout)) {
+            playAudienceReaction(volume: volume)
+        }
+    }
+
+    static func crowdReactionVolume(for event: CombatEvent) -> Float? {
+        switch event {
+        case let .impact(impact) where impact.knockout: 0.46
+        case .roundEnded(.playerWin, false): 0.34
+        default: nil
         }
     }
 
@@ -284,13 +442,14 @@ final class SoundManager {
     private func playAudienceReaction(volume: Float, force: Bool = false) {
         guard !isMuted, engine.isRunning, !audiencePlayers.isEmpty,
               force || audienceReactionCooldown <= 0, let cheerBuffer else { return }
+        for voice in audiencePlayers { voice.stop() }
         let player = audiencePlayers[nextAudiencePlayerIndex]
         nextAudiencePlayerIndex = (nextAudiencePlayerIndex + 1) % audiencePlayers.count
         playBuffer(cheerBuffer, on: player, volume: volume, pan: Float.random(in: -0.25...0.25))
         audienceReactionCooldown = force ? 4.0 : 3.0
     }
 
-    func beginCutscene(_ scene: Cutscene, clip: StoryIntroClip? = nil) {
+    func beginCutscene(_ scene: Cutscene, clip: StoryIntroClip? = nil, sparringKnockout: Bool = false) {
         stopCutscene()
         cutscene = scene
         cutsceneCues = cues(for: scene)
@@ -311,6 +470,9 @@ final class SoundManager {
                     cutsceneCues.append(CutsceneCue(contact.time, .gloveTouch, volume: 0.30))
                 }
             }
+        }
+        if sparringKnockout, case .aftermath(.basic) = scene {
+            cutsceneCues.removeAll { $0.effect == .gloveTouch || $0.effect == .air || $0.effect == .step }
         }
         cutsceneCues.sort { $0.time < $1.time }
         _ = stepBuffer
@@ -337,6 +499,9 @@ final class SoundManager {
         case .aftermath:
             ambience = .gym
             volume = 0.20
+        case .introduction(.basic, _):
+            ambience = .gym
+            volume = 0.18
         case .introduction(.pressure, _):
             ambience = .crowd
             volume = 0.14
@@ -441,9 +606,19 @@ final class SoundManager {
             return [CutsceneCue(0.08, .tension, volume: 0.28)]
         case .introduction(_, short: true):
             return []
+        case .introduction(.basic, short: false):
+            return [CutsceneCue(0.35, .cloth, volume: 0.26), CutsceneCue(4.55, .gloveTouch, volume: 0.32)]
+        case .introduction(.southpaw, short: false):
+            return [CutsceneCue(0.35, .cloth, volume: 0.22), CutsceneCue(2.48, .air, volume: 0.22),
+                CutsceneCue(3.30, .air, volume: 0.26), CutsceneCue(5.16, .step, volume: 0.22),
+                CutsceneCue(5.49, .step, volume: 0.20)]
         case .introduction(.rival, short: false):
+            let rematchStart = StoryIntroClip.championship?.duration ?? 9.0
             return [CutsceneCue(0.12, .tension, volume: 0.32),
-                CutsceneCue(3.10, .cloth, volume: 0.40), CutsceneCue(4.35, .cloth, volume: 0.22)]
+                CutsceneCue(3.10, .cloth, volume: 0.40), CutsceneCue(4.35, .cloth, volume: 0.22),
+                CutsceneCue(rematchStart + 0.6, .step, volume: 0.24),
+                CutsceneCue(rematchStart + 1.85, .gloveTouch, volume: 0.32),
+                CutsceneCue(rematchStart + 3.8, .step, volume: 0.24)]
         case .introduction:
             return []
         case .aftermath(.pressure):
@@ -453,6 +628,14 @@ final class SoundManager {
                 CutsceneCue(2.3, .gloveTouch, volume: 0.30)]
         case .aftermath(.outboxer):
             return [CutsceneCue(4.45, .cloth, volume: 0.22)]
+        case .aftermath(.basic):
+            return [CutsceneCue(0.35, .cloth, volume: 0.22), CutsceneCue(1.10, .gloveTouch, volume: 0.30),
+                CutsceneCue(2.7, .step, volume: 0.22), CutsceneCue(3.15, .step, volume: 0.20),
+                CutsceneCue(4.35, .air, volume: 0.22)]
+        case .aftermath(.southpaw):
+            return [CutsceneCue(2.05, .cloth, volume: 0.20), CutsceneCue(4.05, .cloth, volume: 0.20),
+                CutsceneCue(4.86, .step, volume: 0.22), CutsceneCue(5.19, .step, volume: 0.20),
+                CutsceneCue(6.18, .air, volume: 0.22)]
         case .aftermath(.counter):
             return []
         case .aftermath(.slugger):
@@ -468,13 +651,15 @@ final class SoundManager {
                 CutsceneCue(11.2, .cheer, volume: 0.66), CutsceneCue(13.7, .cloth, volume: 0.18),
                 CutsceneCue(ChampionshipEndingTiming.gymCut + 0.2, .cloth, volume: 0.16),
                 CutsceneCue(ChampionshipEndingTiming.gymCut + 4.06, .step, volume: 0.25)]
-            for index in 0..<5 {
+            let applauseCenter = Float(ChampionshipEndingTiming.applauseOpponents.count - 1) * 0.5
+            for index in ChampionshipEndingTiming.applauseOpponents.indices {
                 let period = ChampionshipEndingTiming.applausePeriod(for: index)
                 var time = ChampionshipEndingTiming.ceremonyStart + period * 0.5
                     - ChampionshipEndingTiming.applauseOffset(for: index)
                 while time < ChampionshipEndingTiming.gymCut {
                     if time >= ChampionshipEndingTiming.ceremonyStart {
-                        cues.append(CutsceneCue(time, .gloveTouch, volume: 0.12, pan: Float(index - 2) * 0.16))
+                        let pan = (Float(index) - applauseCenter) * 0.32 / max(1, applauseCenter)
+                        cues.append(CutsceneCue(time, .gloveTouch, volume: 0.12, pan: pan))
                     }
                     time += period
                 }
@@ -934,24 +1119,43 @@ final class SoundManager {
         }
     }
 
-    private static func makeCheerBuffer(sampleRate: Double) -> AVAudioPCMBuffer? {
-        let duration = 2.8
-        var lowNoise = 0.0
-        var midNoise = 0.0
-        return makeBuffer(duration: duration, sampleRate: sampleRate) { time in
-            let noise = Double.random(in: -1...1)
-            lowNoise += (noise - lowNoise) * 0.04
-            midNoise += (noise - midNoise) * 0.32
-            let envelope = min(1, time / 0.35) * min(1, max(0, (duration - time) / 0.65))
-            let voiceModulation = sin(2.0 * Double.pi * 1.3 * time)
-            let voices = (midNoise - lowNoise) * (0.42 + 0.16 * voiceModulation)
-            let clapPulse = max(0.0, sin(2.0 * Double.pi * 7.5 * time))
-            let claps = noise * pow(clapPulse, 18.0) * 0.20
-            let whistleEnvelope = max(0, 1 - abs(time - 1.15) / 0.40)
-            let whistleModulation = sin(2.0 * Double.pi * 4.0 * time)
-            let whistlePhase = 2.0 * Double.pi * (1650.0 * time + 18.0 * whistleModulation)
-            let whistle = sin(whistlePhase) * whistleEnvelope * 0.035
-            return Float((voices + lowNoise * 0.55 + claps + whistle) * envelope)
+    static func loadCrowdCheerBuffer(sampleRate: Double) -> AVAudioPCMBuffer? {
+        guard let url = Bundle.main.url(forResource: "CrowdCheer", withExtension: "wav") else {
+            logger.error("The bundled crowd cheer could not be found.")
+            return nil
+        }
+        do {
+            let file = try AVAudioFile(forReading: url)
+            let format = file.processingFormat
+            guard sampleRate.isFinite, sampleRate > 0,
+                  format.sampleRate == sampleRate, format.channelCount == 1,
+                  format.commonFormat == .pcmFormatFloat32, !format.isInterleaved,
+                  file.length > 0, file.length <= Int64(sampleRate * crowdCheerDuration),
+                  let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)) else {
+                logger.error("The crowd cheer must be a mono PCM excerpt no longer than two seconds.")
+                return nil
+            }
+            guard let chunk = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4096),
+                  let destination = buffer.floatChannelData?[0], let source = chunk.floatChannelData?[0] else {
+                logger.error("The crowd cheer PCM storage could not be allocated.")
+                return nil
+            }
+            let expectedFrames = AVAudioFrameCount(file.length)
+            // A short read does not necessarily mean EOF.
+            while buffer.frameLength < expectedFrames {
+                let remaining = expectedFrames - buffer.frameLength
+                try file.read(into: chunk, frameCount: min(chunk.frameCapacity, remaining))
+                guard chunk.frameLength > 0, chunk.frameLength <= remaining else {
+                    logger.error("The crowd cheer ended before all of its frames could be read.")
+                    return nil
+                }
+                destination.advanced(by: Int(buffer.frameLength)).update(from: source, count: Int(chunk.frameLength))
+                buffer.frameLength += chunk.frameLength
+            }
+            return buffer
+        } catch {
+            logger.error("Loading crowd cheer failed: \(error.localizedDescription, privacy: .public)")
+            return nil
         }
     }
 

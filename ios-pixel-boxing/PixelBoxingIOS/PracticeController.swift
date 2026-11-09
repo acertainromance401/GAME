@@ -36,8 +36,9 @@ final class PracticeController: ObservableObject {
         return scene
     }()
 
-    init(style: FightStyle) {
+    init(style: FightStyle, stance: BoxingStance = .orthodox) {
         engine.setStyle(style)
+        engine.player.stance = StoryPurchaseStore.shared.hasStoryAccess ? stance : .orthodox
         // The Gym shares the same persisted mute preference as the fight, not an always-on audio path.
         sound.isMuted = UserDefaults.standard.bool(forKey: "pixelBoxingSoundMuted")
         engine.onPunchSwing = { [weak self] punch in
@@ -107,7 +108,7 @@ final class PracticeController: ObservableObject {
         // 부작용:
         // - 공격이 수락되면 단기간의 햅틱(피드백)을 트리거하여 입력에 대한 촉각적 확인을 제공합니다.
         // - 엔진이 공격을 수락하면 내부적으로 공격 애니메이션, 위치 보정, 충돌 판정 등이 이어집니다.
-        if WeaveState.hook(base: base, direction: engine.player.weave.comboDirection) != nil {
+        if WeaveState.hook(base: base, direction: engine.player.weave.comboDirection, stance: engine.player.stance) != nil {
             _ = engine.requestWeaveHook(base: base)
             return
         }
@@ -131,9 +132,9 @@ final class PracticeController: ObservableObject {
     }
 
     func selectedPunch(base: Punch) -> Punch {
-        if let hook = WeaveState.hook(base: base, direction: engine.player.weave.comboDirection) { return hook }
+        if let hook = WeaveState.hook(base: base, direction: engine.player.weave.comboDirection, stance: engine.player.stance) { return hook }
         if engine.player.weave.isActive { return base }
-        return modifiers.punch(base: base)
+        return modifiers.punch(base: base, stance: engine.player.stance)
     }
 
     func weaveButton(direction: Int, active: Bool) {

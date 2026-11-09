@@ -1,0 +1,64 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "3110735C-49E4-4522-8D70-463D30EAC99D",
+        "deviceName" : "RIVAL 1.3 Store iPad",
+        "modelName" : "iPad Pro 13-inch (M4)",
+        "osBuildNumber" : "23B86",
+        "osVersion" : "26.1",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 3,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    },
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "AF440925-EC31-42B7-A31C-F499DC96A29B",
+        "deviceName" : "RIVAL Promo Capture",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23B86",
+        "osVersion" : "26.1",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 3,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "RIVAL · Built with macOS 15.7.3",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1794161577.043,
+  "passedTests" : 3,
+  "result" : "Passed",
+  "skippedTests" : 0,
+  "startTime" : 1794161551.19,
+  "statistics" : [
+    {
+      "subtitle" : "6 test runs",
+      "title" : "3 tests ran on 2 devices"
+    }
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - RIVAL",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 3
+}

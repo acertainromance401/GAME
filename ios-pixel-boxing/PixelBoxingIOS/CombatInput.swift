@@ -15,8 +15,8 @@ struct CombatModifiers: Equatable {
         }
     }
 
-    func punch(base: Punch) -> Punch {
-        CombatData.comboPunch(base: base, guarding: guarding, duckDirection: duckDirection)
+    func punch(base: Punch, stance: BoxingStance = .orthodox) -> Punch {
+        CombatData.comboPunch(base: base, guarding: guarding, duckDirection: duckDirection, stance: stance)
     }
 
     mutating func reset() { self = CombatModifiers() }
